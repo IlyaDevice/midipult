@@ -32,7 +32,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
 
 MAX_TEXT = 2000
-DEFAULT_WAIT = float(os.environ.get("MYPULT_TTS_TIMEOUT") or 0.8)
+DEFAULT_WAIT = float(os.environ.get("MYPULT_TTS_TIMEOUT") or 30.0)
 
 # TTS-события в ответах aliced.
 TTS_COMPLETED = 1
@@ -230,10 +230,10 @@ def drain_events(sock: socket.socket, deadline: float):
             continue
         event = fields(remote[18]).get(1)
         if event == TTS_STARTED:
-            # Отвечаем CGI сразу, не дожидаясь конца фразы: интерфейс
-            # не должен висеть всё время озвучки.
+            # Не закрываем IPC сразу: aliced продолжает отдавать речь через
+            # это же соединение. Ждём TTS_COMPLETED или таймаут.
             started = True
-            break
+            continue
         elif event == TTS_COMPLETED:
             started = True
             completed = True
@@ -245,20 +245,59 @@ def drain_events(sock: socket.socket, deadline: float):
     return started, completed, alice_error
 
 
+def _close_socket(sock):
+    try:
+        sock.shutdown(socket.SHUT_RDWR)
+    except OSError:
+        pass
+    try:
+        sock.close()
+    except OSError:
+        pass
+
+
 def speak(text: str, wait: float, append: int = 1):
     sock, transport = connect_ipc()
     try:
         sock.sendall(SUBSCRIBE_FRAME + vocalize_frame(text, append))
+    except Exception:
+        _close_socket(sock)
+        raise
+
+    # Не держим CGI/голосовой пульт 30 секунд: дочерний процесс держит
+    # IPC-соединение до TTS_COMPLETED, а родитель сразу отвечает.
+    if hasattr(os, "fork"):
+        try:
+            pid = os.fork()
+        except OSError:
+            pid = -1
+        if pid == 0:
+            try:
+                drain_events(sock, time.monotonic() + wait)
+            except Exception:  # noqa: BLE001
+                pass
+            finally:
+                _close_socket(sock)
+                os._exit(0)
+        if pid > 0:
+            # Только close, без shutdown: shutdown затронул бы сокет,
+            # который остался у дочернего процесса, и оборвал бы TTS.
+            try:
+                sock.close()
+            except OSError:
+                pass
+            return {
+                "transport": transport,
+                "started": True,
+                "completed": False,
+                "alice_error": None,
+                "background": True,
+            }
+
+    try:
         started, completed, alice_error = drain_events(sock, time.monotonic() + wait)
     finally:
-        try:
-            sock.shutdown(socket.SHUT_RDWR)
-        except OSError:
-            pass
-        try:
-            sock.close()
-        except OSError:
-            pass
+        _close_socket(sock)
     return {
         "transport": transport,
         "started": started,

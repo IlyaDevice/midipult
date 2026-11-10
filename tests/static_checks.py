@@ -205,6 +205,12 @@ def test_init_script():
     check("init: не убивает чужие процессы", "killall" not in text)
 
     sh = shutil.which("sh") or shutil.which("bash")
+    # WindowsApps bash.exe — заглушка WSL, которая падает без установленного
+    # дистрибутива; это не POSIX-shell для проверки init-скрипта.
+    if sh and "windowsapps" in sh.lower():
+        sh = None
+    if sh and subprocess.run([sh, "-c", "exit 0"], capture_output=True).returncode != 0:
+        sh = None
     if sh:
         proc = subprocess.run([sh, "-n", path], capture_output=True, text=True)
         check("init: sh -n без ошибок", proc.returncode == 0, (proc.stderr or "")[:300])

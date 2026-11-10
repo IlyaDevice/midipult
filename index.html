@@ -2046,7 +2046,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     });
 
     select.addEventListener('change', sync);
-    ddPlacers.push(place);
+    ddPlacers.push(function () { sync(); place(); });
     if (typeof MutationObserver === 'function') {
       new MutationObserver(sync).observe(select, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'hidden'] });
     }
@@ -3421,7 +3421,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   function sayLlmAnswer() {
     if (!State.llmAnswer) return;
     return withBusy(el.btnLlmSay, function () {
-      return cgi('speak.py', { text: State.llmAnswer.slice(0, 1900) }, { timeout: 30000 }).then(function (data) {
+      return cgi('speak.py', { text: State.llmAnswer.slice(0, 1900) }, { timeout: 40000 }).then(function (data) {
         toast(data && data.started ? 'Алиса читает ответ' : 'Отправлено', 'ok');
       }).catch(function (err) {
         toast('Озвучка: ' + err.message, 'bad');

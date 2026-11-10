@@ -108,10 +108,10 @@ def say(text, append=1):
     chunks = chunk_text(text)
     for index, chunk in enumerate(chunks):
         try:
-            payload = {"text": chunk, "wait": 0.8}
+            payload = {"text": chunk, "wait": 30}
             if append == 0:
                 payload["append"] = 0
-            post(BASE + "/cgi-bin/speak.py", payload, timeout=25)
+            post(BASE + "/cgi-bin/speak.py", payload, timeout=40)
         except Exception:
             pass
         if index + 1 < len(chunks):
