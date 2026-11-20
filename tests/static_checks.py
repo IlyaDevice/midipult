@@ -466,6 +466,17 @@ def test_symlink_docroot_fix():
           "хардening потерян")
 
 
+def test_autostart_shim():
+    """Шим /etc/init.d/S99mypult обязан пробрасывать аргументы."""
+    auto = read(os.path.join(ROOT, "deploy", "autostart.sh"))
+    check("autostart: шим передаёт аргументы",
+          'exec /opt/etc/init.d/S99mypult "$@"' in auto,
+          "шим без \"$@\": stop/status через /etc/init.d запускают пульт")
+    check("autostart: старый шим перезаписывается",
+          "обновляю $SHIM" in auto and "grep -q '\"\\$@\"'" in auto,
+          "нет миграции старого шима")
+
+
 def main():
     for test in (
         test_encoding,
@@ -481,6 +492,7 @@ def main():
         test_p1_guards,
         test_p2_hardening,
         test_symlink_docroot_fix,
+        test_autostart_shim,
         test_button_grids,
         test_lighttpd_config,
         test_init_script,

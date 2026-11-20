@@ -246,7 +246,8 @@ CGI-скрипты, вёрстка и установщик сгенериров�
 
 ## Автозапуск
 
-- `/etc/init.d/S99mypult` — тонкий шим, вызывает `/opt/etc/init.d/S99mypult start`;
+- `/etc/init.d/S99mypult` — тонкий шим на ro-rootfs: передаёт аргументы
+  `/opt/etc/init.d/S99mypult` (`start`/`stop`/`status`/`reload`);
 - последний запускает IPC, Luna, lighttpd, восстанавливает громкость,
   запускает голосовой демон, state-демон, кольцо, DNS и VPN;
 - `reload` перезапускает web, голос и state (SIGHUP в этой сборке конфиг не
