@@ -613,6 +613,14 @@ def test_radio_custom_stations():
             passed = False
         check("radio: ссылка отклонена: %s" % bad[:24], not passed)
 
+    import base64
+    payload = base64.b64decode(radio.audio_play_data(
+        "http://example.org/s.mp3", "FIP"))
+    check("radio: protobuf начинается с поля 1", payload[:1] == b"\x0a", repr(payload[:2]))
+    check("radio: в кадре команда audio_play", b"audio_play" in payload)
+    check("radio: в кадре ссылка и название",
+          b"http://example.org/s.mp3" in payload and b"FIP" in payload)
+
     old_file = radio.CUSTOM_FILE
     fd, path = tempfile.mkstemp(prefix="mypult-radio-", suffix=".json")
     os.close(fd)

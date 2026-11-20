@@ -486,9 +486,9 @@ def test_radio_url_and_search():
     check("радио: поле URL и кнопка потока",
           'id="radioUrl"' in html and 'id="btnRadioStream"' in html
           and "addRadioStream" in html)
-    check("радио: поток играется через GStreamer",
-          "souphttpsrc" in radio_py and "stream_play" in radio_py
-          and "STREAM_PID" in radio_py)
+    check("радио: поток отдаётся штатному плееру (Glagol audio_play)",
+          "audio_play" in radio_py and "externalCommandBypass" in radio_py
+          and "audio_play_data" in radio_py)
     check("llm: галочка поиска и блок источников",
           'id="llmSearch"' in html and 'id="llmSources"' in html
           and "renderLlmSources" in html)

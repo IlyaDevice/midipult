@@ -2,28 +2,26 @@
 # -*- coding: utf-8 -*-
 """Интернет-радио: штатный плеер станции и свои потоки по прямой ссылке.
 
-    GET  /cgi-bin/radio.py                       — станции, свои каналы, статус потока
+    GET  /cgi-bin/radio.py                       — станции и свои каналы
     POST /cgi-bin/radio.py {"index":3}           — включить станцию
-    POST /cgi-bin/radio.py {"stop":1}            — выключить (Glagol и свой поток)
+    POST /cgi-bin/radio.py {"stop":1}            — выключить
     POST /cgi-bin/radio.py {"add":"Радио X"}     — добавить свой канал по названию
     POST /cgi-bin/radio.py {"add":"X","url":"http://…"} — свой поток по ссылке
     POST /cgi-bin/radio.py {"remove":"Радио X"}  — удалить свой канал
 
-Встроенные станции играет Алиса по названию (Glagol `sendText`). Свои каналы
-с URL пускаются напрямую: GStreamer из прошивки (`maind --gst-launch`) играет
-поток в ALSA тем же маршрутом, что и «свои звуки». Это обход ограничения
-«прямые URL не поддерживаются»: Luna `audio.play.url` на Миди требует backend
-`aplay` и отдаёт 501, а HTTP(S)-поток через GStreamer работает (HTTP; HTTPS
-в этой сборке не поднимается — нет рабочих сертификатов у souphttpsrc).
+Встроенные станции играет Алиса по названию (Glagol `sendText`). Свой поток
+отдаётся станции директивой Glagol `audio_play` (protobuf через
+`externalCommandBypass`): играет **штатный плеер** колонки, поэтому Алиса,
+громкость и пауза остаются штатными, а ALSA не занимается вторым процессом.
+Так делает yapanel-web (dimap) — за идею спасибо. HTTPS-потоки штатный плеер
+на этой прошивке не открывает, нужен http://.
 """
 
 from __future__ import annotations
 
+import base64
 import json
 import os
-import re
-import signal
-import subprocess
 import sys
 import time
 
@@ -36,12 +34,8 @@ except Exception:  # noqa: BLE001
     glagol = None
 
 CUSTOM_FILE = "/data/mypult/radio.json"
-QUASAR = "/system/vendor/quasar"
-MAIND = os.path.join(QUASAR, "maind")
-STREAM_PID = "/data/mypult/stream.pid"
-STREAM_LOG = "/data/mypult/stream.log"
-NAME_RE = re.compile(r"^[^\x00-\x1f]{1,40}$")
-URL_RE = re.compile(r"^https?://[^\s\"'!]+$")
+NAME_RE = r"^[^\x00-\x1f]{1,40}$"
+URL_RE = r"^https?://[^\s\"'!]+$"
 
 # (id, подпись в пульте, фраза для Алисы)
 BUILTIN = [
@@ -130,117 +124,49 @@ def all_stations():
 
 
 def check_name(name):
-    if not (2 <= len(name) <= 40) or not NAME_RE.match(name):
+    import re
+    if not (2 <= len(name) <= 40) or not re.match(NAME_RE, name):
         raise ValueError("Название канала: 2–40 символов без управляющих символов")
     return name
 
 
 def check_url(url):
-    if not URL_RE.match(url):
+    import re
+    if not re.match(URL_RE, url):
         raise ValueError("Ссылка должна начинаться с http:// или https:// "
                          "и не содержать пробелов, кавычек и «!»")
     return url
 
 
 # --------------------------------------------------------------------------- #
-#  Свой поток через GStreamer
+#  Свой поток через штатный плеер (Glagol audio_play)
 # --------------------------------------------------------------------------- #
 
-def stream_pid():
-    try:
-        with open(STREAM_PID, "r", encoding="utf-8") as fh:
-            return int(fh.read().strip())
-    except (OSError, ValueError):
-        return None
+def _pb_string(out, field, value):
+    """protobuf: поле-строка (wire type 2)."""
+    out.append((field << 3) | 2)
+    data = value.encode("utf-8")
+    size = len(data)
+    while size >= 0x80:
+        out.append((size & 0x7F) | 0x80)
+        size >>= 7
+    out.append(size)
+    out.extend(data)
 
 
-def pid_alive(pid):
-    if not pid:
-        return False
-    try:
-        os.kill(pid, 0)
-        return True
-    except OSError:
-        return False
+def audio_play_data(url, title="", subtitle=""):
+    """base64(protobuf {1:"audio_play", 2: JSON{stream:{…},set_pause}})."""
+    stream = {"url": url, "format": "MP3", "type": "Track", "offset_ms": 0}
+    if title:
+        stream["title"] = title
+    if subtitle:
+        stream["subtitle"] = subtitle
+    payload = json.dumps({"stream": stream, "set_pause": False}, ensure_ascii=False)
+    raw = bytearray()
+    _pb_string(raw, 1, "audio_play")
+    _pb_string(raw, 2, payload)
+    return base64.b64encode(bytes(raw)).decode("ascii")
 
-
-def stream_status():
-    pid = stream_pid()
-    alive = pid_alive(pid)
-    if pid and not alive:
-        try:
-            os.remove(STREAM_PID)
-        except OSError:
-            pass
-    return {"playing": alive, "pid": pid if alive else None}
-
-
-def stream_stop():
-    pid = stream_pid()
-    if pid and pid_alive(pid):
-        try:
-            os.kill(pid, signal.SIGTERM)
-        except OSError:
-            pass
-        for _ in range(20):
-            if not pid_alive(pid):
-                break
-            time.sleep(0.1)
-        if pid_alive(pid):
-            try:
-                os.kill(pid, signal.SIGKILL)
-            except OSError:
-                pass
-    try:
-        os.remove(STREAM_PID)
-    except OSError:
-        pass
-    return True
-
-
-def log_tail(lines=6):
-    try:
-        with open(STREAM_LOG, "r", encoding="utf-8", errors="replace") as fh:
-            return "".join(fh.readlines()[-lines:])[-1200:]
-    except OSError:
-        return ""
-
-
-def stream_play(name, url):
-    """Запустить поток. Возвращает pid; при неудаче — RuntimeError."""
-    check_url(url)
-    stream_stop()
-    if not os.path.isfile(MAIND):
-        raise RuntimeError("нет %s — прошивка без GStreamer" % MAIND)
-    env = os.environ.copy()
-    env["LD_LIBRARY_PATH"] = QUASAR + ":libs"
-    # URL проверен выше: без пробелов, кавычек и «!», поэтому в pipeline
-    # он не может разорвать описание.
-    pipeline = ("souphttpsrc location=%s ! decodebin ! audioconvert ! "
-                "audioresample ! alsasink" % url)
-    try:
-        with open(STREAM_LOG, "ab") as log_file:
-            proc = subprocess.Popen(
-                [MAIND, "--gst-launch", pipeline],
-                cwd=QUASAR, env=env,
-                stdin=subprocess.DEVNULL, stdout=log_file,
-                stderr=subprocess.STDOUT,
-                start_new_session=True, close_fds=True,
-            )
-    except OSError as exc:
-        raise RuntimeError("не удалось запустить GStreamer: %s" % exc) from exc
-    with open(STREAM_PID, "w", encoding="utf-8") as fh:
-        fh.write(str(proc.pid))
-    time.sleep(2.0)
-    if proc.poll() is not None:
-        stream_stop()
-        raise RuntimeError("поток не запустился. %s" % (log_tail(3) or "см. %s" % STREAM_LOG))
-    return proc.pid
-
-
-# --------------------------------------------------------------------------- #
-#  Встроенные станции через Алису
-# --------------------------------------------------------------------------- #
 
 def state_brief():
     reply = glagol.send({"command": "softwareVersion"}, timeout=12)
@@ -255,6 +181,23 @@ def state_brief():
     }
 
 
+def play_stream(name, url):
+    """Отдать ссылку штатному плееру. Возвращает краткое состояние."""
+    reply = glagol.send({"command": "externalCommandBypass",
+                         "data": audio_play_data(url, title=name)}, timeout=12)
+    status = (reply or {}).get("status")
+    if status not in (None, "SUCCESS"):
+        raise RuntimeError("станция отклонила ссылку: %s" % status)
+    time.sleep(2.5)
+    brief = state_brief()
+    if not brief.get("playing"):
+        hint = ("HTTPS-потоки штатный плеер на этой прошивке не открывает — "
+                "нужен http://" if url.startswith("https://") else
+                "станция не начала воспроизведение — проверьте ссылку и формат")
+        raise RuntimeError(hint)
+    return brief
+
+
 def main():
     if glagol is None:
         common.fail(501, "Модуль glagol недоступен")
@@ -263,7 +206,6 @@ def main():
     data = common.params()
 
     if common.truthy(data.get("stop")):
-        stream_stop()
         try:
             glagol.send({"command": "stop"}, timeout=10)
         except Exception as exc:  # noqa: BLE001
@@ -301,15 +243,16 @@ def main():
         station = stations[index]
         if station.get("url"):
             try:
-                pid = stream_play(station["name"], station["url"])
+                brief = play_stream(station["name"], station["url"])
             except (ValueError, RuntimeError) as exc:
                 common.fail(502, "Поток не играет: %s" % exc,
                             station={"index": index, "name": station["name"]},
-                            log=log_tail(6))
+                            url=station["url"])
                 return
-            common.ok(playing=True, stream=True, pid=pid,
-                      station={"index": index, "name": station["name"]},
-                      url=station["url"])
+            brief["stream"] = True
+            brief["station"] = {"index": index, "name": station["name"]}
+            brief["url"] = station["url"]
+            common.respond(200, brief)
             return
         try:
             glagol.send({"command": "sendText",
@@ -324,8 +267,7 @@ def main():
         common.respond(200, brief)
         return
 
-    common.respond(200, {"ok": True, "stations": all_stations(),
-                         "stream": stream_status(), "log": log_tail(3)})
+    common.respond(200, {"ok": True, "stations": all_stations()})
 
 
 if __name__ == "__main__":
