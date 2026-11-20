@@ -16,7 +16,7 @@
 плеер и радио, голосовые команды, нейросеть по API, VPN, Bluetooth, Wi-Fi,
 сценарии с расписанием, резервные копии и диагностика.
 
-Текущая версия — **0.5.25**. Работает на самой колонке: `lighttpd` на порту **8055** + CGI на Python.
+Текущая версия — **0.5.26**. Работает на самой колонке: `lighttpd` на порту **8055** + CGI на Python.
 Интерфейс — один `index.html` на чистом HTML/CSS/JS, без React, Node и внешних CDN.
 
 [Репозиторий приложения Android](https://github.com/RoBiN19666/midipult-android)
@@ -440,3 +440,7 @@ API-шлюз для LED, дисплея, датчиков и микрофона.
 ## Лицензия
 
 MIT. См. [LICENSE](LICENSE).
+
+## 3D-модель
+
+Модель станции на главной: [«Яндекс станция миди чёрная»](https://sketchfab.com/3d-models/efff3769f3d54d14863d533473bb64e6) от [lolfeke](https://sketchfab.com/lolfeke), лицензия [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Файлы лежат в ssets/; экран и LED-кольцо анимируются панелью.

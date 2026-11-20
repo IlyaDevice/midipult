@@ -582,6 +582,11 @@ def test_yapanel_features():
           'id="stationGL"' in html and "function initStationGL" in html
           and "gl_FragColor" in html and "u_screen" in html
           and "sdRound" in html and "gl-on" in html)
+    check("главная: glTF-станция, экран и кольцо",
+          "initStationGLTF" in html and "GLTFLoader" in html
+          and "screenPlane" in html and "ringTube" in html
+          and os.path.isfile(os.path.join(ROOT, "assets", "scene.gltf"))
+          and os.path.isfile(os.path.join(ROOT, "assets", "GLTFLoader.js")))
     check("UI: лайки и оверлей текста",
           all(token in html for token in (
               'id="btnLike"', 'id="btnDislike"', 'id="lyricsDlg"',

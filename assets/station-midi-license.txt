@@ -1,0 +1,11 @@
+Model Information:
+* title:	Яндекс станция миди чёрная
+* source:	https://sketchfab.com/3d-models/efff3769f3d54d14863d533473bb64e6
+* author:	lolfeke (https://sketchfab.com/lolfeke)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Яндекс станция миди чёрная" (https://sketchfab.com/3d-models/efff3769f3d54d14863d533473bb64e6) by lolfeke (https://sketchfab.com/lolfeke) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
