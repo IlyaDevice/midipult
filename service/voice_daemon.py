@@ -383,6 +383,7 @@ LLM_ALIASES = {
     "deepseek": ("дипсик", "дип сик", "deepseek"),
     "openai": ("чатжпт", "чат гпт", "chatgpt", "опенаи", "openai"),
     "openrouter": ("опенроутер", "open router", "openrouter"),
+    "anthropic": ("клод", "клоуд", "claude", "антропик", "anthropic"),
 }
 
 

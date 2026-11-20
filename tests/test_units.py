@@ -1144,6 +1144,228 @@ def test_llm_chat_names():
             pass
 
 
+def test_llm_chat_history():
+    import json
+    import tempfile
+
+    old_path, old_ok, old_fail = llm.CHATS_PATH, llm.common.ok, llm.common.fail
+    fd, path = tempfile.mkstemp(prefix="mypult-chats-", suffix=".json")
+    os.close(fd)
+    out = {}
+    try:
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump({"active": "chat-2", "chats": [
+                {"id": "chat-1", "name": "Старый", "messages": [
+                    {"role": "user", "content": "раз"}, {"role": "assistant", "content": "два"}]},
+                {"id": "chat-2", "name": "Голос", "messages": [
+                    {"role": "user", "content": "Кто ты?"},
+                    {"role": "assistant", "content": "Я Claude."},
+                    "мусор"]},
+            ]}, fh, ensure_ascii=False)
+        llm.CHATS_PATH = path
+        llm.common.ok = lambda **payload: out.update(ok=True, **payload)
+        llm.common.fail = lambda status, message, **extra: out.update(ok=False, status=status)
+
+        llm.chat_history()
+        check("история: по умолчанию активный чат", out.get("chat_id") == "chat-2", str(out))
+        check("история: сообщения по порядку, мусор отброшен",
+              out.get("messages") == [{"role": "user", "content": "Кто ты?"},
+                                      {"role": "assistant", "content": "Я Claude."}],
+              str(out.get("messages")))
+
+        out.clear()
+        llm.chat_history("chat-1")
+        check("история: выбранный чат", out.get("chat_name") == "Старый"
+              and len(out.get("messages") or []) == 2, str(out))
+
+        out.clear()
+        llm.chat_history("chat-9")
+        check("история: неизвестный чат -> 404", out.get("status") == 404, str(out))
+        with open(path, "r", encoding="utf-8") as fh:
+            check("история: файл чатов не меняется", json.load(fh).get("active") == "chat-2")
+    finally:
+        llm.CHATS_PATH, llm.common.ok, llm.common.fail = old_path, old_ok, old_fail
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
+def test_llm_context_note():
+    import datetime
+
+    moment = datetime.datetime(2026, 11, 19, 14, 5, tzinfo=datetime.timezone.utc)
+    note = llm.context_note({"timezone": "Europe/Kaliningrad", "location": "Калининград"}, moment)
+    check("контекст: местное время и дата",
+          "четверг, 19 ноября 2026 года, 16:05" in note, note)
+    check("контекст: пояс и смещение", "Europe/Kaliningrad, UTC+02:00" in note, note)
+    check("контекст: местоположение", "Калининград" in note, note)
+
+    note = llm.context_note({"timezone": "", "location": ""}, moment)
+    check("контекст: без пояса — UTC", "14:05 (часовой пояс UTC, UTC+00:00)" in note, note)
+    check("контекст: без места строки о месте нет", "находится" not in note, note)
+    note = llm.context_note({"timezone": "Mars/Base"}, moment)
+    check("контекст: неизвестный пояс не роняет", "UTC" in note, note)
+    check("пояс: проверка имени", llm.zone("Europe/Moscow") is not None and llm.zone("Mars/Base") is None)
+
+
+def test_llm_anthropic_native():
+    sent = []
+    replies = []
+    old_post = llm.post_json
+
+    def fake_post(url, payload, headers, timeout=90):
+        import copy
+        sent.append((url, copy.deepcopy(payload), dict(headers)))
+        return replies.pop(0)
+
+    llm.post_json = fake_post
+    try:
+        dialog = [{"role": "user", "content": "раз"}, {"role": "assistant", "content": "два"},
+                  {"role": "user", "content": "Какая погода?"}]
+        replies.append({
+            "stop_reason": "end_turn",
+            "usage": {"input_tokens": 100, "output_tokens": 20, "server_tool_use": {"web_search_requests": 1}},
+            "content": [
+                {"type": "text", "text": "Сейчас посмотрю."},
+                {"type": "server_tool_use", "name": "web_search", "input": {"query": "погода"}},
+                {"type": "web_search_tool_result", "content": [
+                    {"type": "web_search_result", "url": "https://weather.example/a", "title": "Погода A"},
+                    {"type": "web_search_result", "url": "https://weather.example/b", "title": "Погода B"},
+                ]},
+                {"type": "thinking", "thinking": ""},
+                {"type": "text", "text": "Сейчас +19, ", "citations": [
+                    {"type": "web_search_result_location", "url": "https://weather.example/b",
+                     "title": "Погода B", "cited_text": "+19, малооблачно"}]},
+                {"type": "text", "text": "малооблачно."},
+            ]})
+        answer, usage, sources = llm.anthropic_messages("https://api.anthropic.com/v1", "k", "claude-haiku-5-5",
+                                               "SYS", dialog, 260, True)
+        url, payload, headers = sent[-1]
+        check("anthropic: адрес /v1/messages", url == "https://api.anthropic.com/v1/messages", url)
+        check("anthropic: заголовки ключа и версии",
+              headers.get("x-api-key") == "k" and headers.get("anthropic-version") == llm.ANTHROPIC_VERSION,
+              str(headers))
+        check("anthropic: system отдельно, без temperature",
+              payload["system"] == "SYS" and "temperature" not in payload
+              and all(m["role"] != "system" for m in payload["messages"]), str(payload))
+        check("anthropic: поиск подключён",
+              payload.get("tools") == [{"type": llm.ANTHROPIC_SEARCH_TOOL, "name": "web_search",
+                                        "max_uses": llm.ANTHROPIC_SEARCH_MAX_USES}], str(payload.get("tools")))
+        check("anthropic: без temperature и сэмплинга",
+              not {"temperature", "top_p", "top_k"} & set(payload), str(sorted(payload)))
+        check("anthropic: запас токенов на рассуждение",
+              payload["max_tokens"] == 260 + llm.ANTHROPIC_THINKING_ROOM, str(payload["max_tokens"]))
+        check("anthropic: текст только после поиска", answer == "Сейчас +19, малооблачно.", answer)
+        check("anthropic: usage со счётчиком поиска",
+              usage.get("total_tokens") == 120
+              and usage.get("server_tool_use", {}).get("web_search_requests") == 1, str(usage))
+        check("anthropic: источники — сначала цитата, потом выдача, без повторов",
+              [item["url"] for item in sources] == ["https://weather.example/b", "https://weather.example/a"]
+              and sources[0]["snippet"] == "+19, малооблачно", str(sources))
+
+        replies.append({"stop_reason": "end_turn", "usage": {}, "content": [{"type": "text", "text": "391"}]})
+        answer, _, sources = llm.anthropic_messages("https://x/v1", "k", "m", "S", dialog, 260, False)
+        check("anthropic: без поиска нет tools", "tools" not in sent[-1][1] and answer == "391"
+              and sources == [], str(sent[-1][1]))
+
+        replies.append({"stop_reason": "end_turn", "usage": {}, "content": [
+            {"type": "server_tool_use", "name": "web_search", "input": {}},
+            {"type": "web_search_tool_result",
+             "content": {"type": "web_search_tool_result_error", "error_code": "max_uses_exceeded"}},
+            {"type": "text", "text": "Не нашёл."}]})
+        answer, _, sources = llm.anthropic_messages("https://x/v1", "k", "m", "S", dialog, 260, True)
+        check("anthropic: ошибка поиска не роняет ответ", answer == "Не нашёл." and sources == [],
+              str(sources))
+
+        replies.extend([
+            {"stop_reason": "pause_turn", "usage": {"input_tokens": 5},
+             "content": [{"type": "server_tool_use", "name": "web_search", "input": {}}]},
+            {"stop_reason": "end_turn", "usage": {"input_tokens": 7},
+             "content": [{"type": "web_search_tool_result", "content": []},
+                         {"type": "text", "text": "Готово."}]},
+        ])
+        answer, usage, _ = llm.anthropic_messages("https://x/v1", "k", "m", "S", dialog, 260, True)
+        resumed = sent[-1][1]["messages"]
+        check("anthropic: pause_turn продолжает с ответом ассистента",
+              resumed[-1]["role"] == "assistant" and resumed[-1]["content"][0]["type"] == "server_tool_use"
+              and answer == "Готово." and usage.get("input_tokens") == 12, str(resumed[-1]))
+
+        replies.append({"stop_reason": "refusal", "usage": {}, "content": [],
+                        "stop_details": {"type": "refusal", "category": "cyber", "explanation": None}})
+        try:
+            llm.anthropic_messages("https://x/v1", "k", "m", "S", dialog, 260, False)
+            refused = False
+        except llm.ApiError as exc:
+            refused = "отказалась" in exc.message
+        check("anthropic: отказ модели -> понятная ошибка", refused)
+    finally:
+        llm.post_json = old_post
+
+    check("голос: синоним «клод» для провайдера anthropic",
+          "клод" in voice_daemon.LLM_ALIASES.get("anthropic", ()))
+
+
+def test_llm_anthropic_ask():
+    """ask() с провайдером anthropic: родной API, поиск автора, контекст."""
+    import copy
+
+    sent = []
+    old_post = llm.post_json
+
+    def fake_post(url, payload, headers, timeout=90):
+        sent.append((url, copy.deepcopy(payload)))
+        return {"stop_reason": "end_turn", "usage": {"input_tokens": 9, "output_tokens": 3},
+                "content": [
+                    {"type": "server_tool_use", "name": "web_search", "input": {}},
+                    {"type": "web_search_tool_result", "content": [
+                        {"type": "web_search_result", "url": "https://news.example/1",
+                         "title": "Новость"}]},
+                    {"type": "text", "text": "Готово."}]}
+
+    llm.post_json = fake_post
+    try:
+        config = _provider_config("anthropic")
+        config["timezone"] = "Europe/Moscow"
+        config["location"] = "Калининград"
+        chat_calls, called = _llm_ask_with(config, prompt="что нового?")
+        url, payload = sent[-1] if sent else ("", {})
+        result = called[-1][1] if called else {}
+        check("llm/anthropic: запрос в Messages API, не в /chat/completions",
+              url == "http://127.0.0.1:1/messages" and not chat_calls, url + str(chat_calls)[:80])
+        check("llm/anthropic: поиск по галочке автора",
+              (payload.get("tools") or [{}])[0].get("type") == llm.ANTHROPIC_SEARCH_TOOL,
+              str(payload.get("tools")))
+        check("llm/anthropic: в system дата, место и подсказка про поиск",
+              "Калининград" in payload.get("system", "") and "Сейчас " in payload.get("system", "")
+              and llm.ANTHROPIC_SEARCH_NOTE in payload.get("system", ""), payload.get("system", "")[:200])
+        check("llm/anthropic: в messages нет роли system",
+              all(m.get("role") in ("user", "assistant") for m in payload.get("messages") or []),
+              str(payload.get("messages")))
+        check("llm/anthropic: ответ, источники и search_source",
+              result.get("answer") == "Готово." and result.get("search_source") == "anthropic"
+              and [item["url"] for item in result.get("sources") or []] == ["https://news.example/1"],
+              str(result)[:300])
+        check("llm/anthropic: usage в ответе", (result.get("usage") or {}).get("total_tokens") == 12,
+              str(result.get("usage")))
+        check("llm/anthropic: режим поиска — родной",
+              llm.search_mode("anthropic", {}) == "anthropic", str(llm.search_mode("anthropic", {})))
+
+        config = _provider_config("anthropic")
+        config["web_search"] = False
+        config["profiles"][0]["model"] = ""
+        _llm_ask_with(config, prompt="привет")
+        payload = sent[-1][1] if sent else {}
+        result = called[-1][1] if called else {}
+        check("llm/anthropic: без галочки нет tools и подсказки",
+              "tools" not in payload and llm.ANTHROPIC_SEARCH_NOTE not in payload.get("system", ""),
+              str(sorted(payload)))
+        check("llm/anthropic: модель по умолчанию — первая из списка",
+              payload.get("model") == llm.PROVIDERS["anthropic"]["models"][0], str(payload.get("model")))
+    finally:
+        llm.post_json = old_post
+
+
 def test_voice_chat_commands():
     check("голос: создай чат",
           voice_daemon.parse_chat_command("Алиса, создай чат Работа") == ("create", "Работа"),
@@ -1248,6 +1470,10 @@ def main():
         test_update_check_guard,
         test_update_fetch_release,
         test_llm_chat_names,
+        test_llm_chat_history,
+        test_llm_context_note,
+        test_llm_anthropic_native,
+        test_llm_anthropic_ask,
         test_voice_chat_commands,
         test_voice_chat_actions,
     ):
