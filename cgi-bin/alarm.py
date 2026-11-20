@@ -18,6 +18,11 @@ import re
 import sys
 import uuid
 
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:  # очень старый Python
+    ZoneInfo = None
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
 
@@ -28,14 +33,38 @@ TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 MODES = ("radio", "music", "query")
 
 
-def load():
+def load_data():
     data = common.read_json(DATA, {"alarms": []}) or {}
-    alarms = data.get("alarms")
-    return alarms if isinstance(alarms, list) else []
+    if not isinstance(data, dict):
+        data = {}
+    if not isinstance(data.get("alarms"), list):
+        data["alarms"] = []
+    if not isinstance(data.get("timezone"), str):
+        data["timezone"] = ""
+    return data
+
+
+def load():
+    return load_data()["alarms"]
 
 
 def save(alarms):
-    common.write_json(DATA, {"alarms": alarms})
+    data = load_data()
+    data["alarms"] = alarms
+    common.write_json(DATA, data)
+
+
+def timezone_name(value):
+    name = str(value or "").strip()
+    if not name:
+        return ""
+    if ZoneInfo is None:
+        raise ValueError("на станции нет zoneinfo")
+    try:
+        ZoneInfo(name)
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError("неизвестный часовой пояс: %s" % name) from exc
+    return name
 
 
 def _time(value):
@@ -107,6 +136,18 @@ def command(payload):
 def main():
     data = common.params()
 
+    if data.get("timezone") is not None:
+        try:
+            name = timezone_name(data.get("timezone"))
+        except ValueError as exc:
+            common.fail(400, str(exc))
+            return
+        stored = load_data()
+        stored["timezone"] = name
+        common.write_json(DATA, stored)
+        common.ok(alarms=load(), timezone=name)
+        return
+
     if data.get("add") is not None:
         item = build(data.get("add") or {})
         alarms = load()
@@ -159,7 +200,8 @@ def main():
         common.ok(queued=True)
         return
 
-    common.ok(alarms=load(), state=common.read_json(STATE, {"ringing": False}) or {})
+    common.ok(alarms=load(), state=common.read_json(STATE, {"ringing": False}) or {},
+              timezone=load_data().get("timezone") or "")
 
 
 if __name__ == "__main__":

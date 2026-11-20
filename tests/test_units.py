@@ -1156,6 +1156,9 @@ def _fresh_module(name, folder):
 def test_alarm_rules():
     """Валидация будильника и расписание."""
     import datetime
+    import json
+    import os
+    import tempfile
 
     alarm = _fresh_module("alarm", CGI_DIR)
     alarmd = _fresh_module("alarmd", SERVICE_DIR)
@@ -1174,6 +1177,29 @@ def test_alarm_rules():
     music = alarm.build({"time": "08:00", "mode": "music", "text": ""})
     check("будильник: Яндекс Музыка по умолчанию",
           music["mode"] == "music" and music["text"] == "мою волну", str(music))
+
+    check("будильник: пояс браузера принимается",
+          alarm.timezone_name("Asia/Yekaterinburg") == "Asia/Yekaterinburg")
+    try:
+        alarm.timezone_name("Mars/Base")
+        bad_tz = False
+    except ValueError:
+        bad_tz = True
+    check("будильник: неизвестный пояс отклонён", bad_tz)
+
+    old_data = alarmd.DATA
+    fd, path = tempfile.mkstemp(prefix="mypult-tz-", suffix=".json")
+    os.close(fd)
+    try:
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump({"timezone": "Asia/Yekaterinburg", "alarms": []}, fh)
+        alarmd.DATA = path
+        now = alarmd.AlarmScheduler()._now()
+        check("будильник: планировщик в поясе панели",
+              now.utcoffset() == datetime.timedelta(hours=5), str(now))
+    finally:
+        alarmd.DATA = old_data
+        os.remove(path)
 
     try:
         alarm.build({"time": "25:00"})

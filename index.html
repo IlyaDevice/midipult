@@ -1300,7 +1300,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   <section class="card c-alarm" data-group="sound" aria-labelledby="h-alarm">
     <h2 id="h-alarm"><span class="dot"></span>Будильники</h2>
     <div class="alarm-top">
-      <span class="seg-note">Радио или фраза Алисе, нарастание громкости и мигание кольца.</span>
+      <span class="seg-note" id="alarmTz">Время по поясу станции</span>
       <button class="btn sm" id="btnAlarmOpen">Добавить</button>
     </div>
     <div class="alarm-ringing" id="alarmRinging" hidden>
@@ -2175,6 +2175,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     queueTab: 'queue',
     llmTzAutosaved: false,
     alarmMode: 'radio',
+    alarmTzSynced: false,
     alarmHour: 7,
     alarmMinute: 0,
     alarmStations: [],
@@ -3623,6 +3624,19 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     return cgi('alarm.py', {}, { timeout: 15000, silent: !!silent }).then(function (data) {
       renderAlarmList(data.alarms || []);
       renderAlarmRinging(data.state || {});
+      var browserTz = browserTimezone();
+      var savedTz = data.timezone || '';
+      if (el.alarmTz) {
+        el.alarmTz.textContent = 'Время по поясу ' + (savedTz || browserTz || 'станции');
+      }
+      // Будильник должен звонить по местному времени браузера, а не по UTC
+      // станции: при первом открытии сохраняем пояс панели.
+      if (browserTz && savedTz !== browserTz && !State.alarmTzSynced) {
+        State.alarmTzSynced = true;
+        cgi('alarm.py', { timezone: browserTz }, { timeout: 10000, silent: true })
+          .then(function () { loadAlarms(true); })
+          .catch(function () { State.alarmTzSynced = false; });
+      }
       return data;
     }).catch(function (err) {
       if (!silent) toast('Будильники: ' + err.message, 'bad');
@@ -7969,6 +7983,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'btnQueue', 'queueDlg', 'queueName', 'queueList', 'btnQueueClose', 'queueKicker',
       'lyricsNow', 'lyricsInline',
       'alarmList', 'alarmRinging', 'alarmRingLabel', 'btnAlarmDismiss',
+      'alarmTz',
       'btnAlarmSnooze', 'alarmText', 'alarmDays',
       'alarmTimeField', 'btnAlarmTime', 'alarmTimeValue', 'alarmTimePop',
       'alarmHours', 'alarmMinutes', 'btnAlarmTimeDone',

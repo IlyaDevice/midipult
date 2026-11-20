@@ -97,12 +97,23 @@ class AlarmScheduler(threading.Thread):
                 log("tick: %s" % exc)
             self.stop_event.wait(3)
 
+    def _now(self):
+        """Местное время будильника: пояс панели (браузера), иначе — станции."""
+        try:
+            from zoneinfo import ZoneInfo
+            name = str((common.read_json(DATA, {}) or {}).get("timezone") or "")
+            if name:
+                return datetime.datetime.now(ZoneInfo(name))
+        except Exception:  # noqa: BLE001
+            pass
+        return datetime.datetime.now().astimezone()
+
     def tick(self):
         self.handle_command()
         if self.ringing:
             self.check_ringing()
             return
-        now = datetime.datetime.now()
+        now = self._now()
         if self.snooze_until and time.time() >= self.snooze_until:
             alarm = self.snooze_alarm
             self.snooze_until = 0.0
