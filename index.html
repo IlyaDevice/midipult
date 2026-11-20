@@ -975,23 +975,16 @@ body.light .reboot-bar{background:rgba(76,62,48,.1)}
 .lyrics-dlg::backdrop{background:rgba(4,6,12,.74);backdrop-filter:blur(10px)}
 .lyr-bg{position:absolute;inset:-80px;background-size:cover;background-position:center;
   filter:blur(90px) saturate(1.2) brightness(.34);opacity:.42;z-index:0}
-@property --p { syntax: "<number>"; inherits: true; initial-value: 0; }
-@property --np-glow { syntax: "<percentage>"; inherits: true; initial-value: 22%; }
-.np-lyric{position:relative;margin:-4px 0 12px;transition:--np-glow .55s linear}
+.np-lyric{position:relative;margin:-4px 0 12px}
 .np-lyric-inner{position:relative;overflow:hidden;padding:11px 15px 12px;border-radius:14px;
   background:linear-gradient(100deg,rgba(124,92,255,.20),rgba(34,211,238,.07) 58%,rgba(124,92,255,.13));
   border:1px solid rgba(124,92,255,.24);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 10px 28px rgba(0,0,0,.22)}
-.np-lyric-inner::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.85;
-  background:radial-gradient(240px 90px at var(--np-glow,22%) 0,rgba(124,92,255,.24),transparent 72%)}
-.np-lyric-text{position:relative;z-index:1;display:block;color:rgba(232,238,255,.38);
+.np-lyric-text{position:relative;z-index:1;display:block;color:#f2f6ff;
   font-family:"Inter","Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;
   font-size:16.5px;font-weight:750;line-height:1.32;letter-spacing:-.015em;
   font-variation-settings:"wght" 750,"opsz" 28;text-wrap:balance;overflow-wrap:anywhere;
-  transition:--p .55s linear}
-.np-lyric-text::before{content:attr(data-text);position:absolute;inset:0;color:#fff;
-  clip-path:inset(0 calc((1 - var(--p,0)) * 100%) 0 0);
-  text-shadow:0 0 18px rgba(147,124,255,.55);pointer-events:none}
+  text-shadow:0 0 22px rgba(147,124,255,.28)}
 .np-lyric.swap .np-lyric-text{animation:lyricSwap .5s cubic-bezier(.22,.61,.36,1)}
 @keyframes lyricSwap{0%{opacity:0;transform:translateY(7px);filter:blur(3px)}
   100%{opacity:1;transform:none;filter:none}}
@@ -2246,6 +2239,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     lyricsInline: false,
     lyricsActive: null,
     lyricsLines: [],
+    audioProgress: 0,
     seeking: false,
     volumeDragging: false,
     updateInfo: null,
@@ -3315,8 +3309,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     return mins + ':' + (secs < 10 ? '0' : '') + secs;
   }
 
-  function currentProgress() {
-    if (State.pendingSeek) return State.pendingSeek.target;
+  function playbackProgress() {
     var base = Number(State.progressBase) || 0;
     var at = Number(State.progressAt) || 0;
     var extra = (State.playing && !State.seeking && at)
@@ -3325,6 +3318,11 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     var duration = Number(State.mediaDuration) || 0;
     if (duration > 0) value = Math.min(value, duration);
     return Math.max(0, value);
+  }
+
+  function currentProgress() {
+    if (State.pendingSeek) return State.pendingSeek.target;
+    return playbackProgress();
   }
 
   var CLOCK_PRESETS = {
@@ -3563,6 +3561,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     var duration = State.mediaDuration || 0;
     var progress = currentProgress();
     State.mediaProgress = progress;
+    // Текст ведём по подтверждённой позиции звука, а не по цели перемотки:
+    // иначе строка прыгает вперёд, пока станция ещё переезжает.
+    State.audioProgress = State.pendingSeek ? playbackProgress() : progress;
     // Пока пользователь тянет ползунок, его значение и подпись трогать нельзя:
     // иначе change прочитает позицию, переписанную таймером, и перемотки не будет.
     if (!State.seeking) {
@@ -3625,11 +3626,11 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       updateInlineLine();
       return;
     }
-    var now = State.mediaProgress || 0;
+    var now = State.audioProgress || State.mediaProgress || 0;
     var active = null;
     lines.forEach(function (line) {
       var moment = parseFloat(line.dataset.t);
-      if (!isNaN(moment) && moment <= now + 0.3) active = line;
+      if (!isNaN(moment) && moment <= now + 0.08) active = line;
     });
     if (State.lyricsActive === active) {
       updateInlineLine();
@@ -4154,19 +4155,6 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       void el.lyricsNow.offsetWidth;
       el.lyricsNow.classList.add('swap');
     }
-    var progress = 0;
-    if (active) {
-      var start = parseFloat(active.dataset.t);
-      var next = active.nextElementSibling;
-      var end = next ? parseFloat(next.dataset.t) : NaN;
-      if (!isNaN(start)) {
-        progress = (!isNaN(end) && end > start)
-          ? (State.mediaProgress - start) / (end - start) : 1;
-      }
-    }
-    progress = Math.max(0, Math.min(1, progress));
-    el.lyricsNowText.style.setProperty('--p', String(progress));
-    el.lyricsNow.style.setProperty('--np-glow', (progress * 100).toFixed(1) + '%');
   }
 
   function loadLyrics(silent) {
@@ -4242,10 +4230,16 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     });
   }
 
-  function setPlaying(value) {    State.playing = !!value;
+  function setPlaying(value) {
+    var was = State.playing;
+    State.playing = !!value;
     var use = el.btnPlay.querySelector('use');
     use.setAttribute('href', State.playing ? '#i-pause' : '#i-play');
     el.btnPlay.setAttribute('aria-label', State.playing ? 'Пауза' : 'Воспроизвести');
+    if (was !== State.playing && State.lyricsLines.length) {
+      State.lyricsActive = null;
+      updateMediaProgress();
+    }
   }
 
   function applyPlayerData(data) {
@@ -4274,6 +4268,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       if (button) button.hidden = !musicTrack;
     });
     if (!musicTrack) {
+      if (State.lyricsLines.length) clearLyrics();
       updateInlineLine();
       if (el.lyricsDlg && el.lyricsDlg.open) el.lyricsDlg.close();
     }
@@ -4286,6 +4281,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         State.pendingSeek = null;
       } else if (Math.abs(incoming - pending.target) <= 6) {
         State.pendingSeek = null;
+        State.lyricsActive = null;
       } else if (Date.now() > pending.until) {
         State.pendingSeek = null;
         toast('Перемотка не применилась', 'warn');
@@ -4301,6 +4297,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     State.progressBase = incoming;
     State.progressAt = Date.now() / 1000;
     State.mediaProgress = incoming;
+    State.audioProgress = incoming;
     var seekable = State.playerKind === 'Track' && State.mediaDuration > 0;
     if (el.mediaProgress) el.mediaProgress.hidden = !seekable;
     if (!State.seeking) updateMediaProgress();
@@ -4422,7 +4419,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       if (Date.now() - lastPlayerPoll < wait) return;
       lastPlayerPoll = Date.now();
       refreshPlayer();
-    }, 500);
+    }, 250);
   }
 
   function commandGuard(action) {
