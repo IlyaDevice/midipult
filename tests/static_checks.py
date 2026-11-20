@@ -542,6 +542,12 @@ def test_yapanel_features():
     check("музыка: лайки через API станции",
           "add-multiple" in musicapi_py and "likes/tracks" in musicapi_py
           and "account_storage.dat" in musicapi_py)
+    check("музыка: очередь, похожие, избранное",
+          "/albums/" in musicapi_py and "/similar" in musicapi_py
+          and "def favorites" in musicapi_py and "def queue" in musicapi_py)
+    check("UI: диалог очереди",
+          'id="queueDlg"' in html and 'id="queueList"' in html
+          and "function loadQueueTab(" in html and "function openQueue(" in html)
     check("поиск: без скрейпинга выдачи",
           "_bing" not in search_py and "duckduckgo" not in search_py.lower())
 

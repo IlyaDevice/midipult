@@ -873,6 +873,29 @@ body.light .reboot-bar{background:rgba(76,62,48,.1)}
 .lyr-lines .line.active{opacity:1;transform:scale(1.04);color:#fff;
   text-shadow:0 0 24px rgba(124,92,255,.4)}
 .lyr-lines .plain{white-space:pre-wrap;font-size:16px;font-weight:500;opacity:.82;line-height:1.65}
+.queue-dlg{width:min(620px,94vw);max-height:min(78vh,720px);border:0;border-radius:26px;padding:0;
+  background:#0b0e16;color:#eef2ff;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.6)}
+.queue-dlg[open]{display:flex;flex-direction:column}
+.queue-dlg::backdrop{background:rgba(4,6,12,.72);backdrop-filter:blur(8px)}
+.q-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 24px 10px;flex:0 0 auto}
+.q-kicker{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.q-name{font-size:20px;font-weight:700;margin-top:3px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.q-tabs{display:flex;flex-wrap:wrap;gap:8px;padding:0 24px 10px;flex:0 0 auto}
+.q-list{flex:1 1 auto;min-height:0;max-height:min(60vh,540px);overflow-y:auto;padding:4px 12px 18px;
+  display:flex;flex-direction:column;gap:2px;scrollbar-width:thin}
+.queue-row{display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:center;width:100%;
+  padding:8px 10px;border:0;border-radius:12px;background:transparent;color:inherit;cursor:pointer;
+  text-align:left;font:inherit}
+.queue-row:hover{background:rgba(255,255,255,.05)}
+.queue-row.current{background:rgba(124,92,255,.16)}
+.queue-row img,.queue-row .q-cover{width:40px;height:40px;border-radius:9px;object-fit:cover;
+  background:#161b28;display:grid;place-items:center;font-size:17px;color:#cfd7ff}
+.queue-row .q-text{min-width:0}
+.queue-row .q-t{display:block;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.queue-row .q-a{display:block;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.queue-row .q-d{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.q-note{padding:24px;color:var(--muted);font-size:13px;text-align:center}
 .anim-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;margin-top:8px}
 .anim-tile{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 4px;
   border:1px solid rgba(255,255,255,.09);border-radius:12px;background:transparent;color:inherit;
@@ -1080,6 +1103,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       </button>
       <button class="btn icon-sm ghost" id="btnLyrics" aria-label="Текст песни" title="Текст песни">
         <svg class="ic" aria-hidden="true"><use href="#i-text"/></svg>
+      </button>
+      <button class="btn icon-sm ghost" id="btnQueue" aria-label="Очередь" title="Очередь, похожие, избранное">
+        <svg class="ic" aria-hidden="true"><use href="#i-queue"/></svg>
       </button>
       <button class="btn icon-sm ghost" id="btnMusic" aria-label="Яндекс Музыка" title="Вернуться к Яндекс Музыке">
         <svg class="ic" aria-hidden="true"><use href="#i-music"/></svg>
@@ -1731,6 +1757,22 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   </div>
 </dialog>
 
+<dialog id="queueDlg" class="queue-dlg" aria-labelledby="queueName">
+  <div class="q-head">
+    <div>
+      <div class="q-kicker" id="queueKicker">Сейчас играет</div>
+      <div class="q-name" id="queueName">Очередь</div>
+    </div>
+    <button class="btn sm ghost" id="btnQueueClose">Закрыть</button>
+  </div>
+  <div class="q-tabs" role="tablist">
+    <button class="chip" id="qTabQueue" data-qtab="queue" aria-pressed="true">Очередь</button>
+    <button class="chip" id="qTabSimilar" data-qtab="similar" aria-pressed="false">Похожие</button>
+    <button class="chip" id="qTabFavorites" data-qtab="favorites" aria-pressed="false">Избранное</button>
+  </div>
+  <div class="q-list" id="queueList" aria-live="polite"></div>
+</dialog>
+
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
   <symbol id="i-play" viewBox="0 0 24 24"><path d="M9 6.4v11.2L18.6 12z" fill="currentColor" stroke="none"/></symbol>
   <symbol id="i-pause" viewBox="0 0 24 24"><path d="M7.5 5.5h3.2v13H7.5zM13.3 5.5h3.2v13h-3.2z" fill="currentColor" stroke="none"/></symbol>
@@ -1745,6 +1787,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   <symbol id="i-like" viewBox="0 0 24 24"><path d="M12 20.2S4 15.1 4 9.4A4.4 4.4 0 0 1 12 6.6a4.4 4.4 0 0 1 8 2.8c0 5.7-8 10.8-8 10.8z"/></symbol>
   <symbol id="i-dislike" viewBox="0 0 24 24"><path d="M7 4h9.5L20 9.2v3.3a2 2 0 0 1-2 2h-4.1l1.1 4.2a2 2 0 0 1-3.8 1.1L7 12.5"/><path d="M7 4H4v8.5h3"/></symbol>
   <symbol id="i-text" viewBox="0 0 24 24"><path d="M5 7h14M5 12h10M5 17h13"/></symbol>
+  <symbol id="i-queue" viewBox="0 0 24 24"><path d="M4 6.5h16M4 12h11M4 17.5h14"/><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none"/></symbol>
 </svg>
 
 <script>
@@ -1889,6 +1932,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     mediaId: '',
     mediaCover: '',
     liked: false,
+    queueTab: 'queue',
     lyricsActive: null,
     lyricsLines: [],
     seeking: false,
@@ -3051,6 +3095,91 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       var top = active.offsetTop - stage.clientHeight / 2 + active.offsetHeight / 2;
       stage.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
     }
+  }
+
+  function playQueueItem(track) {
+    var phrase = [track.artist, track.title].filter(Boolean).join(' ').trim();
+    if (!phrase) return;
+    toast('Включаю: ' + track.title, 'ok');
+    cgi('musicapi.py', { play: phrase }, { timeout: 25000 }).catch(function (err) {
+      toast('Включить: ' + err.message, 'bad');
+    });
+  }
+
+  function renderQueue(data) {
+    if (!el.queueList) return;
+    el.queueName.textContent = data.title || 'Очередь';
+    el.queueList.innerHTML = '';
+    var tracks = data.tracks || [];
+    if (!tracks.length) {
+      var note = document.createElement('div');
+      note.className = 'q-note';
+      note.textContent = 'Пусто — для радио очередь ограничена соседними треками.';
+      el.queueList.appendChild(note);
+      return;
+    }
+    tracks.forEach(function (track) {
+      var row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'queue-row';
+      if (track.id && track.id === State.mediaId) row.classList.add('current');
+      if (track.cover) {
+        var img = document.createElement('img');
+        img.src = track.cover;
+        img.alt = '';
+        img.loading = 'lazy';
+        row.appendChild(img);
+      } else {
+        var cover = document.createElement('span');
+        cover.className = 'q-cover';
+        cover.textContent = '♪';
+        row.appendChild(cover);
+      }
+      var text = document.createElement('span');
+      text.className = 'q-text';
+      var title = document.createElement('span');
+      title.className = 'q-t';
+      title.textContent = track.title || 'Без названия';
+      var artist = document.createElement('span');
+      artist.className = 'q-a';
+      artist.textContent = track.artist || '';
+      text.appendChild(title);
+      text.appendChild(artist);
+      row.appendChild(text);
+      var duration = document.createElement('span');
+      duration.className = 'q-d';
+      duration.textContent = track.duration ? fmtTime(track.duration) : '';
+      row.appendChild(duration);
+      row.addEventListener('click', function () { playQueueItem(track); });
+      el.queueList.appendChild(row);
+    });
+  }
+
+  function loadQueueTab(tab) {
+    State.queueTab = tab || 'queue';
+    Array.prototype.forEach.call(document.querySelectorAll('[data-qtab]'), function (button) {
+      button.setAttribute('aria-pressed', button.dataset.qtab === State.queueTab ? 'true' : 'false');
+    });
+    if (el.queueKicker) {
+      el.queueKicker.textContent = State.queueTab === 'favorites' ? 'Ваша коллекция'
+        : State.queueTab === 'similar' ? 'Похоже на этот трек' : 'Сейчас играет';
+    }
+    if (!el.queueList) return;
+    el.queueList.innerHTML = '<div class="q-note">Загружаю…</div>';
+    var payload = {};
+    payload[State.queueTab] = 1;
+    return cgi('musicapi.py', payload, { timeout: 25000 }).then(renderQueue).catch(function (err) {
+      el.queueList.innerHTML = '';
+      var note = document.createElement('div');
+      note.className = 'q-note';
+      note.textContent = 'Не получилось: ' + err.message;
+      el.queueList.appendChild(note);
+    });
+  }
+
+  function openQueue() {
+    if (el.queueDlg && !el.queueDlg.open) el.queueDlg.showModal();
+    loadQueueTab(State.queueTab || 'queue');
   }
 
   function openLyrics() {
@@ -6512,6 +6641,13 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     });
     if (el.btnLike) el.btnLike.addEventListener('click', toggleLike);
     if (el.btnDislike) el.btnDislike.addEventListener('click', dislikeTrack);
+    if (el.btnQueue) el.btnQueue.addEventListener('click', openQueue);
+    if (el.btnQueueClose) el.btnQueueClose.addEventListener('click', function () {
+      if (el.queueDlg) el.queueDlg.close();
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-qtab]'), function (button) {
+      button.addEventListener('click', function () { loadQueueTab(button.dataset.qtab); });
+    });
     if (el.lyricsBox) {
       el.lyricsBox.addEventListener('click', function (event) {
         var line = event.target.closest('.line');
@@ -6950,6 +7086,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'btnLyrics', 'lyricsStatus', 'lyricsBox',
       'btnLike', 'btnDislike', 'lyricsDlg', 'lyrBg', 'lyrTitle', 'lyrArtist',
       'btnLyricsClose', 'lyrStage', 'npGlow',
+      'btnQueue', 'queueDlg', 'queueName', 'queueList', 'btnQueueClose', 'queueKicker',
       'volume', 'volumeVal', 'btnVolDown', 'btnVolUp', 'btnMute',
       'btnMic', 'micHint', 'micTimer', 'transcript', 'btnRepeat', 'btnCancelListen',
       'command', 'btnSendCmd', 'ttsText', 'ttsCount', 'btnTtsClear', 'btnSay', 'ttsChips',

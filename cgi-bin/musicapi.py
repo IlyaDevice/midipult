@@ -34,16 +34,18 @@ except Exception:  # noqa: BLE001
 ACCOUNT = "/data/quasar/account_storage.dat"
 CACHE = "/data/mypult/music.json"
 LIKES_CACHE = "/tmp/mypult-likes.json"
+FAVORITES_CACHE = "/tmp/mypult-favorites.json"
 API = "https://api.music.yandex.net"
 UA = "Yandex-Music-API"
 CLIENT = "YandexMusicAndroid/24023621"
 TOKEN_RE = re.compile(rb"y0_[A-Za-z0-9_\-]{20,}")
 
 
-def _request(token, path, form=None, timeout=15):
+def _request(token, path, form=None, timeout=15, query=None):
+    url = API + path + ("?" + urllib.parse.urlencode(query) if query else "")
     data = urllib.parse.urlencode(form).encode() if form is not None else None
     request = urllib.request.Request(
-        API + path, data=data, method="POST" if data is not None else "GET",
+        url, data=data, method="POST" if data is not None else "GET",
         headers={
             "Authorization": "OAuth " + token,
             "User-Agent": UA,
@@ -142,8 +144,186 @@ def current_track():
     }
 
 
+def _cover(value):
+    text = str(value or "")
+    if not text:
+        return ""
+    if not text.startswith("http"):
+        text = "https://" + text
+    return text.replace("%%", "300x300")
+
+
+def _short(item):
+    track = item.get("track") if isinstance(item.get("track"), dict) else item
+    if not isinstance(track, dict):
+        return None
+    title = track.get("title") or ""
+    if not title:
+        return None
+    artists = ", ".join(str(a.get("name") or "") for a in (track.get("artists") or [])
+                        if isinstance(a, dict))
+    duration = track.get("durationMs")
+    return {
+        "id": str(track.get("id") or ""),
+        "title": title,
+        "artist": artists,
+        "cover": _cover(track.get("coverUri")),
+        "duration": int(duration / 1000) if duration else 0,
+    }
+
+
+def _tracks(items):
+    out = []
+    for item in items or []:
+        short = _short(item)
+        if short:
+            out.append(short)
+    return out
+
+
+def _player():
+    if player is None:
+        return {}
+    try:
+        return player.snapshot()
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def queue():
+    """Очередь по источнику: альбом, плейлист, исполнитель; у радио — соседи."""
+    snap = _player()
+    kind = str(snap.get("playlist_type") or "")
+    playlist_id = str(snap.get("playlist_id") or "")
+    current = str(snap.get("id") or "")
+    token, uid = account()
+    title, tracks = "", []
+    if kind == "Album" and playlist_id:
+        data = _request(token, "/albums/%s/with-tracks" % playlist_id)
+        result = data.get("result") or data
+        title = result.get("title") or "Альбом"
+        for volume in result.get("volumes") or []:
+            tracks.extend(_tracks(volume))
+    elif kind == "Playlist" and playlist_id:
+        owner, _, playlist = playlist_id.partition(":")
+        if not playlist:
+            playlist = playlist_id
+            owner = str(snap.get("playlist_puid") or uid)
+        data = _request(token, "/users/%s/playlists/%s" % (owner, playlist))
+        result = data.get("result") or data
+        title = result.get("title") or "Плейлист"
+        tracks = _tracks(result.get("tracks") or [])
+    elif kind == "Artist" and playlist_id:
+        data = _request(token, "/artists/%s/tracks" % playlist_id,
+                        query={"page-size": 50})
+        result = data.get("result") or data
+        title = "Треки исполнителя"
+        tracks = _tracks(result.get("tracks") or [])
+    if not tracks:
+        # Радио и одиночный трек: показываем то, что знает Glagol.
+        ids = [value for value in (snap.get("prev_id"), current, snap.get("next_id"))
+               if value]
+        for track_id in ids:
+            try:
+                data = _request(token, "/tracks/%s" % track_id)
+            except Exception:  # noqa: BLE001
+                continue
+            track = (data.get("result") or [{}])[0]
+            short = _short(track)
+            if short:
+                tracks.append(short)
+        title = title or ("Моя волна" if playlist_id == "user:onyourwave"
+                          else "Сейчас играет")
+    index = 0
+    for pos, track in enumerate(tracks):
+        if track.get("id") == current:
+            index = pos
+            break
+    return {"title": title or "Очередь", "tracks": tracks[:50], "index": index}
+
+
+def similar():
+    snap = _player()
+    track_id = str(snap.get("id") or "")
+    if not track_id:
+        return {"title": "Похожие", "tracks": []}
+    token, _uid = account()
+    data = _request(token, "/tracks/%s/similar" % track_id)
+    result = data.get("result") or data
+    return {"title": "Похожие на «%s»" % (snap.get("title") or "трек"),
+            "tracks": _tracks(result.get("similarTracks") or [])[:30]}
+
+
+def favorites(limit=20):
+    """Избранное: список лайков хранит только id, поэтому догружаем треки."""
+    cached = _cache_read(FAVORITES_CACHE)
+    if cached.get("data") and time.time() - float(cached.get("ts") or 0) < 120:
+        return cached["data"]
+    token, uid = account()
+    data = _request(token, "/users/%s/likes/tracks" % uid)
+    library = (data.get("result") or {}).get("library") or {}
+    ids = [str(item.get("id")) for item in (library.get("tracks") or [])
+           if isinstance(item, dict)][:limit]
+    tracks = []
+    for track_id in ids:
+        try:
+            raw = _request(token, "/tracks/%s" % track_id)
+        except Exception:  # noqa: BLE001
+            continue
+        result = raw.get("result") or []
+        short = _short(result[0] if result else {})
+        if short:
+            tracks.append(short)
+    result = {"title": "Мне нравится", "tracks": tracks}
+    try:
+        common.write_json(FAVORITES_CACHE, {"ts": time.time(), "data": result})
+    except OSError:
+        pass
+    return result
+
+
+def play_phrase(text):
+    phrase = str(text or "").strip()[:180]
+    if not phrase:
+        raise RuntimeError("пустой запрос")
+    try:
+        import glagol
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError("нет glagol: %s" % exc)
+    glagol.send({"command": "sendText", "text": "включи " + phrase}, timeout=20)
+
+
 def main():
     data = common.params()
+
+    if common.truthy(data.get("queue")):
+        try:
+            common.ok(**queue())
+        except Exception as exc:  # noqa: BLE001
+            common.fail(502, "Очередь: %s" % exc)
+        return
+
+    if common.truthy(data.get("similar")):
+        try:
+            common.ok(**similar())
+        except Exception as exc:  # noqa: BLE001
+            common.fail(502, "Похожие: %s" % exc)
+        return
+
+    if common.truthy(data.get("favorites")):
+        try:
+            common.ok(**favorites())
+        except Exception as exc:  # noqa: BLE001
+            common.fail(502, "Избранное: %s" % exc)
+        return
+
+    if data.get("play") is not None:
+        try:
+            play_phrase(data.get("play"))
+            common.ok(played=True)
+        except Exception as exc:  # noqa: BLE001
+            common.fail(502, "Включить: %s" % exc)
+        return
 
     if data.get("like") is not None:
         track = current_track()

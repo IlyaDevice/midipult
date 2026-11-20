@@ -66,6 +66,11 @@ def snapshot(force=False):
         "duration": player.get("duration"),
         "progress": player.get("progress"),
         "kind": player.get("type"),
+        "playlist_id": player.get("playlistId"),
+        "playlist_type": player.get("playlistType"),
+        "playlist_puid": player.get("playlistPuid"),
+        "prev_id": ((player.get("entityInfo") or {}).get("prev") or {}).get("id"),
+        "next_id": ((player.get("entityInfo") or {}).get("next") or {}).get("id"),
         "age": round(age, 2),
     }
 

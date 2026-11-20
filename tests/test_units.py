@@ -1046,12 +1046,20 @@ def test_media_pause_via_cli():
           calls and calls[-1][1].get("via") == "cli", str(calls[-1:]))
 
 
+def _fresh_musicapi():
+    """Импорт musicapi именно из тестового дерева, а не из /data/myweb."""
+    import importlib
+    sys.path.insert(0, CGI_DIR)
+    sys.modules.pop("musicapi", None)
+    return importlib.import_module("musicapi")
+
+
 def test_musicapi():
     """Токен станции для Яндекс Музыки и разбор лайков."""
     import shutil
     import tempfile
 
-    import musicapi
+    musicapi = _fresh_musicapi()
 
     folder = tempfile.mkdtemp(prefix="mypult-music-")
     account = os.path.join(folder, "account_storage.dat")
@@ -1087,6 +1095,55 @@ def test_musicapi():
         musicapi.account, musicapi._request, musicapi.LIKES_CACHE = old
         shutil.rmtree(folder, ignore_errors=True)
     check("музыка: лайки разобраны", ids == {"111", "222"}, str(ids))
+
+
+def test_music_queue():
+    """Очередь из альбома, похожие и избранное через Music API."""
+    musicapi = _fresh_musicapi()
+
+    old = (musicapi.account, musicapi._request, musicapi._player)
+    try:
+        musicapi.account = lambda force=False: ("tok", "42")
+        musicapi._player = lambda: {"id": "7", "title": "Сейчас",
+                                    "playlist_type": "Album", "playlist_id": "123"}
+
+        def fake(token, path, form=None, timeout=15, query=None):
+            if path == "/albums/123/with-tracks":
+                return {"result": {"title": "Альбом", "volumes": [[
+                    {"id": "7", "title": "A", "artists": [{"name": "X"}],
+                     "durationMs": 125000},
+                    {"id": "8", "title": "B", "artists": [{"name": "Y"}]},
+                ]]}}
+            if path == "/tracks/7/similar":
+                return {"result": {"similarTracks": [
+                    {"id": "9", "title": "Похожий", "artists": [{"name": "Z"}]}]}}
+            if path == "/users/42/likes/tracks":
+                return {"result": {"library": {"tracks": [{"id": "10"}]}}}
+            if path == "/tracks/10":
+                return {"result": [{"id": "10", "title": "Любимый",
+                                    "artists": [{"name": "W"}]}]}
+            return {}
+
+        musicapi._request = fake
+        musicapi.FAVORITES_CACHE = "/tmp/mypult-fav-test.json"
+        try:
+            os.remove(musicapi.FAVORITES_CACHE)
+        except OSError:
+            pass
+        queue = musicapi.queue()
+        similar = musicapi.similar()
+        favorites = musicapi.favorites()
+    finally:
+        musicapi.account, musicapi._request, musicapi._player = old
+
+    check("музыка: очередь альбома", queue["title"] == "Альбом"
+          and [t["id"] for t in queue["tracks"]] == ["7", "8"], str(queue))
+    check("музыка: индекс текущего трека", queue["index"] == 0, str(queue["index"]))
+    check("музыка: длительность в секундах",
+          queue["tracks"][0]["duration"] == 125, str(queue["tracks"][0]))
+    check("музыка: похожие", similar["tracks"][0]["title"] == "Похожий", str(similar))
+    check("музыка: избранное", favorites["tracks"][0]["title"] == "Любимый",
+          str(favorites))
 
 
 def test_discovery_payload():
@@ -1420,6 +1477,7 @@ def main():
         test_ring_reset_and_stop,
         test_media_pause_via_cli,
         test_musicapi,
+        test_music_queue,
         test_media_config_override,
         test_speak_frames,
         test_display_auto,
