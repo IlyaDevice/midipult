@@ -450,6 +450,22 @@ def test_p2_hardening():
           "if (document.hidden || busy) return;" in html)
 
 
+def test_symlink_docroot_fix():
+    """Прошивки, где /data — симлинк: docroot должен стать реальным путём."""
+    install = read(os.path.join(ROOT, "deploy", "install.sh"))
+    conf = read(os.path.join(ROOT, "lighttpd", "myweb.conf"))
+    check("deploy: document-root резолвится через readlink -f",
+          'readlink -f "$WEB"' in install and "DOC_REAL" in install
+          and "server.document-root" in install,
+          "нет резолва docroot в install.sh")
+    check("deploy: порт не наследуется из старого конфига",
+          "OLD_PORT" not in install and "CHECK_PORT" not in install,
+          "наследование порта ломает voice_daemon/scenarios (там жёстко 8055)")
+    check("lighttpd: follow-symlink остаётся запрещённым",
+          'server.follow-symlink' in conf and '"disable"' in conf,
+          "хардening потерян")
+
+
 def main():
     for test in (
         test_encoding,
@@ -464,6 +480,7 @@ def main():
         test_display_auto_api,
         test_p1_guards,
         test_p2_hardening,
+        test_symlink_docroot_fix,
         test_button_grids,
         test_lighttpd_config,
         test_init_script,

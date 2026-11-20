@@ -201,6 +201,29 @@ def voice_enabled(config):
     return bool(config.get("enabled"))
 
 
+def _post_chat(base_url, payload, key, timeout=90):
+    """Один POST в /chat/completions; HTTPError отдаётся вызывающему."""
+    request = urllib.request.Request(
+        base_url + "/chat/completions",
+        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + key,
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def _http_detail(exc, limit=600):
+    """Тело HTTP-ошибки для лога и ответа панели (читается один раз)."""
+    try:
+        return exc.read(limit).decode("utf-8", "replace")
+    except OSError:
+        return ""
+
+
 def ask(prompt, system=None):
     config = load_config()
     profile = active_profile(config)
@@ -244,26 +267,30 @@ def ask(prompt, system=None):
     if provider == "deepseek":
         # Без «размышлений» deepseek-flash отвечает ~1.5 с вместо 10–15 с.
         payload["thinking"] = {"type": "disabled"}
-    request = urllib.request.Request(
-        base_url + "/chat/completions",
-        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + profile["key"],
-        },
-        method="POST",
-    )
+    temperature_dropped = False
     try:
-        with urllib.request.urlopen(request, timeout=90) as response:
-            body = json.loads(response.read().decode("utf-8"))
+        body = _post_chat(base_url, payload, profile["key"])
     except urllib.error.HTTPError as exc:
-        detail = ""
-        try:
-            detail = exc.read(600).decode("utf-8", "replace")
-        except OSError:
-            pass
-        common.fail(502, "API ответил HTTP %s" % exc.code, detail=detail[:400])
-        return
+        detail = _http_detail(exc)
+        # Новые модели (Claude 5.x и подобные) отвечают 400 на temperature.
+        # Правило — исправлять payload по ошибке провайдера, а не по имени
+        # модели: повторяем один раз без temperature, остальное не трогаем.
+        if (exc.code == 400 and "temperature" in payload
+                and "temperature" in detail.lower()):
+            payload.pop("temperature", None)
+            temperature_dropped = True
+            try:
+                body = _post_chat(base_url, payload, profile["key"])
+            except urllib.error.HTTPError as retry_exc:
+                common.fail(502, "API ответил HTTP %s" % retry_exc.code,
+                            detail=_http_detail(retry_exc)[:400])
+                return
+            except (urllib.error.URLError, OSError) as retry_exc:
+                common.fail(502, "Нет связи с API: %s" % retry_exc)
+                return
+        else:
+            common.fail(502, "API ответил HTTP %s" % exc.code, detail=detail[:400])
+            return
     except (urllib.error.URLError, OSError) as exc:
         common.fail(502, "Нет связи с API: %s" % exc)
         return
@@ -283,7 +310,8 @@ def ask(prompt, system=None):
 
     common.ok(answer=answer, model=payload["model"], provider=provider,
               profile=profile.get("name"), chat=chat.get("name"),
-              chat_id=chat.get("id"), usage=body.get("usage"))
+              chat_id=chat.get("id"), usage=body.get("usage"),
+              temperature_dropped=temperature_dropped)
 
 
 def save_profile(config, data):

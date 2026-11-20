@@ -482,6 +482,115 @@ def test_glagol_device_selection():
 
 
 # --------------------------------------------------------------------------- #
+#  glagol.py: форматы OAuth-токена в account_storage.dat
+# --------------------------------------------------------------------------- #
+
+def test_glagol_token_formats():
+    import tempfile
+
+    old = glagol.ACCOUNT
+    fd, path = tempfile.mkstemp(prefix="mypult-acc-", suffix=".dat")
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            # y0__… — как в хранилище проверенной прошивки;
+            # y3_… и y1_Ag… — документированный формат «y + 0–3 + _».
+            fh.write(b"\x00y0__xCg9ZAzGJWuECD4297eFjCEr5K5CDxylYco7LyWhQ05XoMUeee\x00"
+                     b"y3_Vdheub7w9bIut67GHeL345gfb5GAnd3dZnf08FRbvjeUFvetYiohGvc\x00"
+                     b"y1_AgAAAABmZ0h2AAk9Z1QAAAAA9Xk2Q1p0kR0\x00")
+        glagol.ACCOUNT = path
+        tokens = glagol._oauth_tokens()
+        check("glagol: y0__ найден", any(t.startswith("y0__") for t in tokens), str(tokens))
+        check("glagol: y1_ найден", any(t.startswith("y1_") for t in tokens), str(tokens))
+        check("glagol: y3_ найден", any(t.startswith("y3_") for t in tokens), str(tokens))
+        check("glagol: все три токена", len(tokens) == 3, str(len(tokens)))
+    finally:
+        glagol.ACCOUNT = old
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
+# --------------------------------------------------------------------------- #
+#  llm.py: 400 на temperature -> один повтор без неё
+# --------------------------------------------------------------------------- #
+
+def test_llm_temperature_retry():
+    import io
+    import json
+    import tempfile
+    import urllib.error
+
+    config = {
+        "enabled": False,
+        "active": "p1",
+        "profiles": [{
+            "id": "p1", "name": "Claude", "provider": "custom",
+            "model": "claude-haiku-5-5", "base_url": "http://127.0.0.1:1",
+            "key": "test-key",
+        }],
+        "max_tokens": 260,
+        "system_prompt": "",
+    }
+    cfg_fd, cfg_path = tempfile.mkstemp(prefix="mypult-llm-", suffix=".json")
+    chat_fd, chat_path = tempfile.mkstemp(prefix="mypult-chats-", suffix=".json")
+    os.close(cfg_fd)
+    os.close(chat_fd)
+    old = (llm.CONFIG_PATH, llm.CHATS_PATH, llm._post_chat,
+           common.respond, common.fail)
+    payloads = []
+    called = []
+    try:
+        with open(cfg_path, "w", encoding="utf-8") as fh:
+            json.dump(config, fh)
+        with open(chat_path, "w", encoding="utf-8") as fh:
+            json.dump({"active": "chat-1", "chats": [
+                {"id": "chat-1", "name": "Чат 1", "messages": []}]}, fh)
+        llm.CONFIG_PATH = cfg_path
+        llm.CHATS_PATH = chat_path
+
+        def fake_post(base_url, payload, key, timeout=90):
+            payloads.append(dict(payload))
+            if len(payloads) == 1:
+                raise urllib.error.HTTPError(
+                    base_url + "/chat/completions", 400, "Bad Request", {},
+                    io.BytesIO(b'{"error":{"message":'
+                               b'"temperature is deprecated for this model"}}'))
+            return {"choices": [{"message": {"content": "ok"}}],
+                    "usage": {"total_tokens": 3}}
+
+        llm._post_chat = fake_post
+        common.respond = lambda status, payload, headers=None: called.append((status, payload))
+
+        def capture_fail(status, message, **extra):
+            payload = {"ok": False, "error": message}
+            payload.update(extra)
+            called.append((status, payload))
+
+        common.fail = capture_fail
+        llm.ask("привет")
+
+        check("llm: первый запрос с temperature",
+              bool(payloads) and "temperature" in payloads[0], str(payloads[:1]))
+        check("llm: 400 про temperature -> повтор без неё",
+              len(payloads) == 2 and "temperature" not in payloads[1],
+              str([sorted(p) for p in payloads]))
+        check("llm: ответ получен после повтора",
+              bool(called) and called[-1][1].get("answer") == "ok", str(called)[:200])
+        check("llm: в ответе флаг сброса temperature",
+              bool(called) and called[-1][1].get("temperature_dropped") is True,
+              str(called[-1][1])[:200])
+    finally:
+        (llm.CONFIG_PATH, llm.CHATS_PATH, llm._post_chat,
+         common.respond, common.fail) = old
+        for path in (cfg_path, chat_path):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+
+
+# --------------------------------------------------------------------------- #
 #  discovery.py: ответ UDP-discovery
 # --------------------------------------------------------------------------- #
 
@@ -802,6 +911,8 @@ def main():
         test_volume_set,
         test_glagol_payloads,
         test_glagol_device_selection,
+        test_glagol_token_formats,
+        test_llm_temperature_retry,
         test_media_config_override,
         test_speak_frames,
         test_display_auto,

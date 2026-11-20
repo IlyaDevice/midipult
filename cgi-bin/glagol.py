@@ -44,7 +44,11 @@ def _oauth_tokens():
             raw = fh.read()
     except OSError as exc:
         raise GlagolError("нет доступа к %s: %s" % (ACCOUNT, exc))
-    tokens = [m.group(0).decode("ascii") for m in re.finditer(rb"y0__[A-Za-z0-9_\-]{20,}", raw)]
+    # По документации Яндекса токен — «y», цифра 0–3 и «_»; встречаются оба
+    # варианта: y0__… (в хранилище этой прошивки) и y0_Ag…/y3_…. Раньше regex
+    # требовал ровно «y0__» и не находил токены других форматов.
+    tokens = [m.group(0).decode("ascii")
+              for m in re.finditer(rb"y[0-9]_[A-Za-z0-9_\-]{20,}", raw)]
     if not tokens:
         raise GlagolError("в account_storage.dat не найден OAuth-токен")
     return tokens
