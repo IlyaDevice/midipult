@@ -9599,7 +9599,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     scene.add(rim);
     var state = { renderer: renderer, scene: scene, camera: camera, model: null,
       screenMesh: null, screenPlane: null, ringMaterials: [],
-      yaw: -0.44, pitch: 0.16, distance: 5.35 };
+      yaw: -0.44, pitch: 0.16, distance: 6.55 };
     window.__stationFBX = state;
     window.__stationGLTF = state;
     var drag = null;
@@ -9756,6 +9756,44 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         state.ringTube = ringTube.material;
         scene.add(dotGroup);
         state.ringDots3d = ringDots3d;
+        var logoCanvas = document.createElement('canvas');
+        logoCanvas.width = 512;
+        logoCanvas.height = 512;
+        var lctx = logoCanvas.getContext('2d');
+        lctx.clearRect(0, 0, 512, 512);
+        lctx.shadowColor = 'rgba(196,145,255,.85)';
+        lctx.shadowBlur = 28;
+        lctx.fillStyle = '#c084fc';
+        lctx.beginPath();
+        lctx.ellipse(256, 256, 148, 148, 0, 0, Math.PI * 2);
+        lctx.fill();
+        lctx.shadowBlur = 0;
+        lctx.fillStyle = '#17131f';
+        lctx.beginPath();
+        lctx.ellipse(256, 256, 94, 94, 0, 0, Math.PI * 2);
+        lctx.fill();
+        lctx.fillStyle = '#c084fc';
+        lctx.beginPath();
+        lctx.moveTo(256, 190);
+        lctx.lineTo(300, 272);
+        lctx.lineTo(212, 272);
+        lctx.closePath();
+        lctx.globalAlpha = 0.9;
+        lctx.fill();
+        lctx.globalAlpha = 1;
+        var logoTex = new THREE.CanvasTexture(logoCanvas);
+        logoTex.minFilter = THREE.LinearFilter;
+        if (THREE.sRGBEncoding) logoTex.encoding = THREE.sRGBEncoding;
+        var logoPlane = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.42, 0.42),
+          new THREE.MeshBasicMaterial({ map: logoTex, transparent: true,
+            depthWrite: false, side: THREE.DoubleSide })
+        );
+        logoPlane.position.set(bcenter.x, bodyBox.max.y + 0.065, bcenter.z);
+        logoPlane.rotation.x = -Math.PI / 2;
+        logoPlane.renderOrder = 8;
+        scene.add(logoPlane);
+        state.logoPlane = logoPlane;
         var backZ = bodyBox.min.z - 0.012;
         function roundRectPath(ctx, x, y, w, h, r) {
           ctx.beginPath();
