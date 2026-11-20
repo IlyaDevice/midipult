@@ -185,10 +185,9 @@ def segment_brightness(value):
 
 
 def luna_clock(brightness, time_text=None):
-    """Яркость дисплея без установки времени (время ставит Алиса/Luna)."""
+    """Яркость дисплея; Luna требует time или segments даже для яркости."""
     payload = {"brightness": max(10, min(int(brightness), 255))}
-    if time_text:
-        payload["time"] = time_text
+    payload["time"] = time_text or time.strftime("%H:%M")
     try:
         body = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(LUNA_CLOCK, data=body,
@@ -328,7 +327,8 @@ def display_auto_apply():
     payload = luna_clock(level)
     if payload:
         save_state(read_all())
-    return {"lux": lux, "level": level, "applied": bool(payload)}
+    return {"lux": lux, "level": level, "applied": bool(payload),
+            "reason": "" if payload else "luna"}
 
 
 def reset_display():

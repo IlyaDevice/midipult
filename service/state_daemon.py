@@ -162,6 +162,18 @@ def record_history(value):
         pass
 
 
+def auto_loop():
+    """Автояркость переживает перезагрузку: настройки уже в auto_brightness.json."""
+    time.sleep(8)
+    while True:
+        try:
+            display.auto_apply()
+            display.display_auto_apply()
+        except Exception:  # noqa: BLE001 — автояркость не должна ронять демон
+            pass
+        time.sleep(60)
+
+
 def system_loop():
     global SYSTEM_STATE
     while True:
@@ -384,6 +396,7 @@ def main():
         pass
     threading.Thread(target=refresh_loop, daemon=True).start()
     threading.Thread(target=system_loop, daemon=True).start()
+    threading.Thread(target=auto_loop, daemon=True).start()
     threading.Thread(target=sounds_loop, daemon=True).start()
     CLOCK.start()
     if discovery is not None:

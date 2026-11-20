@@ -7935,6 +7935,8 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         if (on) {
           if (data.mode && data.mode.manual) {
             warning = 'Автояркость включена, но сейчас ручной режим дисплея';
+          } else if (data.display && data.display.reason === 'sensor') {
+            warning = 'Автояркость включена, но датчик света не отвечает';
           } else if (!data.display || data.display.applied === false) {
             warning = 'Автояркость включена, но Luna не ответила';
           }

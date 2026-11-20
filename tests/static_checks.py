@@ -556,6 +556,11 @@ def test_yapanel_features():
           "stopFirmwareRingAnim" in html
           and "ring_anim_stop: 1, keep: 1" in html
           and 'data.get("keep")' in display_py)
+    check("автояркость: Luna time и применение после перезагрузки",
+          "time_text or time.strftime" in display_py
+          and "def auto_loop" in daemon_py
+          and "display.display_auto_apply()" in daemon_py
+          and 'reason === ' in html)
     check("сценарии: анимация дисплея",
           "clock_anim" in scenarios_py and "clock_anim_play" in display_py
           and "clockanimd.py" in install_sh)
