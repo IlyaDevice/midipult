@@ -518,6 +518,7 @@ def test_yapanel_features():
     lyrics_py = read(os.path.join(ROOT, "cgi-bin", "lyrics.py"))
     scenarios_py = read(os.path.join(ROOT, "cgi-bin", "scenarios.py"))
     install_sh = read(os.path.join(ROOT, "deploy", "install.sh"))
+    preflight_sh = read(os.path.join(ROOT, "deploy", "preflight.sh"))
     check("голос: отмена через maind --cli",
           "alice_cli" in voice and "alice_cli.cancel()" in voice)
     check("плеер: пауза через maind --cli",
@@ -550,6 +551,11 @@ def test_yapanel_features():
     check("сценарии: анимация дисплея",
           "clock_anim" in scenarios_py and "clock_anim_play" in display_py
           and "clockanimd.py" in install_sh)
+    check("установщик: пакеты, Luna, lock",
+          "install_luna" in preflight_sh and "bootstrap.lock" in preflight_sh
+          and "MYPULT_UPDATE_LUNA" in preflight_sh
+          and "opkg upgrade" not in preflight_sh
+          and "sha256sum -c" in preflight_sh)
     check("UI: лайки и оверлей текста",
           all(token in html for token in (
               'id="btnLike"', 'id="btnDislike"', 'id="lyricsDlg"',
