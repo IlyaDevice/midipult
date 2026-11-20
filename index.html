@@ -1464,6 +1464,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       <div class="field-top"><label>Анимации дисплея</label><output id="clockAnimStatus">—</output></div>
       <div class="row clock-anims">
         <button class="btn sm" id="btnAnimEditor">Новая анимация</button>
+        <button class="btn sm danger" id="btnClockAnimStop" hidden>Стоп анимации</button>
         <button class="chip" id="btnAnimRestorePresets" hidden>Вернуть пресеты</button>
       </div>
       <div class="anim-editor" id="animEditor" hidden>
@@ -3455,7 +3456,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     var d = new Date();
     var text = pad(d.getHours()) + ':' + pad(d.getMinutes());
     el.clockTime.textContent = text;
-    if (!State.drawing) {
+    if (!State.drawing && !State.animPlaying) {
       renderTime(text);
     }
     el.clockSub.textContent = d.toLocaleDateString('ru-RU', {
@@ -3871,6 +3872,11 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     renderTime(el.clockTime.textContent);
   }
 
+  function clockLayerOff() {
+    return request('/cgi-bin/luna.py?path=%2Fapi%2Fclock%2Foff',
+      { body: {}, timeout: 5000 }).catch(function () { /* тихо */ });
+  }
+
   function playClockAnim(frames, duration, name) {
     stopClockAnim(false);
     frames = (frames && frames.length ? frames : State.animFrames);
@@ -3878,6 +3884,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     State.animPlaying = true;
     var run = ++State.animRun;
     setDisplayManual('anim');
+    if (el.btnClockAnimStop) el.btnClockAnimStop.hidden = false;
     if (el.clockAnimStatus) el.clockAnimStatus.textContent = name || 'анимация';
     var index = 0;
     var failures = 0;
@@ -3911,12 +3918,13 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       });
       index += 1;
     };
-    send();
+    clockLayerOff().then(send);
   }
 
   function stopClockAnim(restore) {
     State.animPlaying = false;
     State.animRun += 1;
+    if (el.btnClockAnimStop) el.btnClockAnimStop.hidden = true;
     if (State.animAbort) {
       try { State.animAbort.abort(); } catch (e) { /* уже завершён */ }
       State.animAbort = null;
@@ -4077,6 +4085,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       openAnimEditor(null, '', 300, null, true);
     });
     if (el.btnAnimRestorePresets) el.btnAnimRestorePresets.addEventListener('click', restoreClockPresets);
+    if (el.btnClockAnimStop) el.btnClockAnimStop.addEventListener('click', function () {
+      stopClockAnim(true);
+    });
     if (el.btnAnimPlay) el.btnAnimPlay.addEventListener('click', function () {
       playClockAnim(State.animFrames, parseInt(el.animDuration.value, 10) || 300,
         (el.animName.value || '').trim() || 'анимация');
@@ -10680,6 +10691,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'animEditor', 'animName', 'animFrames', 'animDuration', 'animText',
       'clockAnimList', 'btnAnimRestorePresets',
       'btnAnimEditor', 'btnAnimPlay', 'btnAnimStop', 'btnAnimSave', 'btnAnimClose',
+      'btnClockAnimStop',
       'btnAnimAdd', 'btnAnimDup', 'btnAnimDel', 'btnAnimText',
       'volume', 'volumeVal', 'btnVolDown', 'btnVolUp', 'btnMute',
       'btnMic', 'micHint', 'micTimer', 'transcript', 'btnRepeat', 'btnCancelListen',

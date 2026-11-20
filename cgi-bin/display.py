@@ -567,12 +567,25 @@ def clock_anim_stop():
     return True
 
 
+def luna_clock_off():
+    """Убрать слой часов Luna перед кадрами анимации."""
+    try:
+        req = urllib.request.Request(
+            common.LUNA_BASE + "/api/clock/off", data=b"{}", method="POST",
+            headers={"Content-Type": "application/json"})
+        urllib.request.urlopen(req, timeout=5).read()
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def clock_anim_play(frames, duration):
     if not frames:
         raise ValueError("нет кадров анимации")
     if not os.path.isfile(CLOCK_ANIM_SCRIPT):
         raise RuntimeError("нет %s" % CLOCK_ANIM_SCRIPT)
     clock_anim_stop()
+    luna_clock_off()
     with open(CLOCK_ANIM_FILE, "w", encoding="utf-8") as fh:
         json.dump({"frames": frames, "duration": duration}, fh)
     proc = subprocess.Popen(

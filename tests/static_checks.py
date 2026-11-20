@@ -564,6 +564,9 @@ def test_yapanel_features():
     check("сценарии: анимация дисплея",
           "clock_anim" in scenarios_py and "clock_anim_play" in display_py
           and "clockanimd.py" in install_sh)
+    check("дисплей: стоп анимации и без кадров часов",
+          'id="btnClockAnimStop"' in html and "clockLayerOff" in html
+          and "!State.animPlaying" in html and "luna_clock_off" in display_py)
     check("установщик: пакеты, Luna, lock",
           "install_luna" in preflight_sh and "bootstrap.lock" in preflight_sh
           and "MYPULT_UPDATE_LUNA" in preflight_sh
