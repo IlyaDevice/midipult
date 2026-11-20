@@ -1463,6 +1463,9 @@ def test_llm_chat_history():
                     {"role": "user", "content": "Кто ты?"},
                     {"role": "assistant", "content": "Я Claude."},
                     "мусор"]},
+                {"id": "chat-long", "name": "Длинный", "messages": [
+                    {"role": "user" if index % 2 == 0 else "assistant",
+                     "content": "m%d" % index} for index in range(25)]},
             ]}, fh, ensure_ascii=False)
         llm.CHATS_PATH = path
         llm.common.ok = lambda **payload: out.update(ok=True, **payload)
@@ -1483,6 +1486,11 @@ def test_llm_chat_history():
         out.clear()
         llm.chat_history("chat-9")
         check("история: неизвестный чат -> 404", out.get("status") == 404, str(out))
+        out.clear()
+        llm.chat_history("chat-long")
+        check("история: не больше 20 сообщений",
+              len(out.get("messages") or []) == 20
+              and out["messages"][-1]["content"] == "m24", str(out.get("messages"))[:200])
         with open(path, "r", encoding="utf-8") as fh:
             check("история: файл чатов не меняется", json.load(fh).get("active") == "chat-2")
     finally:
@@ -1503,11 +1511,14 @@ def test_llm_context_note():
     check("контекст: пояс и смещение", "Europe/Kaliningrad, UTC+02:00" in note, note)
     check("контекст: местоположение", "Калининград" in note, note)
 
-    note = llm.context_note({"timezone": "", "location": ""}, moment)
-    check("контекст: без пояса — UTC", "14:05 (часовой пояс UTC, UTC+00:00)" in note, note)
+    note = llm.context_note({"timezone": "UTC", "location": ""}, moment)
     check("контекст: без места строки о месте нет", "находится" not in note, note)
+    check("контекст: явный UTC", "14:05 (часовой пояс UTC, UTC+00:00)" in note, note)
+    local = llm.local_now({"timezone": ""}, moment)
+    check("контекст: без пояса — местное время станции",
+          local.utcoffset() == moment.astimezone().utcoffset(), str(local))
     note = llm.context_note({"timezone": "Mars/Base"}, moment)
-    check("контекст: неизвестный пояс не роняет", "UTC" in note, note)
+    check("контекст: неизвестный пояс не роняет", "Сейчас " in note, note)
     check("пояс: проверка имени", llm.zone("Europe/Moscow") is not None and llm.zone("Mars/Base") is None)
 
 
@@ -1593,6 +1604,40 @@ def test_llm_anthropic_native():
               resumed[-1]["role"] == "assistant" and resumed[-1]["content"][0]["type"] == "server_tool_use"
               and answer == "Готово." and usage.get("input_tokens") == 12, str(resumed[-1]))
 
+        replies.extend([
+            {"stop_reason": "pause_turn", "usage": {},
+             "content": [{"type": "server_tool_use", "name": "web_search", "input": {}}]},
+            {"stop_reason": "pause_turn", "usage": {},
+             "content": [{"type": "server_tool_use", "name": "web_search", "input": {}}]},
+            {"stop_reason": "pause_turn", "usage": {},
+             "content": [{"type": "server_tool_use", "name": "web_search", "input": {}}]},
+        ])
+        try:
+            llm.anthropic_messages("https://x/v1", "k", "m", "S", dialog, 260, True)
+            paused = None
+        except llm.ApiError as exc:
+            paused = str(exc)
+        check("anthropic: три pause_turn -> понятная ошибка",
+              paused and "не закончила" in paused, str(paused))
+
+        calls = []
+
+        def fake_fallback(url, payload, headers, timeout=90):
+            calls.append((payload.get("tools") or [{}])[0].get("type"))
+            if len(calls) == 1:
+                raise llm.ApiError(502, "API ответил HTTP 400", detail="tools")
+            return {"stop_reason": "end_turn", "usage": {},
+                    "content": [{"type": "text", "text": "Запасной вариант."}]}
+
+        llm.post_json = fake_fallback
+        answer, _, _ = llm.anthropic_messages(
+            "https://x/v1", "k", "m", "S", dialog, 260, True)
+        check("anthropic: 400 -> запасная версия поиска",
+              answer == "Запасной вариант."
+              and calls == [llm.ANTHROPIC_SEARCH_TOOL, llm.ANTHROPIC_SEARCH_FALLBACK],
+              str(calls))
+
+        llm.post_json = fake_post
         replies.append({"stop_reason": "refusal", "usage": {}, "content": [],
                         "stop_details": {"type": "refusal", "category": "cyber", "explanation": None}})
         try:

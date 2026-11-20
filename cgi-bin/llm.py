@@ -89,6 +89,9 @@ ANTHROPIC_THINKING_ROOM = 1500
 # Базовая версия поиска: на Haiku 5.5 отвечает за ~4 с против ~10 с у
 # web_search_20260209 (с динамической фильтрацией) и тратит меньше токенов.
 ANTHROPIC_SEARCH_TOOL = "web_search_20250305"
+# Запасной вариант: если основная версия инструмента не поддержана моделью и
+# API отвечает 400 — пробуем актуальную версию с динамической фильтрацией.
+ANTHROPIC_SEARCH_FALLBACK = "web_search_20260209"
 ANTHROPIC_SEARCH_MAX_USES = 3
 ANTHROPIC_TOOL_BLOCKS = frozenset({
     "tool_use", "server_tool_use", "web_search_tool_result", "web_fetch_tool_result",
@@ -165,11 +168,15 @@ def zone(name):
 
 
 def local_now(config, now=None):
-    """Текущее время в часовом поясе из настроек (по умолчанию — UTC станции)."""
-    tz = zone(config.get("timezone")) or datetime.timezone.utc
+    """Время в поясе из настроек; без настройки — местное время станции."""
+    tz = zone(config.get("timezone"))
     if now is None:
-        return datetime.datetime.now(tz)
-    return now.astimezone(tz)
+        moment = datetime.datetime.now().astimezone()
+    elif tz is None:
+        moment = now.astimezone()
+    else:
+        moment = now
+    return moment.astimezone(tz) if tz is not None else moment
 
 
 def context_note(config, now=None):
@@ -177,7 +184,8 @@ def context_note(config, now=None):
     moment = local_now(config, now)
     offset = moment.strftime("%z")
     offset = "UTC%s:%s" % (offset[:3], offset[3:]) if offset else "UTC"
-    tz_name = config.get("timezone") if zone(config.get("timezone")) else "UTC"
+    tz_name = config.get("timezone") if zone(config.get("timezone")) else (
+        moment.tzname() or "местное")
     note = "Сейчас %s, %d %s %d года, %s (часовой пояс %s, %s)." % (
         WEEKDAYS[moment.weekday()], moment.day, MONTHS[moment.month - 1], moment.year,
         moment.strftime("%H:%M"), tz_name, offset)
@@ -458,39 +466,60 @@ def anthropic_messages(base_url, key, model, system, dialog, limit, search):
     """Родной Messages API Anthropic (/v1/messages) с необязательным веб-поиском.
 
     Возвращает (текст, usage, источники)."""
-    payload = {
-        "model": model,
-        "messages": list(dialog),
-        "max_tokens": limit + ANTHROPIC_THINKING_ROOM,
-        "output_config": {"effort": ANTHROPIC_EFFORT},
-    }
-    if system:
-        payload["system"] = system
-    if search:
-        payload["tools"] = [{"type": ANTHROPIC_SEARCH_TOOL, "name": "web_search",
-                             "max_uses": ANTHROPIC_SEARCH_MAX_USES}]
     headers = {"x-api-key": key, "anthropic-version": ANTHROPIC_VERSION}
-    usage = {}
-    content = []
-    stop = None
-    body = {}
-    for _ in range(3):
-        body = post_json(base_url + "/messages", payload, headers)
-        content.extend(body.get("content") or [])
-        for name, value in (body.get("usage") or {}).items():
-            if isinstance(value, int):
-                usage[name] = usage.get(name, 0) + value
-            elif name == "server_tool_use" and isinstance(value, dict):
-                tools = usage.setdefault(name, {})
-                for tool, count in value.items():
-                    if isinstance(count, int):
-                        tools[tool] = tools.get(tool, 0) + count
-        stop = body.get("stop_reason")
-        if stop != "pause_turn":
-            break
-        # Серверный цикл поиска упёрся в лимит итераций: отправляем ответ
-        # обратно как есть, API продолжит с того же места.
-        payload["messages"] = list(dialog) + [{"role": "assistant", "content": content}]
+    tools = [ANTHROPIC_SEARCH_TOOL, ANTHROPIC_SEARCH_FALLBACK] if search else [None]
+    result = None
+    last_error = None
+    for tool in tools:
+        payload = {
+            "model": model,
+            "messages": list(dialog),
+            "max_tokens": limit + ANTHROPIC_THINKING_ROOM,
+            "output_config": {"effort": ANTHROPIC_EFFORT},
+        }
+        if system:
+            payload["system"] = system
+        if tool:
+            payload["tools"] = [{"type": tool, "name": "web_search",
+                                 "max_uses": ANTHROPIC_SEARCH_MAX_USES}]
+        usage = {}
+        content = []
+        stop = None
+        body = {}
+        try:
+            for _ in range(3):
+                body = post_json(base_url + "/messages", payload, headers)
+                content.extend(body.get("content") or [])
+                for name, value in (body.get("usage") or {}).items():
+                    if isinstance(value, int):
+                        usage[name] = usage.get(name, 0) + value
+                    elif name == "server_tool_use" and isinstance(value, dict):
+                        counters = usage.setdefault(name, {})
+                        for tool_name, count in value.items():
+                            if isinstance(count, int):
+                                counters[tool_name] = counters.get(tool_name, 0) + count
+                stop = body.get("stop_reason")
+                if stop != "pause_turn":
+                    break
+                # Серверный цикл поиска упёрся в лимит итераций: отправляем
+                # ответ обратно как есть, API продолжит с того же места.
+                payload["messages"] = list(dialog) + [
+                    {"role": "assistant", "content": content}]
+        except ApiError as exc:
+            # Старая версия инструмента могла стать несовместимой с моделью:
+            # API отвечает 400 — один раз пробуем актуальную версию.
+            if tool and tool != tools[-1] and "HTTP 400" in exc.message:
+                last_error = exc
+                continue
+            raise
+        if stop == "pause_turn":
+            raise ApiError(502, "Модель не закончила поиск за 3 шага",
+                           detail="stop_reason=pause_turn")
+        result = (content, usage, stop, body)
+        break
+    if result is None:
+        raise last_error or ApiError(502, "Не удалось выполнить запрос")
+    content, usage, stop, body = result
     if stop == "refusal":
         details = body.get("stop_details") or {}
         raise ApiError(502, "Модель отказалась отвечать на этот вопрос",
@@ -817,7 +846,7 @@ def chat_history(chat_id=None):
          "content": str(item.get("content") or "")}
         for item in chat.get("messages") or []
         if isinstance(item, dict)
-    ]
+    ][-20:]
     common.ok(chat_id=chat.get("id"), chat_name=chat.get("name"), messages=messages,
               limit=20)
 

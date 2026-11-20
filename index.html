@@ -2152,6 +2152,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     mediaCover: '',
     liked: false,
     queueTab: 'queue',
+    llmTzAutosaved: false,
     alarmMode: 'radio',
     alarmHour: 7,
     alarmMinute: 0,
@@ -4636,6 +4637,17 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   function applyLlmContext(data) {
     if (!el.llmLocation) return;
     fillTimezoneList();
+    // Пояс станции может быть UTC, поэтому при первом открытии сохраняем пояс
+    // браузера сами — иначе модель видит неверное местное время.
+    if (!data.timezone && !State.llmTzAutosaved) {
+      var detected = browserTimezone();
+      if (detected) {
+        State.llmTzAutosaved = true;
+        cgi('llm.py', { timezone: detected }, { timeout: 10000, silent: true })
+          .then(applyLlmInfo)
+          .catch(function () {});
+      }
+    }
     var editing = document.activeElement === el.llmLocation || document.activeElement === el.llmTimezone;
     if (!editing) {
       el.llmLocation.value = data.location || '';
@@ -4644,7 +4656,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     var saved = !!data.timezone;
     el.llmContextStatus.textContent = saved
       ? (data.context || '')
-      : 'Часовой пояс не сохранён — модель видит время UTC. Проверьте поля и нажмите «Сохранить место».';
+      : 'Пояс не сохранён — используется местное время станции. Проверьте поля и нажмите «Сохранить место».';
   }
 
   function saveLlmContext() {
