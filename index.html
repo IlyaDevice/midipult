@@ -642,22 +642,42 @@ body.light .btn.danger:disabled{opacity:1;background:rgba(190,18,60,.10);border-
 .anim-editor{margin-top:10px;padding:12px;border:1px solid var(--stroke);border-radius:14px;
   background:rgba(255,255,255,.03)}
 .anim-bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.anim-bar input[type="text"]{flex:1 1 180px;height:36px}
+.anim-editor input[type="text"],.anim-editor input[type="number"]{
+  height:38px;padding:0 12px;border-radius:11px;border:1px solid var(--stroke);
+  background:rgba(255,255,255,.045);color:var(--text);font:inherit;font-size:13px;
+  transition:background .16s,border-color .16s,box-shadow .16s}
+.anim-editor input[type="text"]:hover,.anim-editor input[type="number"]:hover{
+  background:rgba(255,255,255,.065)}
+.anim-editor input[type="text"]:focus,.anim-editor input[type="number"]:focus{
+  outline:none;border-color:rgba(124,92,255,.6);
+  box-shadow:0 0 0 3px rgba(124,92,255,.16)}
+.anim-editor input[type="number"]{appearance:textfield;-moz-appearance:textfield}
+.anim-editor input[type="number"]::-webkit-inner-spin-button,
+.anim-editor input[type="number"]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.anim-bar #animName{flex:1 1 180px;min-width:0}
 .anim-frames{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-.anim-frame{width:40px;height:40px;border-radius:10px;border:1px solid var(--stroke);
-  background:#0e1420;color:var(--muted);font:inherit;font-weight:700;cursor:pointer}
+.anim-frame{width:54px;height:46px;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:2px;border-radius:10px;border:1px solid var(--stroke);
+  background:#0e1420;color:var(--muted);font:inherit;cursor:pointer}
+.anim-frame b{font-size:11px;font-weight:700;line-height:1}
+.anim-frame small{font-size:9px;line-height:1;color:var(--muted);letter-spacing:.02em}
 .anim-frame[aria-pressed="true"]{border-color:rgba(124,92,255,.7);color:#fff;
   background:rgba(124,92,255,.25);box-shadow:0 0 0 2px rgba(124,92,255,.16)}
+.anim-frame[aria-pressed="true"] small{color:rgba(255,255,255,.75)}
 .anim-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
 .anim-num{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);
   text-transform:uppercase;letter-spacing:.06em}
-.anim-num input{width:80px;height:34px}
-.anim-tools #animText{width:90px;height:34px}
+.anim-num input{width:86px}
+.anim-tools #animText{width:96px}
 .anim-saved{display:flex;flex-direction:column;gap:6px;margin-top:10px}
-.anim-saved-row{display:flex;align-items:center;gap:8px;padding-top:6px;
+.anim-saved-empty{font-size:12px;color:var(--muted);padding:6px 0}
+.anim-saved-row{display:flex;align-items:center;gap:6px;padding-top:7px;
   border-top:1px solid var(--stroke);font-size:12px}
-.anim-saved-row b{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.anim-saved-row .seg-note{flex:1 1 auto}
+.anim-saved-row b{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap}
+.anim-saved-row .seg-note{flex:1 1 100px;text-align:right;font-size:11px}
+.anim-saved-row .btn{padding:4px 8px;height:28px;font-size:11px}
+.anim-saved-row.editing b{color:#d8cfff}
 .display-extra input{height:var(--ctl-h);font-size:var(--fs-14);min-width:0}
 .bright-chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));max-width:744px;gap:var(--gap-sm);margin-top:12px}
 .bright-chips .chip{width:100%;justify-content:center;padding:0 8px;font-size:var(--fs-12)}
@@ -2244,6 +2264,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     animIndex: 0,
     animPlaying: false,
     animTimer: null,
+    animRun: 0,
+    animAbort: null,
+    editingAnimId: null,
     clockAnims: [],
     displayOverride: false,
     displayOff: false,
@@ -3402,6 +3425,13 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     });
   }
 
+  function animFrameCaption(frame) {
+    var chars = (frame || []).map(function (segments) {
+      return SEG_TO_DIGIT[sortSegments(segments || '')] || '·';
+    }).join('');
+    return /^\d{4}$/.test(chars) ? chars.slice(0, 2) + ':' + chars.slice(2) : chars;
+  }
+
   function renderAnimFrames() {
     if (!el.animFrames) return;
     el.animFrames.innerHTML = '';
@@ -3409,8 +3439,13 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       var button = document.createElement('button');
       button.type = 'button';
       button.className = 'anim-frame';
-      button.textContent = String(index + 1);
       button.setAttribute('aria-pressed', index === State.animIndex ? 'true' : 'false');
+      var number = document.createElement('b');
+      number.textContent = String(index + 1);
+      var caption = document.createElement('small');
+      caption.textContent = animFrameCaption(frame);
+      button.appendChild(number);
+      button.appendChild(caption);
       button.addEventListener('click', function () { setAnimFrame(index); });
       el.animFrames.appendChild(button);
     });
@@ -3440,19 +3475,21 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     return currentPattern();
   }
 
-  function openAnimEditor(frames, name, duration) {
+  function openAnimEditor(frames, name, duration, id, fresh) {
+    stopClockAnim(false);
     if (frames && frames.length) {
       State.animFrames = frames.map(function (frame) { return frame.slice(); });
       State.animIndex = 0;
-    }
-    if (!State.animFrames.length) {
+    } else if (fresh || !State.animFrames.length) {
       State.animFrames = [initialAnimFrame()];
       State.animIndex = 0;
     }
-    if (name) el.animName.value = name;
-    if (duration) el.animDuration.value = String(duration);
+    State.editingAnimId = id || null;
+    if (name !== undefined) el.animName.value = name || '';
+    if (duration !== undefined) el.animDuration.value = String(duration || 300);
     el.animEditor.hidden = false;
     el.segToolbar.hidden = true;
+    el.btnDraw.hidden = true;
     setAnimFrame(State.animIndex || 0);
     loadSavedAnims();
   }
@@ -3460,6 +3497,12 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   function closeAnimEditor() {
     stopClockAnim(true);
     el.animEditor.hidden = true;
+    State.animFrames = [];
+    State.animIndex = 0;
+    State.editingAnimId = null;
+    el.animName.value = '';
+    el.animDuration.value = '300';
+    el.btnDraw.hidden = false;
     State.drawing = false;
     State.pattern = null;
     el.displayPreview.classList.remove('editing');
@@ -3472,26 +3515,51 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     frames = (frames && frames.length ? frames : State.animFrames);
     if (!frames || !frames.length) return;
     State.animPlaying = true;
+    var run = ++State.animRun;
     setDisplayManual('anim');
     if (el.clockAnimStatus) el.clockAnimStatus.textContent = name || 'анимация';
     var index = 0;
-    var delay = Math.max(50, parseInt(duration, 10) || 300);
-    var step = function () {
-      if (!State.animPlaying) return;
+    var failures = 0;
+    var delay = Math.max(80, parseInt(duration, 10) || 300);
+    var schedule = function (ms) {
+      if (!State.animPlaying || run !== State.animRun) return;
+      State.animTimer = setTimeout(send, ms);
+    };
+    var send = function () {
+      if (!State.animPlaying || run !== State.animRun) return;
       var frame = frames[index % frames.length];
       renderPattern(frame);
-      luna('/api/clock', { segments: patternSegments(frame) }).catch(function (err) {
-        stopClockAnim(true);
-        toast('Дисплей: ' + err.message, 'bad');
+      var started = Date.now();
+      var ctrl = new AbortController();
+      State.animAbort = ctrl;
+      luna('/api/clock', { segments: patternSegments(frame) },
+        { timeout: 6000, signal: ctrl.signal }).then(function () {
+        if (!State.animPlaying || run !== State.animRun) return;
+        failures = 0;
+        schedule(Math.max(0, delay - (Date.now() - started)));
+      }).catch(function (err) {
+        if (!State.animPlaying || run !== State.animRun) return;
+        failures += 1;
+        if (failures >= 2) {
+          stopClockAnim(false);
+          toast('Анимация остановлена: ' + err.message, 'bad');
+          return;
+        }
+        // Не долбим станцию сразу: одна пауза и ещё одна попытка.
+        schedule(Math.max(400, delay));
       });
       index += 1;
-      State.animTimer = setTimeout(step, delay);
     };
-    step();
+    send();
   }
 
   function stopClockAnim(restore) {
     State.animPlaying = false;
+    State.animRun += 1;
+    if (State.animAbort) {
+      try { State.animAbort.abort(); } catch (e) { /* уже завершён */ }
+      State.animAbort = null;
+    }
     if (State.animTimer) {
       clearTimeout(State.animTimer);
       State.animTimer = null;
@@ -3503,11 +3571,21 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   function renderSavedAnims() {
     if (!el.animSaved) return;
     el.animSaved.innerHTML = '';
-    (State.clockAnims || []).forEach(function (item) {
+    var items = State.clockAnims || [];
+    if (!items.length) {
+      var empty = document.createElement('div');
+      empty.className = 'anim-saved-empty';
+      empty.textContent = 'Сохранённых анимаций пока нет.';
+      el.animSaved.appendChild(empty);
+      return;
+    }
+    items.forEach(function (item) {
       var row = document.createElement('div');
       row.className = 'anim-saved-row';
+      if (item.id && item.id === State.editingAnimId) row.classList.add('editing');
       var name = document.createElement('b');
       name.textContent = item.name || 'Анимация';
+      name.title = item.name || '';
       var note = document.createElement('span');
       note.className = 'seg-note';
       note.textContent = (item.frames || []).length + ' кадров · ' + (item.duration || 300) + ' мс';
@@ -3516,18 +3594,30 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       play.className = 'btn sm ghost';
       play.textContent = 'Играть';
       play.addEventListener('click', function () {
-        openAnimEditor(item.frames, item.name, item.duration);
         playClockAnim(item.frames, item.duration, item.name);
+      });
+      var edit = document.createElement('button');
+      edit.type = 'button';
+      edit.className = 'btn sm ghost';
+      edit.textContent = 'Изменить';
+      edit.addEventListener('click', function () {
+        openAnimEditor(item.frames, item.name, item.duration, item.id);
       });
       var remove = document.createElement('button');
       remove.type = 'button';
       remove.className = 'btn sm ghost';
       remove.textContent = '×';
       remove.title = 'Удалить';
-      remove.addEventListener('click', function () { deleteClockAnim(item.id); });
+      remove.addEventListener('click', function () {
+        askConfirm('Удалить анимацию «' + (item.name || 'Анимация') + '»?',
+          { yes: 'Удалить' }).then(function (ok) {
+          if (ok) deleteClockAnim(item.id);
+        });
+      });
       row.appendChild(name);
       row.appendChild(note);
       row.appendChild(play);
+      row.appendChild(edit);
       row.appendChild(remove);
       el.animSaved.appendChild(row);
     });
@@ -3542,22 +3632,31 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 
   function saveClockAnim() {
     var name = (el.animName.value || '').trim();
-    if (!name) { toast('Укажите название анимации', 'warn'); return; }
+    if (!name) { toast('Укажите название анимации', 'warn'); el.animName.focus(); return; }
     var frames = State.animFrames.map(function (frame) { return frame.slice(); });
     var duration = parseInt(el.animDuration.value, 10) || 300;
-    cgi('display.py', {
-      clock_anim_save: { name: name, frames: frames, duration: duration }
-    }, { timeout: 15000 }).then(function (data) {
+    var payload = { name: name, frames: frames, duration: duration };
+    if (State.editingAnimId) payload.id = State.editingAnimId;
+    var wasEditing = !!State.editingAnimId;
+    cgi('display.py', { clock_anim_save: payload }, { timeout: 15000 }).then(function (data) {
       State.clockAnims = data.clock_anims || [];
+      if (!State.editingAnimId) {
+        var saved = State.clockAnims.filter(function (item) {
+          return item.name === name;
+        }).pop();
+        if (saved) State.editingAnimId = saved.id;
+      }
       renderSavedAnims();
-      toast('Анимация сохранена', 'ok');
+      toast(wasEditing ? 'Анимация обновлена' : 'Анимация сохранена', 'ok');
     }).catch(function (err) { toast('Анимация: ' + err.message, 'bad'); });
   }
 
   function deleteClockAnim(id) {
     cgi('display.py', { clock_anim_delete: id }, { timeout: 15000 }).then(function (data) {
       State.clockAnims = data.clock_anims || [];
+      if (State.editingAnimId === id) State.editingAnimId = null;
       renderSavedAnims();
+      toast('Анимация удалена', 'ok');
     }).catch(function (err) { toast('Анимация: ' + err.message, 'bad'); });
   }
 
@@ -3571,7 +3670,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       });
     });
     if (el.btnAnimEditor) el.btnAnimEditor.addEventListener('click', function () {
-      openAnimEditor();
+      openAnimEditor(null, '', 300, null, true);
     });
     if (el.btnAnimPlay) el.btnAnimPlay.addEventListener('click', function () {
       playClockAnim(State.animFrames, parseInt(el.animDuration.value, 10) || 300,

@@ -538,6 +538,8 @@ def test_yapanel_features():
     check("радио: компактный список",
           all(token in html for token in (
               'id="btnRadioPick"', 'id="radioPop"', 'id="radioSearch"')))
+    check("часы: редактор обновляет сохранённое",
+          "editingAnimId" in html and "animRun" in html and "AbortController" in html)
     check("UI: лайки и оверлей текста",
           all(token in html for token in (
               'id="btnLike"', 'id="btnDislike"', 'id="lyricsDlg"',
