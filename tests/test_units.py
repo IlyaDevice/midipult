@@ -1194,6 +1194,21 @@ def test_alarm_rules():
           scheduler._key(rule, friday))
 
 
+def test_clock_animation():
+    """Кадры анимации часов: 45 сегментов, волна/пульс/радуга/стоп."""
+    import state_daemon
+
+    wave = state_daemon.clock_frame("wave", 0.0, 45, 200)
+    check("часы: 45 сегментов", len(wave) == 45, str(len(wave)))
+    check("часы: волна светит", max(wave) >= 150, str(max(wave)))
+    check("часы: стоп — нули", set(state_daemon.clock_frame("off", 0.0, 45, 200)) == {0})
+    check("часы: пульс меняется по фазе",
+          state_daemon.clock_frame("pulse", 0.0, 45, 200)
+          != state_daemon.clock_frame("pulse", 0.25, 45, 200))
+    check("часы: значения в 0..255",
+          all(0 <= value <= 255 for value in state_daemon.clock_frame("rainbow", 0.3)))
+
+
 def test_discovery_payload():
     import json
 
@@ -1527,6 +1542,7 @@ def main():
         test_musicapi,
         test_music_queue,
         test_alarm_rules,
+        test_clock_animation,
         test_media_config_override,
         test_speak_frames,
         test_display_auto,

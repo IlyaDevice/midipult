@@ -14,6 +14,7 @@ from __future__ import annotations
 import hmac
 import http.client
 import json
+import math
 import os
 import sys
 import threading
@@ -24,6 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 # Используем системное время станции, отдельных настроек нет.
 sys.path.insert(0, "/data/myweb/cgi-bin")
 import common  # noqa: E402
+import display  # noqa: E402
 import glagol  # noqa: E402
 import player  # noqa: E402
 import sounds  # noqa: E402
@@ -135,6 +137,99 @@ def sounds_loop():
         time.sleep(30)
 
 
+CLOCK_MODES = ("wave", "pulse", "rainbow", "off")
+
+
+def clock_frame(mode, phase, count=45, brightness=160):
+    """Кадр анимации часов: 45 значений яркости 0..255."""
+    values = []
+    for index in range(count):
+        if mode == "wave":
+            wave = math.sin((index / float(count)) * 2 * math.pi
+                            - phase * 2 * math.pi)
+            level = 0.08 + 0.92 * max(0.0, wave) ** 2
+        elif mode == "pulse":
+            level = 0.15 + 0.85 * (0.5 - 0.5 * math.cos(phase * 4 * math.pi))
+        elif mode == "rainbow":
+            wave = 0.5 + 0.5 * math.sin((index / float(count)) * 4 * math.pi
+                                        + phase * 2 * math.pi)
+            level = 0.08 + 0.92 * wave
+        else:
+            level = 0.0
+        values.append(max(0, min(255, int(brightness * level))))
+    return values
+
+
+class ClockAnimator(threading.Thread):
+    """Рисует анимацию на 45 сегментах часов прямо в sysfs."""
+
+    def __init__(self):
+        super().__init__(daemon=True, name="clock-anim")
+        self.lock = threading.Lock()
+        self.mode = None
+        self.brightness = 160
+        self.speed = 1.0
+        self.saved = None
+        self.active = False
+
+    def set(self, mode, brightness=None, speed=None):
+        with self.lock:
+            if mode == "off":
+                self.mode = None
+            else:
+                self.mode = mode
+                if brightness is not None:
+                    self.brightness = max(10, min(255, int(brightness)))
+                if speed is not None:
+                    self.speed = max(0.2, min(3.0, float(speed)))
+            return self.mode
+
+    def status(self):
+        with self.lock:
+            return {"mode": self.mode, "brightness": self.brightness,
+                    "speed": self.speed, "active": self.active}
+
+    def run(self):
+        while True:
+            with self.lock:
+                mode = self.mode
+                brightness = self.brightness
+                speed = self.speed
+            if not mode:
+                if self.active:
+                    self._restore()
+                time.sleep(0.2)
+                continue
+            if not self.active:
+                self._begin()
+            phase = (time.time() * speed) % 1.0
+            paths = display.paths()
+            if paths:
+                frame = clock_frame(mode, phase, len(paths), brightness)
+                display.write_all(dict(zip(paths, frame)))
+            time.sleep(0.05)
+
+    def _begin(self):
+        try:
+            self.saved = display.read_all()
+            display.save_mode(True, "anim")
+        except Exception:  # noqa: BLE001
+            self.saved = None
+        self.active = True
+
+    def _restore(self):
+        self.active = False
+        try:
+            if self.saved:
+                display.write_all(self.saved)
+            display.save_mode(False, "clock")
+        except Exception:  # noqa: BLE001
+            pass
+
+
+CLOCK = ClockAnimator()
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "mypult-state/1.0"
 
@@ -181,7 +276,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):  # noqa: N802
         parsed = urllib.parse.urlparse(self.path)
-        if parsed.path not in ("/ring", "/ring/"):
+        if parsed.path not in ("/ring", "/ring/", "/clock", "/clock/"):
             self.send_error(404)
             return
         if not cookie_ok(self.headers):
@@ -196,6 +291,14 @@ class Handler(BaseHTTPRequestHandler):
             data = json.loads(raw or b"{}")
         except ValueError:
             self._json(400, {"ok": False, "error": "bad json"})
+            return
+        if parsed.path.startswith("/clock"):
+            mode = str(data.get("mode") or "off")
+            if mode not in CLOCK_MODES:
+                self._json(400, {"ok": False, "error": "mode"})
+                return
+            CLOCK.set(mode, data.get("brightness"), data.get("speed"))
+            self._json(200, {"ok": True, **CLOCK.status()})
             return
         colors = data.get("colors") if isinstance(data, dict) else None
         if (not isinstance(colors, list) or not 1 <= len(colors) <= 24
@@ -218,6 +321,7 @@ def main():
     threading.Thread(target=refresh_loop, daemon=True).start()
     threading.Thread(target=system_loop, daemon=True).start()
     threading.Thread(target=sounds_loop, daemon=True).start()
+    CLOCK.start()
     if discovery is not None:
         try:
             discovery.start()

@@ -564,6 +564,11 @@ def test_yapanel_features():
     check("будильник: демон и API",
           "alarmd.start()" in voice_py and "def build(" in alarm_py
           and "class AlarmScheduler" in alarmd_py)
+    conf = read(os.path.join(ROOT, "lighttpd", "myweb.conf"))
+    daemon_py = read(os.path.join(ROOT, "service", "state_daemon.py"))
+    check("часы: анимации в демоне и прокси",
+          "^/clock" in conf and "class ClockAnimator" in daemon_py
+          and 'data-canim="wave"' in html and "function clockAnim(" in html)
     check("поиск: без скрейпинга выдачи",
           "_bing" not in search_py and "duckduckgo" not in search_py.lower())
 

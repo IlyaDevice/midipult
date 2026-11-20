@@ -1128,6 +1128,15 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       <button class="btn sm ghost" id="btnClockBack" hidden title="Вернуть часы">Часы</button>
     </div>
     <div class="seg-note" style="margin-top:6px">До 32 символов: 0–9, A–Y (кроме K, M, V, W, X, Z), «_», «-». Пробел станет «_».</div>
+    <div class="field" style="margin-top:14px">
+      <div class="field-top"><label>Анимации дисплея</label><output id="clockAnimStatus">—</output></div>
+      <div class="row clock-anims">
+        <button class="chip" data-canim="wave">Волна</button>
+        <button class="chip" data-canim="pulse">Пульс</button>
+        <button class="chip" data-canim="rainbow">Радуга</button>
+        <button class="chip" data-canim="off">Стоп</button>
+      </div>
+    </div>
   </section>
 
   <!-- ───────── кольцо ───────── -->
@@ -3182,6 +3191,30 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     var duration = Number(State.mediaDuration) || 0;
     if (duration > 0) value = Math.min(value, duration);
     return Math.max(0, value);
+  }
+
+  function clockAnim(mode) {
+    var labels = { wave: 'волна', pulse: 'пульс', rainbow: 'радуга', off: 'стоп' };
+    return request('/clock', {
+      body: { mode: mode, brightness: 160, speed: 1 },
+      timeout: 6000
+    }).then(function () {
+      if (el.clockAnimStatus) {
+        el.clockAnimStatus.textContent = mode === 'off' ? '—' : (labels[mode] || mode);
+      }
+      Array.prototype.forEach.call(document.querySelectorAll('[data-canim]'), function (button) {
+        button.setAttribute('aria-pressed',
+          button.dataset.canim === mode && mode !== 'off' ? 'true' : 'false');
+      });
+    }).catch(function (err) {
+      toast('Дисплей: ' + err.message, 'bad');
+    });
+  }
+
+  function clockAnimBind() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-canim]'), function (button) {
+      button.addEventListener('click', function () { clockAnim(button.dataset.canim); });
+    });
   }
 
   function updateMediaProgress() {
@@ -7527,7 +7560,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'alarmList', 'alarmRinging', 'alarmRingLabel', 'btnAlarmDismiss',
       'btnAlarmSnooze', 'alarmTime', 'alarmMode', 'alarmText', 'alarmDays',
       'alarmVolume', 'alarmVolumeVal', 'alarmRamp', 'alarmStop', 'alarmSnooze',
-      'btnAlarmAdd',
+      'btnAlarmAdd', 'clockAnimStatus',
       'volume', 'volumeVal', 'btnVolDown', 'btnVolUp', 'btnMute',
       'btnMic', 'micHint', 'micTimer', 'transcript', 'btnRepeat', 'btnCancelListen',
       'command', 'btnSendCmd', 'ttsText', 'ttsCount', 'btnTtsClear', 'btnSay', 'ttsChips',
@@ -7579,6 +7612,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     bind();
     renderAlarmDays();
     loadAlarms(true);
+    clockAnimBind();
     setInterval(function () {
       if (State.tab === 'sound' && !document.hidden) loadAlarms(true);
     }, 5000);
