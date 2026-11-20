@@ -260,10 +260,11 @@ body.light #ringMusicPop{background:#fff}
   main .card.dragging{opacity:.22;transition:opacity .15s ease}
   main .card h2{touch-action:none}
   body.card-dragging,body.card-dragging *{cursor:grabbing!important;user-select:none}
-  .card-ghost{position:fixed;left:0;top:0;z-index:9999;pointer-events:none;margin:0!important;
-    opacity:.96;transform:translate3d(0,0,0) rotate(.45deg) scale(1.012);overflow:hidden;
+  .card.card-ghost{position:fixed!important;left:0!important;top:0!important;z-index:9999;
+    pointer-events:none;margin:0!important;opacity:.96;
+    transform:translate3d(0,0,0) rotate(.45deg) scale(1.012);overflow:hidden;
     border-radius:var(--radius);box-shadow:0 28px 70px rgba(0,0,0,.65);
-    will-change:transform;backface-visibility:hidden}
+    will-change:transform;backface-visibility:hidden;animation:none!important}
   .card-ghost .card-move{display:none}
   main .card.drop-before,main .card.drop-after{outline:2px solid var(--accent2);outline-offset:-2px}
   .card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--gap-sm);min-width:0}
