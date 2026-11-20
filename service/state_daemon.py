@@ -12,6 +12,7 @@ lighttpd проксирует /state сюда, поэтому панель по�
 from __future__ import annotations
 
 import hmac
+import http.client
 import json
 import os
 import sys
@@ -65,6 +66,30 @@ def cookie_ok(headers):
         if name == "mypult_token" and hmac.compare_digest(value.strip(), token):
             return True
     return False
+
+
+def ring_forward(colors):
+    """Кадр кольца в Luna без запуска CGI: один HTTP-запрос на кадр.
+
+    Прямая запись в /dev/fb0 не подходит: прошивка непрерывно перерисовывает
+    кольцо в свой framebuffer и затирает кадр (проверено на колонке).
+    Luna обновляет кольцо с частотой ~25–27 fps — это и есть потолок.
+    """
+    body = json.dumps({"colors": colors}).encode("utf-8")
+    connection = http.client.HTTPConnection("127.0.0.1", 8099, timeout=2.0)
+    try:
+        connection.request("POST", "/api/led/ring", body=body,
+                           headers={"Content-Type": "application/json"})
+        response = connection.getresponse()
+        response.read(2048)
+        return 200 <= response.status < 300
+    except (OSError, http.client.HTTPException):
+        return False
+    finally:
+        try:
+            connection.close()
+        except OSError:
+            pass
 
 
 def refresh_loop():
@@ -142,6 +167,42 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def _json(self, status, payload):
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Cache-Control", "no-store, max-age=0")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_POST(self):  # noqa: N802
+        parsed = urllib.parse.urlparse(self.path)
+        if parsed.path not in ("/ring", "/ring/"):
+            self.send_error(404)
+            return
+        if not cookie_ok(self.headers):
+            self._json(401, {"ok": False, "error": "Нужен PIN", "auth": True})
+            return
+        try:
+            length = min(int(self.headers.get("Content-Length") or 0), 65536)
+        except ValueError:
+            length = 0
+        raw = self.rfile.read(length) if length else b"{}"
+        try:
+            data = json.loads(raw or b"{}")
+        except ValueError:
+            self._json(400, {"ok": False, "error": "bad json"})
+            return
+        colors = data.get("colors") if isinstance(data, dict) else None
+        if (not isinstance(colors, list) or not 1 <= len(colors) <= 24
+                or not all(isinstance(item, str) and 1 <= len(item) <= 9
+                           for item in colors)):
+            self._json(400, {"ok": False, "error": "colors"})
+            return
+        sent = ring_forward(colors[:24])
+        self._json(200 if sent else 502, {"ok": sent})
 
     def log_message(self, *args):  # noqa: D401
         return

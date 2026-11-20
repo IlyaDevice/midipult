@@ -2343,27 +2343,56 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     return '#' + channel(rgb.r) + channel(rgb.g) + channel(rgb.b);
   }
 
+  /* Кадры кольца: прямой канал /ring → state-демон → Luna.
+     Раньше каждый кадр запускал CGI-процесс, из-за этого анимация шла рывками. */
+  var ringDirectOk = true;
+  var ringBusy = false;
+  var ringPending = null;
+
+  function ringFrame(colors) {
+    if (ringBusy) {
+      ringPending = colors;
+      return;
+    }
+    ringBusy = true;
+    var payload = colors.slice();
+    var send;
+    if (ringDirectOk) {
+      send = request('/ring', { body: { colors: payload }, timeout: 4000 })
+        .catch(function (err) {
+          // Старый конфиг lighttpd без прокси /ring — возвращаемся к CGI.
+          ringDirectOk = false;
+          log('ring', 'direct', err.message, true);
+          return luna('/api/led/ring', { colors: payload });
+        });
+    } else {
+      send = luna('/api/led/ring', { colors: payload });
+    }
+    send.catch(function () { /* кадр потерян, следующий догонит */ })
+      .finally(function () {
+        ringBusy = false;
+        var next = ringPending;
+        ringPending = null;
+        if (next) ringFrame(next);
+      });
+  }
+
   function startRingBlink() {
     stopRingBlink();
     if (State.ledMode !== 'solid' || !State.ringSpeed) return;
-    var phase = 0;
-    var busy = false;
+    var started = Date.now();
     State.blinkTimer = setInterval(function () {
       if (State.ledMode !== 'solid' || !State.ringSpeed) {
         stopRingBlink();
         return;
       }
-      if (document.hidden || busy) return;
-      // Плавное «дыхание»: 15% → 100% → 15%, без резкого вкл/выкл.
-      phase += 0.17 * State.ringSpeed;
+      if (document.hidden) return;
+      // Плавное «дыхание» по времени, а не по счётчику кадров: 25 fps.
+      var phase = (Date.now() - started) / 1000 * State.ringSpeed * 1.2;
       var factor = 0.15 + 0.85 * (0.5 - 0.5 * Math.cos(phase));
       var color = scaleHex(State.color, factor);
-      var colors = new Array(24).fill(color);
-      busy = true;
-      request('/cgi-bin/luna.py?path=%2Fapi%2Fled%2Fring', { body: { colors: colors }, timeout: 5000 })
-        .catch(function () { stopRingBlink(); })
-        .finally(function () { busy = false; });
-    }, 100);
+      ringFrame(new Array(24).fill(color));
+    }, 40);
   }
 
   function startLedAnimation(kind) {
@@ -2378,26 +2407,23 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     markActiveChip();
     ensureRingBacklight();
 
-    var anim = { kind: kind, frame: 0, busy: false, timer: null };
+    var anim = { kind: kind, frame: 0, busy: false, timer: null, started: Date.now() };
     State.ledAnim = anim;
 
     var tick = function () {
       if (State.ledAnim !== anim) return;
       if (document.hidden) return;
-      var colors = kind === 'wave' ? waveColors(anim.frame) : candleColors(anim.frame);
-      anim.frame += 1;
+      // Фаза от времени, а не от номера кадра: при 25 fps не «ускоряется»
+      // и не зависит от подвисаний таймера.
+      var speed = State.ringSpeed || 1;
+      var seconds = (Date.now() - anim.started) / 1000 * speed;
+      var frame = seconds * 7;
+      var colors = kind === 'wave' ? waveColors(frame) : candleColors(frame);
       paintRing(colors, kind === 'wave' ? 'WAVE' : 'FIRE');
-      if (anim.busy) return;
-      anim.busy = true;
-      request('/cgi-bin/luna.py?path=%2Fapi%2Fled%2Fring', { body: { colors: colors }, timeout: 5000 })
-        .catch(function (err) {
-          stopLedAnimation();
-          toast('Кольцо: ' + err.message, 'bad');
-        })
-        .finally(function () { anim.busy = false; });
+      ringFrame(colors);
     };
 
-    anim.timer = setInterval(tick, Math.max(70, 150 / (State.ringSpeed || 1)));
+    anim.timer = setInterval(tick, 40);
     tick();
   }
 

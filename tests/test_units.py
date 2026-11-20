@@ -935,6 +935,55 @@ def test_ring_animation_preview():
           preview["frames"][0][0])
 
 
+def test_ring_forward():
+    """state_daemon.ring_forward ходит в Luna без запуска CGI."""
+    import state_daemon
+
+    class FakeResponse:
+        status = 200
+
+        def read(self, size=None):
+            return b"{}"
+
+    class FakeConnection:
+        def __init__(self, host, port, timeout=2.0):
+            self.host, self.port = host, port
+            self.sent = None
+            self.closed = False
+
+        def request(self, method, path, body=None, headers=None):
+            self.sent = (method, path, body, headers)
+
+        def getresponse(self):
+            return FakeResponse()
+
+        def close(self):
+            self.closed = True
+
+    created = []
+
+    def factory(host, port, timeout=2.0):
+        connection = FakeConnection(host, port, timeout)
+        created.append(connection)
+        return connection
+
+    old = state_daemon.http.client.HTTPConnection
+    try:
+        state_daemon.http.client.HTTPConnection = factory
+        ok = state_daemon.ring_forward(["#FF0000"] * 3)
+    finally:
+        state_daemon.http.client.HTTPConnection = old
+
+    connection = created[0] if created else None
+    check("кольцо: кадр уходит в Luna", ok and connection is not None)
+    check("кольцо: адрес и путь Luna", connection and connection.host == "127.0.0.1"
+          and connection.port == 8099
+          and connection.sent[1] == "/api/led/ring", str(connection and connection.sent[:2]))
+    check("кольцо: цвета сериализованы",
+          connection and b"#FF0000" in (connection.sent[2] or b""),
+          str(connection and connection.sent[2]))
+
+
 def test_discovery_payload():
     import json
 
@@ -1262,6 +1311,7 @@ def main():
         test_lyrics_parse,
         test_ring_animations_list,
         test_ring_animation_preview,
+        test_ring_forward,
         test_media_config_override,
         test_speak_frames,
         test_display_auto,

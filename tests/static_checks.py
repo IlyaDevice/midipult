@@ -448,10 +448,10 @@ def test_p2_hardening():
     check("время: нет фоновой синхронизации/перестановки",
           "sync_clock" not in display_py and "clock_tick" not in display_py
           and "clock_loop" not in voice_py)
-    check("ring: плавная свеча без random и busy-guard",
+    check("ring: плавная свеча без random, кадры через очередь",
           "Math.random" not in html and
           "i * 0.55 + frame * 0.22" in html and
-          "if (document.hidden || busy) return;" in html)
+          "function ringFrame(" in html and "ringPending" in html)
 
 
 def test_symlink_docroot_fix():
@@ -529,6 +529,21 @@ def test_yapanel_features():
           "_bing" not in search_py and "duckduckgo" not in search_py.lower())
 
 
+def test_ring_pipeline():
+    """Кадры кольца идут напрямую в демон, без CGI на каждый кадр."""
+    html = read(os.path.join(ROOT, "index.html"))
+    daemon = read(os.path.join(ROOT, "service", "state_daemon.py"))
+    conf = read(os.path.join(ROOT, "lighttpd", "myweb.conf"))
+    check("кольцо: прокси /ring в lighttpd",
+          "^/ring" in conf and "8057" in conf)
+    check("кольцо: демон принимает кадры и зовёт Luna",
+          "do_POST" in daemon and "ring_forward" in daemon
+          and "/api/led/ring" in daemon)
+    check("кольцо: панель шлёт кадры напрямую (25 fps)",
+          "function ringFrame(" in html and "request('/ring'" in html
+          and "setInterval(tick, 40)" in html)
+
+
 def main():
     for test in (
         test_encoding,
@@ -547,6 +562,7 @@ def main():
         test_autostart_shim,
         test_radio_url_and_search,
         test_yapanel_features,
+        test_ring_pipeline,
         test_button_grids,
         test_lighttpd_config,
         test_init_script,
