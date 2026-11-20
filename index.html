@@ -2658,12 +2658,14 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     displayOff: false,
     ringBrightness: 255,
     ringSpeed: 0,
-    ringMusic: 'wave',
+    ringMusic: 'off',
     ringMusicActive: false,
     ringMusicPrev: null,
     logoMode: 'sync',
     logoLast: '',
     logoSending: false,
+    hwPollBusy: false,
+    hwLast: '',
     ringAnimName: null,
     ringPreview: null,
     ringAnimations: [],
@@ -3511,10 +3513,10 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   }
 
   function initRingMusic() {
-    var saved = store.get('ringMusic', 'wave');
+    var saved = store.get('ringMusic', 'off');
     State.ringMusic = saved === 'off' || saved === 'rainbow' || saved === 'gradient' ||
       saved === 'wave' || saved === 'candle' || String(saved).indexOf('anim:') === 0
-      ? saved : 'wave';
+      ? saved : 'off';
     updateRingMusicUi();
     var button = document.getElementById('btnRingMusic');
     var pop = document.getElementById('ringMusicPop');
@@ -3619,6 +3621,32 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     });
     setInterval(syncLogo, 450);
     syncLogo();
+  }
+
+  function pollRingState() {
+    if (document.hidden || State.hwPollBusy) return;
+    if (State.ledMode === 'off' || State.ledMode === 'wave' ||
+        State.ledMode === 'candle') return;
+    State.hwPollBusy = true;
+    request('/ring_state', { method: 'GET', timeout: 4000, silent: true })
+      .catch(function () {
+        return cgi('ring_state.py', {}, { timeout: 4000, silent: true });
+      }).then(function (data) {
+      if (!data || State.ledMode === 'off') return;
+      if (!Array.isArray(data.colors) || data.colors.length !== 24) return;
+      var colors = data.colors.map(function (hex) { return '#' + String(hex); });
+      var key = colors.join(',');
+      if (key === State.hwLast) return;
+      State.hwLast = key;
+      paintRing(colors, 'HW');
+    }).catch(function () {}).then(function () {
+      State.hwPollBusy = false;
+    });
+  }
+
+  function initRingStatePolling() {
+    setInterval(pollRingState, 400);
+    setTimeout(pollRingState, 900);
   }
 
   function setRingBrightness(value, save) {
@@ -11141,6 +11169,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     initHome();
     initRingMusic();
     initLogo();
+    initRingStatePolling();
     renderAlarmDays();
     loadAlarms(true);
     clockAnimBind();

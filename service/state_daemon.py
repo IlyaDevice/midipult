@@ -306,11 +306,33 @@ class ClockAnimator(threading.Thread):
 CLOCK = ClockAnimator()
 
 
+def read_ring_colors():
+    """Текущие 24 цвета кольца из sysfs, включая штатные анимации прошивки."""
+    colors = []
+    for index in range(24):
+        values = []
+        for color in ("red", "green", "blue"):
+            path = "/sys/class/leds/cucumber:%s:ring%d/brightness" % (color, index)
+            try:
+                with open(path, "r", encoding="ascii") as fh:
+                    values.append(max(0, min(255, int(fh.read().strip() or "0"))))
+            except (OSError, ValueError):
+                values.append(0)
+        colors.append("%02X%02X%02X" % tuple(values))
+    return colors
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "mypult-state/1.0"
 
     def do_GET(self):  # noqa: N802
         parsed = urllib.parse.urlparse(self.path)
+        if parsed.path in ("/ring_state", "/ring_state/"):
+            if not cookie_ok(self.headers):
+                self._json(401, {"ok": False, "error": "Нужен PIN", "auth": True})
+                return
+            self._json(200, {"ok": True, "colors": read_ring_colors()})
+            return
         if parsed.path not in ("/state", "/state/"):
             self.send_error(404)
             return

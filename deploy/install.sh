@@ -70,6 +70,7 @@ rm -f "$WEB/icon.svg"
 for f in "$SRC"/cgi-bin/*.py; do
     cp -f "$f" "$WEB/cgi-bin/" || die "не скопировался $f"
 done
+chmod 755 "$WEB"/cgi-bin/*.py 2>/dev/null
 # Устаревший CGI звука отклика: удаляем, чтобы не оставался после обновления.
 rm -f "$WEB/cgi-bin/soundcfg.py"
 rm -f "$WEB/cgi-bin/timezone.py"
