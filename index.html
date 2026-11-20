@@ -9791,22 +9791,28 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         logoCanvas.height = 512;
         var lctx = logoCanvas.getContext('2d');
         lctx.clearRect(0, 0, 512, 512);
-        lctx.shadowColor = 'rgba(196,145,255,.85)';
-        lctx.shadowBlur = 28;
+        var glow = lctx.createRadialGradient(256, 256, 90, 256, 256, 250);
+        glow.addColorStop(0, 'rgba(190,130,255,.42)');
+        glow.addColorStop(0.55, 'rgba(150,90,255,.16)');
+        glow.addColorStop(1, 'rgba(120,70,255,0)');
+        lctx.fillStyle = glow;
+        lctx.fillRect(0, 0, 512, 512);
+        lctx.shadowColor = 'rgba(196,145,255,.95)';
+        lctx.shadowBlur = 34;
         lctx.fillStyle = '#c084fc';
         lctx.beginPath();
-        lctx.ellipse(256, 256, 148, 148, 0, 0, Math.PI * 2);
+        lctx.ellipse(256, 256, 166, 166, 0, 0, Math.PI * 2);
         lctx.fill();
         lctx.shadowBlur = 0;
         lctx.fillStyle = '#17131f';
         lctx.beginPath();
-        lctx.ellipse(256, 256, 94, 94, 0, 0, Math.PI * 2);
+        lctx.ellipse(256, 256, 104, 104, 0, 0, Math.PI * 2);
         lctx.fill();
         lctx.fillStyle = '#c084fc';
         lctx.beginPath();
-        lctx.moveTo(256, 190);
-        lctx.lineTo(300, 272);
-        lctx.lineTo(212, 272);
+        lctx.moveTo(256, 184);
+        lctx.lineTo(306, 278);
+        lctx.lineTo(206, 278);
         lctx.closePath();
         lctx.globalAlpha = 0.9;
         lctx.fill();
@@ -9815,11 +9821,11 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         logoTex.minFilter = THREE.LinearFilter;
         if (THREE.sRGBEncoding) logoTex.encoding = THREE.sRGBEncoding;
         var logoPlane = new THREE.Mesh(
-          new THREE.PlaneGeometry(0.68, 0.68),
+          new THREE.PlaneGeometry(0.86, 0.86),
           new THREE.MeshBasicMaterial({ map: logoTex, transparent: true,
             depthWrite: false, side: THREE.DoubleSide })
         );
-        logoPlane.position.set(bcenter.x, bodyBox.max.y + 0.065, bcenter.z);
+        logoPlane.position.set(bcenter.x, bodyBox.max.y + 0.085, bcenter.z);
         logoPlane.rotation.x = -Math.PI / 2;
         logoPlane.renderOrder = 8;
         scene.add(logoPlane);
