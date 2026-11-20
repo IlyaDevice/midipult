@@ -206,6 +206,7 @@ main.grid{
 #ringEditorSaved{padding:0 20px 18px}
 .ring-picker{position:relative;flex:1 1 240px;min-width:0;z-index:2}
 .ring-music{position:relative;z-index:3}
+.logo-modes{display:flex;gap:6px;flex-wrap:wrap}
 #ringMusicPop{position:fixed;left:0;top:0;z-index:9999;display:block;
   min-width:220px;background:#121724;border:1px solid var(--stroke);border-radius:14px;
   box-shadow:0 18px 40px rgba(0,0,0,.65);padding:6px;max-height:260px;overflow:auto}
@@ -1566,6 +1567,15 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       </div>
     </div>
     <div class="field" style="margin-top:14px">
+      <div class="field-top"><label>Логотип</label><output id="logoStatus">как кольцо</output></div>
+      <div class="logo-modes" id="logoModes">
+        <button type="button" class="chip" data-logo-mode="sync" aria-pressed="true">Как кольцо</button>
+        <button type="button" class="chip" data-logo-mode="purple" aria-pressed="false">Фиолетовый</button>
+        <button type="button" class="chip" data-logo-mode="white" aria-pressed="false">Белый</button>
+        <button type="button" class="chip" data-logo-mode="off" aria-pressed="false">Выкл</button>
+      </div>
+    </div>
+    <div class="field" style="margin-top:14px">
       <div class="field-top"><label>Анимации с колонки</label><output id="ringAnimStatus">—</output></div>
       <div class="anim-grid" id="ringAnimChips"></div>
       <div class="row ring-anim-row" style="margin-top:8px">
@@ -2651,6 +2661,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     ringMusic: 'wave',
     ringMusicActive: false,
     ringMusicPrev: null,
+    logoMode: 'sync',
+    logoLast: '',
+    logoSending: false,
     ringAnimName: null,
     ringPreview: null,
     ringAnimations: [],
@@ -3530,6 +3543,82 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       }
     });
     if (State.playing) startMusicRing();
+  }
+
+  function cssColorHex(value) {
+    var text = String(value || '').trim();
+    if (!text || text === 'transparent') return '000000';
+    if (text.charAt(0) === '#') {
+      var h = text.slice(1).toUpperCase();
+      return h.length === 3 ? h[0] + h[0] + h[1] + h[1] + h[2] + h[2] : h;
+    }
+    var m = text.match(/rgba?\(([^)]+)\)/);
+    if (m) {
+      var p = m[1].split(',').map(function (v) { return parseInt(v, 10) || 0; });
+      return rgbToHex(p[0], p[1], p[2]).slice(1);
+    }
+    return '000000';
+  }
+
+  function logoColors() {
+    if (State.logoMode === 'off') return new Array(6).fill('000000');
+    if (State.logoMode === 'purple') return new Array(6).fill('C084FC');
+    if (State.logoMode === 'white') return new Array(6).fill('FFFFFF');
+    if (State.ledMode === 'off') return new Array(6).fill('000000');
+    var out = [];
+    for (var i = 0; i < 6; i++) {
+      var dot = ringDots[i * 4];
+      out.push(cssColorHex(dot && dot.style.background));
+    }
+    return out;
+  }
+
+  function logoStatusText() {
+    if (State.logoMode === 'off') return 'выключен';
+    if (State.logoMode === 'purple') return 'фиолетовый';
+    if (State.logoMode === 'white') return 'белый';
+    return 'как кольцо';
+  }
+
+  function syncLogo() {
+    if (document.hidden || State.logoSending) return;
+    var colors = logoColors();
+    var key = colors.join(',');
+    if (key === State.logoLast) return;
+    State.logoSending = true;
+    luna('/api/led/logo', { colors: colors }, { timeout: 4000 }).then(function () {
+      State.logoLast = key;
+      var status = document.getElementById('logoStatus');
+      if (status) status.textContent = logoStatusText();
+    }).catch(function () {
+      var status = document.getElementById('logoStatus');
+      if (status) status.textContent = 'нет связи';
+    }).then(function () {
+      State.logoSending = false;
+    });
+  }
+
+  function initLogo() {
+    var saved = store.get('logoMode', 'sync');
+    State.logoMode = ['sync', 'purple', 'white', 'off'].indexOf(saved) >= 0 ? saved : 'sync';
+    Array.prototype.forEach.call(document.querySelectorAll('[data-logo-mode]'), function (button) {
+      button.setAttribute('aria-pressed',
+        button.dataset.logoMode === State.logoMode ? 'true' : 'false');
+      button.addEventListener('click', function () {
+        State.logoMode = button.dataset.logoMode;
+        store.set('logoMode', State.logoMode);
+        State.logoLast = '';
+        Array.prototype.forEach.call(document.querySelectorAll('[data-logo-mode]'), function (b) {
+          b.setAttribute('aria-pressed',
+            b.dataset.logoMode === State.logoMode ? 'true' : 'false');
+        });
+        var status = document.getElementById('logoStatus');
+        if (status) status.textContent = logoStatusText();
+        syncLogo();
+      });
+    });
+    setInterval(syncLogo, 450);
+    syncLogo();
   }
 
   function setRingBrightness(value, save) {
@@ -11051,6 +11140,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     buildMobileTabs();
     initHome();
     initRingMusic();
+    initLogo();
     renderAlarmDays();
     loadAlarms(true);
     clockAnimBind();
