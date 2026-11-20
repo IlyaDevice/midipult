@@ -343,9 +343,10 @@ main.grid{
     .c-llm{grid-column:span 12}
     .c-radio{grid-column:span 12}
 .c-alarm{grid-column:span 12}
-.alarm-grid{display:grid;grid-template-columns:1fr minmax(300px,380px);gap:18px;margin-top:12px;align-items:start}
-.alarm-list{display:flex;flex-direction:column;gap:8px;min-width:0}
-.alarm-empty{color:var(--muted);font-size:13px;padding:14px;border:1px dashed var(--stroke);border-radius:14px;text-align:center}
+.alarm-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px}
+.alarm-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:8px;margin-top:10px;min-width:0}
+.alarm-empty{grid-column:1/-1;color:var(--muted);font-size:13px;padding:18px;border:1px dashed var(--stroke);
+  border-radius:14px;text-align:center}
 .alarm-item{display:grid;grid-template-columns:76px 1fr auto;gap:14px;align-items:center;padding:12px 14px;
   border-radius:14px;background:rgba(255,255,255,.035);border:1px solid var(--stroke)}
 .alarm-item.off{opacity:.55}
@@ -354,26 +355,29 @@ main.grid{
 .alarm-when{font-size:12px;color:var(--muted);margin-top:3px}
 .alarm-what{font-size:13px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .alarm-actions{display:flex;gap:6px;align-items:center}
-.alarm-form{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:16px;
-  background:rgba(255,255,255,.03);border:1px solid var(--stroke);height:max-content}
+.alarm-dlg{width:min(520px,94vw);border:0;border-radius:22px;padding:0;background:#0b0e16;color:var(--text);
+  box-shadow:0 30px 80px rgba(0,0,0,.55);overflow:hidden}
+.alarm-dlg::backdrop{background:rgba(4,6,12,.7);backdrop-filter:blur(8px)}
+.alarm-dlg-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px 6px}
+.alarm-dlg-head h3{margin:0;font-size:17px}
+.alarm-form{display:flex;flex-direction:column;gap:10px;padding:14px 20px 20px}
 .alarm-row{display:flex;gap:10px;align-items:center}
 .alarm-row > *{flex:1 1 0;min-width:0}
-.alarm-form input[type="time"]{height:40px;font-size:18px;font-weight:650;text-align:center}
-.alarm-form select{height:40px}
-.alarm-form input[type="text"]{height:38px}
+.alarm-form input[type="time"]{height:42px;font-size:20px;font-weight:650;text-align:center}
+.alarm-form select{height:42px}
+.alarm-form input[type="text"]{height:40px}
 .alarm-num{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
 .alarm-num output{color:var(--text);font-weight:650;font-size:12px}
-.alarm-num input[type="number"]{height:34px;font-size:13px}
+.alarm-num input[type="number"]{height:36px;font-size:13px}
 .alarm-days{display:flex;gap:4px;flex-wrap:wrap}
 .alarm-days .chip{height:30px;padding:0 9px;font-size:11px;flex:0 0 auto}
-.alarm-ringing{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:10px;padding:14px 16px;
+.alarm-ringing{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:12px;padding:14px 16px;
   border-radius:16px;border:1px solid rgba(124,92,255,.5);
   background:linear-gradient(135deg,rgba(124,92,255,.28),rgba(79,124,255,.16));
   box-shadow:0 12px 34px rgba(92,110,255,.25);animation:alarmPulse 1.6s ease-in-out infinite}
 @keyframes alarmPulse{50%{box-shadow:0 14px 44px rgba(124,92,255,.5)}}
 .alarm-ring-kicker{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#cfc7ff}
 .alarm-ring-label{font-size:17px;font-weight:700;margin-top:2px}
-@media (max-width:900px){.alarm-grid{grid-template-columns:1fr}}
     .c-vpn{grid-column:span 12}
     .c-sys{grid-column:span 12}
     .c-bt,.c-net{grid-column:span 6}
@@ -948,85 +952,6 @@ body.light .reboot-bar{background:rgba(76,62,48,.1)}
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important}
 }
-/* ================= v2 visual refresh ================= */
-:root{
-  --radius:24px;--r16:16px;--r12:14px;
-  --stroke:rgba(255,255,255,.085);
-  --card-a:rgba(25,30,46,.78);--card-b:rgba(11,14,22,.92);
-  --shadow:0 24px 60px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.045);
-}
-body.light{--stroke:rgba(76,62,48,.12);--card-a:rgba(255,253,249,.94);
-  --card-b:rgba(248,242,234,.98);
-  --shadow:0 24px 60px rgba(80,60,30,.14), inset 0 1px 0 rgba(255,255,255,.7)}
-body{background:
-  radial-gradient(1100px 700px at 12% -10%,rgba(124,92,255,.16),transparent 60%),
-  radial-gradient(900px 700px at 100% 0%,rgba(34,211,238,.10),transparent 55%),
-  var(--bg)}
-body.light{background:
-  radial-gradient(1000px 650px at 8% -10%,rgba(124,92,255,.10),transparent 60%),
-  radial-gradient(800px 600px at 100% 0%,rgba(34,211,238,.10),transparent 55%),var(--bg)}
-.aurora{display:none}
-.topbar{position:sticky;top:0;z-index:65;backdrop-filter:blur(18px);
-  background:linear-gradient(180deg,rgba(7,9,15,.9),rgba(7,9,15,.55) 70%,transparent);
-  padding:14px var(--page-x) 10px;max-width:1240px}
-body.light .topbar{background:linear-gradient(180deg,rgba(244,239,231,.94),rgba(244,239,231,.6) 70%,transparent)}
-.logo{width:42px;height:42px;box-shadow:0 8px 26px rgba(124,92,255,.35),0 0 0 1px rgba(255,255,255,.14)}
-.brand h1{font-size:15px;font-weight:750;letter-spacing:.3px}
-.brand p{font-size:11px;opacity:.75;margin-top:2px}
-.pill{height:32px;background:rgba(255,255,255,.045);border-color:rgba(255,255,255,.09);backdrop-filter:blur(10px)}
-.tabs{top:86px;margin:0 auto 18px;padding:5px;gap:4px;background:rgba(10,13,22,.7);
-  border-color:rgba(255,255,255,.10);
-  box-shadow:0 18px 44px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.06)}
-body.light .tabs{background:rgba(255,252,247,.8);border-color:rgba(76,62,48,.12)}
-.tab{height:36px;width:auto;padding:0 15px;border-radius:11px;font-size:13px;letter-spacing:.1px}
-.tab[aria-pressed="true"]{background:linear-gradient(135deg,#7c5cff,#4f7cff);
-  box-shadow:0 10px 26px rgba(92,110,255,.38),inset 0 1px 0 rgba(255,255,255,.22)}
-main.grid{max-width:1240px;gap:18px;margin-top:6px;padding-bottom:40px;align-items:start}
-.card{padding:20px 22px;border-radius:24px;
-  background:linear-gradient(168deg,var(--card-a),var(--card-b));
-  border:1px solid var(--stroke);box-shadow:var(--shadow);backdrop-filter:blur(16px);
-  transition:border-color .2s,box-shadow .2s}
-.card:hover{border-color:rgba(124,92,255,.26)}
-body.light .card:hover{border-color:rgba(124,92,255,.30)}
-.card::after{background:radial-gradient(460px 200px at 10% -12%,rgba(124,92,255,.14),transparent 70%)}
-.card h2{font-size:11px;font-weight:750;letter-spacing:.14em;text-transform:uppercase;
-  color:rgba(232,238,255,.72);display:flex;align-items:center;gap:8px;margin:0 0 6px;line-height:1.2}
-body.light .card h2{color:rgba(60,52,40,.65)}
-.card h2 .dot{width:6px;height:6px;box-shadow:0 0 10px rgba(124,92,255,.9)}
-.card-move button{width:26px;height:26px;border-radius:8px;background:rgba(255,255,255,.04);
-  border-color:rgba(255,255,255,.09)}
-.btn{height:38px;padding:0 15px;border-radius:12px;background:rgba(255,255,255,.05);
-  border:1px solid rgba(255,255,255,.10);font-size:13px;font-weight:600;
-  transition:background .16s,border-color .16s,transform .16s,box-shadow .16s}
-.btn:hover{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.18);transform:translateY(-1px)}
-.btn.primary{background:linear-gradient(135deg,#7c5cff,#4f7cff);border-color:transparent;
-  box-shadow:0 12px 28px rgba(92,110,255,.35)}
-.btn.ghost{background:rgba(255,255,255,.025);border-color:rgba(255,255,255,.12)}
-.btn.sm{height:32px;padding:0 12px;font-size:12px;border-radius:10px}
-.btn.danger{background:rgba(251,113,133,.12);border-color:rgba(251,113,133,.35);color:#ffd7de}
-.chip{height:34px;border-radius:10px;background:rgba(255,255,255,.045);
-  border:1px solid rgba(255,255,255,.10);font-size:12px;font-weight:600;
-  transition:background .16s,border-color .16s,transform .16s}
-.chip:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18);transform:translateY(-1px)}
-.chip[aria-pressed="true"]{background:linear-gradient(135deg,rgba(124,92,255,.38),rgba(79,124,255,.26));
-  border-color:rgba(124,92,255,.55);color:#fff;box-shadow:0 6px 18px rgba(92,110,255,.22)}
-.field-top label{font-size:11px;letter-spacing:.08em;text-transform:uppercase}
-select,.net-input,input[type="text"],input[type="password"],input[type="number"],textarea{
-  border-radius:12px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.045);
-  transition:border-color .16s,box-shadow .16s}
-select:focus,.net-input:focus,input[type="text"]:focus,input[type="password"]:focus,textarea:focus{
-  outline:none;border-color:rgba(124,92,255,.55);box-shadow:0 0 0 3px rgba(124,92,255,.16)}
-input[type="range"]::-webkit-slider-runnable-track{height:4px}
-input[type="range"]::-webkit-slider-thumb{width:16px;height:16px;
-  box-shadow:0 0 0 4px rgba(124,92,255,.18),0 2px 8px rgba(0,0,0,.4)}
-.radio-grid .chip{height:auto;min-height:38px;border-radius:11px;justify-content:flex-start;padding:8px 12px}
-.seg-note{font-size:11px;color:var(--muted)}
-footer{max-width:1240px;margin:0 auto;padding:10px var(--page-x) 26px;font-size:11px;color:var(--muted)}
-::-webkit-scrollbar{width:10px;height:10px}
-::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:99px;
-  border:3px solid transparent;background-clip:content-box}
-::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.24);background-clip:content-box}
-@media (max-width:760px){.topbar{position:static;padding-top:12px}.tabs{top:8px}}
 body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 </style>
 </head>
@@ -1308,6 +1233,10 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   <!-- ───────── озвучка ───────── -->
   <section class="card c-alarm" data-group="sound" aria-labelledby="h-alarm">
     <h2 id="h-alarm"><span class="dot"></span>Будильники</h2>
+    <div class="alarm-top">
+      <span class="seg-note">Радио или фраза Алисе, нарастание громкости и мигание кольца.</span>
+      <button class="btn sm" id="btnAlarmOpen">Добавить</button>
+    </div>
     <div class="alarm-ringing" id="alarmRinging" hidden>
       <div>
         <div class="alarm-ring-kicker">Звонит</div>
@@ -1318,38 +1247,43 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         <button class="btn sm ghost" id="btnAlarmSnooze">Отложить</button>
       </div>
     </div>
-    <div class="alarm-grid">
-      <div class="alarm-list" id="alarmList"></div>
-      <div class="alarm-form">
-        <div class="alarm-row">
-          <input type="time" id="alarmTime" value="07:00" aria-label="Время будильника">
-          <select id="alarmMode" aria-label="Что включать">
-            <option value="radio">Радио</option>
-            <option value="query">Фраза Алисе</option>
-          </select>
-        </div>
-        <input type="text" id="alarmText" placeholder="Станция или фраза" maxlength="200" aria-label="Станция или фраза">
-        <div class="alarm-days" id="alarmDays"></div>
-        <div class="alarm-row">
-          <label class="alarm-num">Громкость <output id="alarmVolumeVal">40%</output>
-            <input type="range" id="alarmVolume" min="0" max="100" step="5" value="40">
-          </label>
-          <label class="alarm-num">Нарастание, с
-            <input type="number" id="alarmRamp" min="0" max="300" step="5" value="30">
-          </label>
-        </div>
-        <div class="alarm-row">
-          <label class="alarm-num">Стоп через, мин
-            <input type="number" id="alarmStop" min="0" max="120" value="10">
-          </label>
-          <label class="alarm-num">Отложить, мин
-            <input type="number" id="alarmSnooze" min="1" max="60" value="5">
-          </label>
-        </div>
-        <button class="btn primary" id="btnAlarmAdd">Добавить будильник</button>
-      </div>
-    </div>
+    <div class="alarm-list" id="alarmList"></div>
   </section>
+
+  <dialog id="alarmDlg" class="alarm-dlg" aria-labelledby="alarmDlgTitle">
+    <div class="alarm-dlg-head">
+      <h3 id="alarmDlgTitle">Новый будильник</h3>
+      <button class="btn sm ghost" id="btnAlarmClose">Закрыть</button>
+    </div>
+    <div class="alarm-form">
+      <div class="alarm-row">
+        <input type="time" id="alarmTime" value="07:00" aria-label="Время будильника">
+        <select id="alarmMode" aria-label="Что включать">
+          <option value="radio">Радио</option>
+          <option value="query">Фраза Алисе</option>
+        </select>
+      </div>
+      <input type="text" id="alarmText" placeholder="Станция или фраза" maxlength="200" aria-label="Станция или фраза">
+      <div class="alarm-days" id="alarmDays"></div>
+      <div class="alarm-row">
+        <label class="alarm-num">Громкость <output id="alarmVolumeVal">40%</output>
+          <input type="range" id="alarmVolume" min="0" max="100" step="5" value="40">
+        </label>
+        <label class="alarm-num">Нарастание, с
+          <input type="number" id="alarmRamp" min="0" max="300" step="5" value="30">
+        </label>
+      </div>
+      <div class="alarm-row">
+        <label class="alarm-num">Стоп через, мин
+          <input type="number" id="alarmStop" min="0" max="120" value="10">
+        </label>
+        <label class="alarm-num">Отложить, мин
+          <input type="number" id="alarmSnooze" min="1" max="60" value="5">
+        </label>
+      </div>
+      <button class="btn primary" id="btnAlarmAdd">Добавить будильник</button>
+    </div>
+  </dialog>
 
   <section class="card c-tts" data-group="sound" aria-labelledby="h-tts">
     <h2 id="h-tts"><span class="dot"></span>Озвучка голосом Алисы</h2>
@@ -3357,7 +3291,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     if (!alarms || !alarms.length) {
       var empty = document.createElement('div');
       empty.className = 'alarm-empty';
-      empty.textContent = 'Пока нет будильников — добавьте первый справа.';
+      empty.textContent = 'Пока нет будильников — нажмите «Добавить».';
       el.alarmList.appendChild(empty);
       return;
     }
@@ -3457,6 +3391,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     return cgi('alarm.py', { add: payload }, { timeout: 15000 }).then(function (data) {
       renderAlarmList(data.alarms || []);
       el.alarmText.value = '';
+      if (el.alarmDlg && el.alarmDlg.open) el.alarmDlg.close();
       toast('Будильник добавлен', 'ok');
     }).catch(function (err) { toast('Будильник: ' + err.message, 'bad'); });
   }
@@ -7099,6 +7034,17 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       event.preventDefault();
       alarmAdd();
     });
+    if (el.btnAlarmOpen) el.btnAlarmOpen.addEventListener('click', function () {
+      if (el.alarmDlg) el.alarmDlg.showModal();
+    });
+    if (el.btnAlarmClose) el.btnAlarmClose.addEventListener('click', function () {
+      if (el.alarmDlg) el.alarmDlg.close();
+    });
+    if (el.alarmDlg) {
+      el.alarmDlg.addEventListener('click', function (event) {
+        if (event.target === el.alarmDlg) el.alarmDlg.close();
+      });
+    }
     if (el.btnAlarmDismiss) el.btnAlarmDismiss.addEventListener('click', alarmDismiss);
     if (el.btnAlarmSnooze) el.btnAlarmSnooze.addEventListener('click', alarmSnooze);
     if (el.alarmVolume) el.alarmVolume.addEventListener('input', function () {
@@ -7560,7 +7506,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'alarmList', 'alarmRinging', 'alarmRingLabel', 'btnAlarmDismiss',
       'btnAlarmSnooze', 'alarmTime', 'alarmMode', 'alarmText', 'alarmDays',
       'alarmVolume', 'alarmVolumeVal', 'alarmRamp', 'alarmStop', 'alarmSnooze',
-      'btnAlarmAdd', 'clockAnimStatus',
+      'btnAlarmAdd', 'clockAnimStatus', 'btnAlarmOpen', 'btnAlarmClose', 'alarmDlg',
       'volume', 'volumeVal', 'btnVolDown', 'btnVolUp', 'btnMute',
       'btnMic', 'micHint', 'micTimer', 'transcript', 'btnRepeat', 'btnCancelListen',
       'command', 'btnSendCmd', 'ttsText', 'ttsCount', 'btnTtsClear', 'btnSay', 'ttsChips',
