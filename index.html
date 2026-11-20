@@ -170,6 +170,7 @@ select{max-width:100%}
 main.grid{
   max-width:1200px;margin:16px auto 0;padding:0 var(--page-x) 30px;
   display:grid;gap:var(--gap-lg);grid-template-columns:repeat(12,minmax(0,1fr));
+  align-items:start;
 }
 .card{
   grid-column:span 12;position:relative;min-width:0;max-width:100%;padding:var(--pad-card);border-radius:var(--radius);
@@ -188,8 +189,8 @@ main.grid{
   }
   .radio-grid .chip{width:100%;min-width:0;justify-content:flex-start;gap:6px;padding:0 12px;overflow:hidden}
   .radio-grid .radio-label{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
-  .radio-picker{position:relative;margin-top:12px;z-index:2}
-.c-radio{overflow:hidden}
+  .radio-picker{position:relative;margin-top:12px;z-index:20}
+.c-radio{overflow:visible;position:relative;z-index:30}
 .ring-anim-row{align-items:flex-start}
 .ring-editor-form{display:grid;grid-template-columns:200px minmax(0,1fr);gap:14px;padding:8px 20px 12px;
   min-height:0;overflow-y:auto;flex:1 1 auto}
@@ -222,8 +223,13 @@ body.light #ringMusicPop{background:#fff}
 .picker-search .net-input{height:34px}
 .picker-options{max-height:240px;overflow:auto;overscroll-behavior:contain;padding:0 2px}
 .radio-pick-count{font-size:11px;color:var(--muted);margin-left:auto;margin-right:2px}
-.radio-picker .radio-list{position:static;left:auto;right:auto;top:auto;max-height:none;
-  margin-top:8px;padding:6px;background:#0f1420;border-radius:12px;overflow:visible}
+.radio-picker .radio-list{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:60;
+  max-height:min(360px,60vh);margin-top:0;padding:6px;background:#0f1420;border-radius:12px;
+  overflow:auto;box-shadow:0 18px 40px rgba(0,0,0,.55);
+  animation:radioPop .16s ease-out}
+.radio-picker .radio-list .picker-search{position:sticky;top:0;z-index:1;background:#0f1420;
+  padding:2px 0 6px}
+@keyframes radioPop{from{opacity:0;transform:translateY(-5px) scale(.99)}to{opacity:1;transform:none}}
 .radio-list .radio-option{font-size:13.5px;padding:9px 10px;border-radius:8px}
 .radio-list .radio-option + .radio-option{margin-top:2px}
 .radio-list .radio-option:hover{background:rgba(124,92,255,.20)}
@@ -251,7 +257,15 @@ body.light #ringMusicPop{background:#fff}
   .pin-card{width:min(92vw,340px);padding:24px;border-radius:var(--radius);border:1px solid var(--stroke);background:var(--card-b);box-shadow:var(--shadow);display:grid;gap:var(--gap-md);text-align:center}
   .pin-card h2{margin:0;font-size:var(--fs-18)}
   .pin-card input{width:100%;height:var(--ctl-h);padding:0 14px;border-radius:var(--r12);border:1px solid var(--stroke);background:rgba(255,255,255,.06);color:var(--text);font-size:var(--fs-20);text-align:center;letter-spacing:6px}
-  main .card.dragging{opacity:.45}
+  main .card.dragging{opacity:.22;transition:opacity .15s ease}
+  main .card h2{touch-action:none}
+  body.card-dragging,body.card-dragging *{cursor:grabbing!important;user-select:none}
+  .card-ghost{position:fixed;left:0;top:0;z-index:9999;pointer-events:none;margin:0!important;
+    opacity:.96;transform:translate3d(0,0,0) rotate(.45deg) scale(1.012);overflow:hidden;
+    border-radius:var(--radius);box-shadow:0 28px 70px rgba(0,0,0,.65);
+    will-change:transform;backface-visibility:hidden}
+  .card-ghost .card-move{display:none}
+  main .card.drop-before,main .card.drop-after{outline:2px solid var(--accent2);outline-offset:-2px}
   .card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--gap-sm);min-width:0}
   main .card h2{cursor:grab;flex:1 1 auto;min-width:0;padding-right:0}
   main .card h2:active{cursor:grabbing}
@@ -396,8 +410,8 @@ body.light #ringMusicPop{background:#fff}
     .c-voice{grid-column:span 7}
     .c-tts{grid-column:span 12}
     .c-llm{grid-column:span 12}
-    .c-radio{grid-column:span 12}
-.c-alarm{grid-column:span 12}
+    .c-radio{grid-column:span 5}
+    .c-alarm{grid-column:span 7}
 .alarm-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px}
 .alarm-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:8px;margin-top:10px;min-width:0}
 .alarm-empty{grid-column:1/-1;color:var(--muted);font-size:13px;padding:18px;border:1px dashed var(--stroke);
@@ -738,6 +752,7 @@ body.light .btn.danger:disabled{opacity:1;background:rgba(190,18,60,.10);border-
 .bright-chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));max-width:744px;gap:var(--gap-sm);margin-top:12px}
 .bright-chips .chip{width:100%;justify-content:center;padding:0 8px;font-size:var(--fs-12)}
 .bright-chips.is-auto .chip,#brightness.is-auto{opacity:.55}
+#ringBrightness.is-auto,#ringBrightVal.is-auto{opacity:.55}
 
 /* ---------- led ---------- */
 .ring{position:relative;width:220px;height:220px;margin:8px auto 2px;--r:88px}
@@ -814,22 +829,173 @@ body.light .np-glow{opacity:.30;filter:blur(60px) saturate(1.2) brightness(.95)}
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .np-sub{font-size:var(--fs-13);color:var(--muted);margin-top:3px;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.np-controls{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;
-  gap:24px;margin:2px 0 8px}
-.np-controls .btn.icon{width:48px;height:48px;background:transparent;border-color:transparent;color:var(--text)}
+.np-transport{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;
+  gap:10px;margin:2px 0 8px}
+.np-aux{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+.np-aux .btn.icon-sm{width:32px;height:32px;opacity:.8}
+.np-aux .btn.on{color:#ff5c8a;background:rgba(255,92,138,.14);border-color:rgba(255,92,138,.42);opacity:1}
+.np-controls{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:10px}
+.np-controls .btn.icon{width:40px;height:40px;background:transparent;border-color:transparent;color:var(--text)}
 .np-controls .btn.icon:hover{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.12)}
-.np-controls .btn.icon.big.play{width:66px;height:66px;color:#fff;
+.np-controls .btn.icon.big.play{width:58px;height:58px;color:#fff;
   background:linear-gradient(135deg,#7c5cff,#4f7cff);border-color:transparent;
   box-shadow:0 16px 34px rgba(92,110,255,.45)}
 .np-controls .btn.icon.big.play:hover{filter:brightness(1.08)}
-.np-actions{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:2px}
-.np-actions .btn.icon-sm{width:38px;height:38px;opacity:.8}
-.np-actions .btn.on{color:#ff5c8a;background:rgba(255,92,138,.14);border-color:rgba(255,92,138,.42);opacity:1}
+.np-actions{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:4px}
 .np-volume{position:relative;z-index:1;display:flex;align-items:center;gap:8px;margin-top:16px}
 .np-volume input{flex:1;min-width:0}
 .np-volume .btn{height:32px;width:32px;padding:0;font-size:var(--fs-15);line-height:1}
+.ym-auth{margin-top:12px;padding-top:10px;border-top:1px solid var(--stroke)}
+.ym-auth>summary{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;
+  list-style:none;font-size:12px;color:var(--muted);padding:2px 0}
+.ym-auth>summary::-webkit-details-marker{display:none}
+.ym-auth>summary b{font-size:12px;color:var(--text);font-weight:600}
+.ym-summary-side{display:flex;align-items:center;gap:7px;margin-left:auto}
+.ym-expand{display:grid;place-items:center;width:22px;height:22px;border-radius:7px;
+  border:1px solid var(--stroke);color:var(--muted);font-size:13px;line-height:1;
+  background:rgba(255,255,255,.035);cursor:pointer;transition:.15s}
+.ym-expand:hover{color:var(--text);border-color:rgba(124,92,255,.5);background:rgba(124,92,255,.15)}
+.ym-auth>summary::after{content:"▾";color:var(--muted);font-size:11px;transition:transform .15s}
+.ym-auth[open]>summary::after{transform:rotate(180deg)}
+.ym-auth-body{padding-top:8px}
+.ym-playlists{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;
+  max-height:260px;overflow:auto;padding:2px}
+.ym-item{display:flex;align-items:center;gap:8px;min-width:0;padding:7px;border-radius:12px;
+  border:1px solid var(--stroke);background:rgba(255,255,255,.035)}
+.ym-item img,.ym-item .ym-cover{width:42px;height:42px;flex:0 0 auto;border-radius:8px;object-fit:cover;
+  background:linear-gradient(140deg,rgba(124,92,255,.32),rgba(34,211,238,.16))}
+.ym-item .ym-meta{min-width:0;flex:1 1 auto}
+.ym-item .ym-title{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ym-item .ym-count{font-size:10px;color:var(--muted);margin-top:2px}
+.ym-item .btn{flex:0 0 auto}
+.ym-dlg{width:100vw;height:100dvh;max-width:100vw;max-height:100dvh;margin:0;padding:0;
+  border:0;border-radius:0;background:#0b0b0d;overflow:hidden;color:#f5f5f7}
+.ym-dlg[open]{display:flex}
+.ym-dlg::backdrop{background:rgba(3,5,10,.9);backdrop-filter:blur(12px)}
+.ym-shell{display:grid;grid-template-columns:224px minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;
+  width:100%;height:100%;min-height:0}
+.ym-side{grid-row:1;grid-column:1;display:flex;flex-direction:column;min-height:0;
+  padding:22px 16px 16px;background:#08080a;border-right:1px solid #1d1d21}
+.ym-brand{display:flex;align-items:center;gap:9px;padding:0 8px;font-size:15px;font-weight:700;
+  letter-spacing:-.02em;color:#fff}
+.ym-brand-mark{display:grid;place-items:center;width:32px;height:32px;border-radius:9px;
+  background:#ffdb4d;color:#151515;font-weight:900;font-size:17px}
+.ym-nav{display:flex;flex-direction:column;gap:3px;margin-top:24px}
+.ym-nav-item{display:flex;align-items:center;gap:10px;width:100%;padding:10px 11px;
+  border:0;border-radius:9px;background:transparent;color:#9a9aa2;font:inherit;font-size:13px;
+  text-align:left;cursor:pointer;transition:background .15s,color .15s}
+.ym-nav-item:hover{background:#18181c;color:#fff}
+.ym-nav-item:focus-visible{outline:2px solid #ffdb4d;outline-offset:-2px}
+.ym-nav-item[aria-pressed="true"]{background:#202025;color:#ffdb4d}
+.ym-nav-glyph{width:18px;text-align:center;font-size:15px;opacity:.9}
+.ym-side-foot{margin-top:auto;padding:12px 9px 0;border-top:1px solid #1d1d21;
+  font-size:10px;line-height:1.5;color:#707078}
+.ym-side-foot span{color:#4d4d54}
+.ym-dlg[open] .ym-side,.ym-dlg[open] .ym-main{animation:ymIn .22s ease-out}
+@keyframes ymIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.ym-main{grid-row:1;grid-column:2;display:flex;flex-direction:column;min-width:0;min-height:0;
+  background:radial-gradient(900px 360px at 75% -10%,rgba(255,219,77,.10),transparent 65%),
+    linear-gradient(180deg,#111114 0%,#0b0b0d 45%)}
+.ym-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;
+  padding:28px 34px 10px;flex:0 0 auto}
+.ym-kicker{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#ffdb4d;font-weight:700}
+.ym-head h2{margin:5px 0 0;font-size:38px;line-height:1.02;letter-spacing:-.04em;color:#fff}
+.ym-head p{margin:8px 0 0;font-size:13px;color:#8d8d96}
+.ym-close{display:grid;place-items:center;width:36px;height:36px;flex:0 0 auto;border-radius:50%;
+  border:1px solid #2a2a2f;background:#18181c;color:#b9b9c1;font-size:16px;cursor:pointer;
+  transition:.15s}
+.ym-close:hover{background:#25252b;color:#fff;border-color:#3b3b43}
+.ym-toolbar{display:flex;align-items:center;padding:10px 34px 18px;flex:0 0 auto}
+.ym-search-wrap{display:flex;align-items:center;gap:10px;width:min(100%,520px);height:42px;
+  padding:0 14px;border:1px solid #2a2a30;border-radius:12px;background:#1b1b20;color:#777780}
+.ym-search-wrap:focus-within{border-color:#ffdb4d!important;
+  box-shadow:0 0 0 2px rgba(255,219,77,.16)!important;outline:none!important}
+.ym-search-wrap .ic{width:17px;height:17px;flex:0 0 auto}
+.ym-search-wrap input{flex:1;min-width:0;height:100%;border:0;background:transparent;
+  color:#f2f2f5;font:inherit;font-size:13px;outline:none}
+.ym-search-wrap input::placeholder{color:#6d6d76}
+.ym-body{flex:1 1 auto;min-height:0;overflow:auto;padding:2px 34px 26px}
+.ym-section-title{font-size:24px;font-weight:750;letter-spacing:-.03em;color:#fff;margin:4px 0 16px}
+.ym-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:18px}
+.ym-card{position:relative;display:flex;flex-direction:column;gap:9px;padding:0;border:0;
+  border-radius:0;background:transparent;cursor:pointer;text-align:left;color:#fff}
+.ym-card img,.ym-card .ym-card-cover{width:100%;aspect-ratio:1;border-radius:12px;object-fit:cover;
+  background:linear-gradient(140deg,#383840,#1d1d22);display:block;transition:transform .18s ease,box-shadow .18s ease}
+.ym-card:hover .ym-card-cover{transform:scale(1.02);box-shadow:0 14px 30px rgba(0,0,0,.4)}
+.ym-card::after{content:"▶";position:absolute;right:10px;bottom:48px;width:38px;height:38px;
+  display:grid;place-items:center;border-radius:50%;background:#ffdb4d;color:#111;font-size:12px;
+  opacity:0;transform:translateY(4px);transition:.16s;pointer-events:none}
+.ym-card:hover::after{opacity:1;transform:none}
+.ym-card b{font-size:13px;line-height:1.3;font-weight:650}
+.ym-card span{font-size:11px;color:#85858e}
+.ym-track{display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:9px;
+  border:0;background:transparent;margin-bottom:2px;transition:background .12s}
+.ym-track:hover{background:#1c1c21}
+.ym-track img,.ym-track .ym-track-cover{width:42px;height:42px;border-radius:7px;object-fit:cover;
+  flex:0 0 auto;background:linear-gradient(140deg,#383840,#1d1d22)}
+.ym-track-meta{flex:1 1 auto;min-width:0}
+.ym-track-meta b{display:block;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ym-track-meta span{font-size:11px;color:#85858e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;margin-top:2px}
+.ym-track .ym-duration{font-size:11px;color:#6d6d76;font-variant-numeric:tabular-nums;flex:0 0 auto}
+.ym-track .btn{color:#a7a7b0;opacity:.75}
+.ym-track:hover .btn{opacity:1;color:#ffdb4d}
+.ym-empty{color:#85858e;font-size:13px;text-align:center;padding:50px 10px}
+.ym-bar{grid-row:2;grid-column:1/-1;display:grid;grid-template-columns:58px minmax(0,1fr) auto minmax(180px,1fr);
+  align-items:center;gap:14px;padding:11px 24px 13px;border-top:1px solid #232328;background:#111114}
+.ym-bar-art{width:48px;height:48px;border-radius:8px;overflow:hidden;flex:0 0 auto;display:grid;
+  place-items:center;background:#25252b;color:#777780}
+.ym-bar-art img{width:100%;height:100%;object-fit:cover}
+.ym-bar-meta{min-width:0}
+.ym-bar-meta b{display:block;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff}
+.ym-bar-meta span{display:block;font-size:10px;color:#85858e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.ym-bar-controls{display:flex;gap:5px;align-items:center;justify-content:center;flex:0 0 auto}
+.ym-bar-btn{display:grid;place-items:center;width:34px;height:34px;border:0;border-radius:50%;
+  background:transparent;color:#b6b6bf;cursor:pointer}
+.ym-bar-btn:hover{background:#222228;color:#fff}
+.ym-bar-play{display:grid;place-items:center;width:38px;height:38px;border:0;border-radius:50%;
+  background:#ffdb4d;color:#111;cursor:pointer;transition:transform .12s}
+.ym-bar-play:hover{transform:scale(1.05)}
+.ym-bar-play .ic,.ym-bar-btn .ic{width:17px;height:17px}
+.ym-bar-progress{display:flex;align-items:center;gap:9px;min-width:0}
+.ym-bar-progress span{font-size:10px;color:#6d6d76;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ym-bar-line{flex:1;height:3px;border-radius:99px;background:#34343b;overflow:hidden}
+.ym-bar-line i{display:block;height:100%;width:0;background:#ffdb4d;transition:width .3s linear}
+@media(max-width:800px){
+  .ym-shell{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr) auto}
+  .ym-side{grid-row:1;grid-column:1;flex-direction:row;align-items:center;gap:10px;
+    padding:9px 12px;border-right:0;border-bottom:1px solid #1d1d21;overflow-x:auto}
+  .ym-brand{flex:0 0 auto;padding:0}
+  .ym-brand span:last-child{display:none}
+  .ym-brand-mark{width:28px;height:28px;font-size:15px}
+  .ym-nav{flex-direction:row;margin:0;gap:2px}
+  .ym-nav-item{padding:7px 9px;font-size:12px;white-space:nowrap}
+  .ym-nav-glyph{display:none}
+  .ym-side-foot{display:none}
+  .ym-main{grid-row:2;grid-column:1}
+  .ym-head{padding:16px 16px 4px}
+  .ym-head h2{font-size:27px}
+  .ym-head p{font-size:11px;margin-top:5px}
+  .ym-toolbar{padding:8px 16px 12px}
+  .ym-body{padding:2px 16px 18px}
+  .ym-section-title{font-size:19px;margin-bottom:12px}
+  .ym-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
+  .ym-card::after{display:none}
+  .ym-bar{grid-template-columns:42px minmax(0,1fr) auto;grid-template-rows:auto auto;gap:8px;padding:9px 14px 11px}
+  .ym-bar-art{width:38px;height:38px;grid-row:1}
+  .ym-bar-meta{grid-row:1}
+  .ym-bar-controls{grid-row:1}
+  .ym-bar-progress{grid-column:1/-1;grid-row:2}
+}
 .np-volume #volumeVal{font-size:var(--fs-12);color:var(--muted);min-width:40px;text-align:right;
   font-variant-numeric:tabular-nums}
+@media(max-width:520px){
+  .np-transport{gap:4px}
+  .np-aux{gap:3px}
+  .np-aux .btn.icon-sm{width:28px;height:28px}
+  .np-controls{gap:5px}
+  .np-controls .btn.icon{width:34px;height:34px}
+  .np-controls .btn.icon.big.play{width:48px;height:48px}
+}
 .btn.play{background:linear-gradient(135deg,#7c5cff,#4f7cff);border-color:transparent;color:#fff;box-shadow:0 12px 30px rgba(92,110,255,.35)}
 .vol-row{display:grid;grid-template-columns:auto 1fr auto auto;gap:var(--gap-sm);align-items:center}
 .vol-row .btn{height:var(--ctl-h-sm);width:var(--ctl-h-sm);padding:0;font-size:var(--fs-16);line-height:1}
@@ -1107,6 +1273,51 @@ body.light .reboot-bar{background:rgba(76,62,48,.1)}
 .lyr-lines .line.active{opacity:1;transform:scale(1.04);color:#fff;
   text-shadow:0 0 24px rgba(124,92,255,.4)}
 .lyr-lines .plain{white-space:pre-wrap;font-size:16px;font-weight:500;opacity:.82;line-height:1.65}
+.lyr-player{position:relative;z-index:2;flex:0 0 auto;display:flex;align-items:center;gap:12px;
+  padding:10px 22px 14px;border-top:1px solid rgba(255,255,255,.09);
+  background:rgba(9,12,19,.96);flex-wrap:wrap}
+.lyr-player-now{display:flex;align-items:center;gap:9px;min-width:0;flex:1 1 150px}
+.lyr-player-art{position:relative;width:42px;height:42px;flex:0 0 auto;border-radius:7px;
+  overflow:hidden;display:grid;place-items:center;background:#25252b;color:#777780}
+.lyr-player-art img{width:100%;height:100%;object-fit:cover}
+.lyr-player-art .ic{width:18px;height:18px}
+.lyr-player-meta{min-width:0}
+.lyr-player-meta b{display:block;font-size:12px;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;color:#fff}
+.lyr-player-meta span{display:block;font-size:10px;color:#8b8b95;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.lyr-player-controls{display:flex;align-items:center;gap:3px;flex:0 0 auto}
+.lyr-icon{display:grid;place-items:center;width:30px;height:30px;border:0;border-radius:50%;
+  background:transparent;color:#b7b7c0;cursor:pointer}
+.lyr-icon:hover{background:#23232a;color:#fff}
+.lyr-play{display:grid;place-items:center;width:38px;height:38px;border:0;border-radius:50%;
+  background:#ffdb4d;color:#111;cursor:pointer}
+.lyr-icon .ic{width:15px;height:15px}
+.lyr-play .ic{width:17px;height:17px}
+.lyr-player-progress{display:flex;align-items:center;gap:7px;flex:1 1 180px;min-width:120px}
+.lyr-player-progress span{font-size:9px;color:#777780;min-width:26px;font-variant-numeric:tabular-nums}
+.lyr-player-progress span:last-child{text-align:right}
+.lyr-player-progress input{flex:1;min-width:0}
+.lyr-player-volume{display:flex;align-items:center;gap:6px;flex:0 1 120px;min-width:90px;color:#85858e}
+.lyr-player-volume .ic{width:14px;height:14px;flex:0 0 auto}
+.lyr-player-volume input{flex:1;min-width:0}
+.lyr-player-volume span{font-size:9px;min-width:26px;text-align:right}
+.lyr-player input[type="range"]{-webkit-appearance:none;appearance:none;height:4px;border-radius:4px;
+  background:#3d3d44;outline:none}
+.lyr-player input[type="range"]::-webkit-slider-runnable-track{height:4px;border-radius:4px;background:#3d3d44}
+.lyr-player input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;
+  border-radius:50%;background:#ffdb4d;margin-top:-3.5px;border:0;cursor:pointer}
+.lyr-player input[type="range"]::-moz-range-track{height:4px;border-radius:4px;background:#3d3d44}
+.lyr-player input[type="range"]::-moz-range-thumb{width:11px;height:11px;border:0;border-radius:50%;
+  background:#ffdb4d;cursor:pointer}
+@media(max-width:560px){
+  .lyr-player{padding:9px 14px 12px;gap:8px}
+  .lyr-player-controls{order:2}
+  .lyr-player-progress{order:4;flex-basis:100%}
+  .lyr-player-volume{order:3;flex:1 1 100%;max-width:none}
+  .lyr-player-now{flex-basis:calc(100% - 190px)}
+  .lyr-icon#lyrPlayerLike,.lyr-icon#lyrPlayerDislike{display:none}
+}
 .queue-dlg{width:min(620px,94vw);max-height:min(78vh,720px);border:0;border-radius:26px;padding:0;
   background:#0b0e16;color:#eef2ff;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.6)}
 .queue-dlg[open]{display:flex;flex-direction:column}
@@ -1342,6 +1553,296 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   .mobile-tabs-menu[hidden]{display:none}
 }
 
+/* ───────── старый Яндекс Музыка: верхнее меню, контент, промо ───────── */
+.ym-shell{display:flex;flex-direction:column;width:100%;height:100%;min-height:0}
+.ym-top{display:flex;align-items:center;gap:22px;height:64px;padding:0 26px;
+  border-bottom:1px solid #202024;background:#0d0d0f;flex:0 0 auto;min-width:0}
+.ym-logo{font-size:18px;font-weight:750;letter-spacing:-.04em;white-space:nowrap;color:#fff}
+.ym-top .ym-search-wrap{width:300px;flex:0 1 300px;height:36px;border-radius:8px;
+  background:#1b1b20;border-color:#2b2b31}
+.ym-tabs{display:flex;align-items:stretch;gap:26px;margin-left:4px;min-width:0}
+.ym-tab{position:relative;border:0;background:none;color:#8b8b94;font:inherit;font-size:13px;
+  padding:22px 0;cursor:pointer;white-space:nowrap;transition:color .15s}
+.ym-tab:hover{color:#fff}
+.ym-tab[aria-pressed="true"]{color:#fff}
+.ym-tab[aria-pressed="true"]::after{content:"";position:absolute;left:0;right:0;bottom:-1px;
+  height:2px;background:#ffdb4d}
+.ym-profile{margin-left:auto;display:flex;align-items:center;gap:10px;color:#fff;font-size:13px;flex:0 0 auto}
+.ym-profile-label{white-space:nowrap}
+.ym-avatar{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;
+  background:linear-gradient(140deg,#ffdb4d,#ff9d3d);color:#1a1a1a;font-size:12px;font-weight:800}
+.ym-close{width:30px;height:30px;border:0;background:transparent;color:#777780;font-size:16px;
+  border-radius:50%;cursor:pointer}
+.ym-close:hover{background:#222228;color:#fff}
+.ym-content{display:flex;flex:1 1 auto;min-height:0;overflow:hidden}
+.ym-main{display:flex;flex-direction:column;flex:1 1 auto;min-width:0;min-height:0;
+  padding:28px 0 0 30px;background:transparent}
+.ym-head{padding:0 0 6px;flex:0 0 auto;border:0}
+.ym-head .ym-kicker{display:none}
+.ym-head h2{font-size:40px;line-height:1;letter-spacing:-.045em;margin:0;color:#fff}
+.ym-head p{margin:9px 0 0;font-size:13px;color:#85858e}
+.ym-body{flex:1 1 auto;min-height:0;overflow:auto;padding:0 30px 24px 0}
+.ym-section-title{font-size:20px;font-weight:750;letter-spacing:-.025em;color:#fff;margin:4px 0 14px}
+.ym-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(174px,1fr));gap:20px}
+.ym-card{position:relative;display:flex;flex-direction:column;gap:8px;padding:0;border:0;
+  border-radius:0;background:transparent;cursor:pointer;text-align:left;color:#fff}
+.ym-card img,.ym-card .ym-card-cover{width:100%;aspect-ratio:1;border-radius:3px;object-fit:cover;
+  background:linear-gradient(140deg,#383840,#1d1d22);display:block}
+.ym-card:hover .ym-card-cover{filter:brightness(1.06)}
+.ym-card::after{content:"▶";position:absolute;right:8px;bottom:52px;width:32px;height:32px;
+  display:grid;place-items:center;border-radius:50%;background:#ffdb4d;color:#111;font-size:10px;
+  opacity:0;transition:.15s;pointer-events:none}
+.ym-card:hover::after{opacity:1}
+.ym-card b{font-size:13px;line-height:1.3;font-weight:600}
+.ym-card span{font-size:11px;color:#7f7f88}
+.ym-promo{width:278px;flex:0 0 278px;padding:28px 24px 0 0;display:flex;flex-direction:column;min-width:0;
+  cursor:pointer}
+.ym-promo[hidden]{display:none}
+.ym-promo-cover{width:100%;aspect-ratio:1.35;border-radius:2px;background-size:cover;background-position:center;
+  background-color:#232328;position:relative;overflow:hidden}
+.ym-promo-cover::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 45%,rgba(0,0,0,.55))}
+.ym-promo-body{padding:9px 12px;background:#1c1c20;border-radius:0 0 2px 2px}
+.ym-promo-body b{display:block;font-size:12px;line-height:1.35;color:#fff;font-weight:600}
+.ym-promo-body span{display:block;font-size:10px;color:#87878f;margin-top:4px}
+.ym-bar{position:relative;grid-row:auto;grid-column:auto;display:grid;
+  grid-template-columns:auto 48px minmax(0,1fr) auto;align-items:center;gap:14px;
+  padding:12px 24px 13px;border-top:1px solid #232328;background:#101013;flex:0 0 auto}
+.ym-bar-topline{position:absolute;left:0;right:0;top:0;height:4px;background:#3a3a41;overflow:visible;
+  transition:height .12s}
+.ym-bar-topline i{display:block;height:100%;width:0;background:#ffdb4d;transition:width .3s linear;
+  pointer-events:none}
+.ym-bar:hover .ym-bar-topline{height:6px}
+#ymBarSeek{position:absolute;left:0;right:0;top:-7px;width:100%;height:18px;margin:0;
+  opacity:0;cursor:pointer;z-index:3}
+.ym-bar-controls{display:flex;align-items:center;gap:3px;flex:0 0 auto}
+.ym-bar-btn{display:grid;place-items:center;width:32px;height:32px;border:0;border-radius:50%;
+  background:transparent;color:#c6c6ce;cursor:pointer}
+.ym-bar-btn:hover{background:#25252b;color:#fff}
+.ym-bar-play{display:grid;place-items:center;width:38px;height:38px;border:0;border-radius:50%;
+  background:#ffdb4d;color:#111;cursor:pointer;transition:transform .12s}
+.ym-bar-play:hover{transform:scale(1.04)}
+.ym-bar-play .ic,.ym-bar-btn .ic{width:16px;height:16px}
+.ym-bar-art{width:48px;height:48px;border-radius:3px;overflow:hidden;display:grid;place-items:center;
+  background:#25252b;color:#777780}
+.ym-bar-meta{min-width:0}
+.ym-bar-meta b{display:block;font-size:12px;font-weight:600;color:#fff;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.ym-bar-meta > span{display:block;font-size:10px;color:#85858e;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.ym-bar-meta .ym-bar-time{color:#6a6a73;font-variant-numeric:tabular-nums;margin-top:3px}
+.ym-bar-right{display:flex;align-items:center;gap:4px;flex:0 0 auto}
+.ym-volume-hover{position:relative;display:flex;align-items:center}
+.ym-volume-hover::before{content:"";position:absolute;left:0;right:0;bottom:100%;height:14px}
+.ym-volume-pop{position:absolute;right:0;bottom:calc(100% + 12px);z-index:40;display:flex;
+  align-items:center;gap:8px;width:190px;padding:10px 12px;border:1px solid #34343c;
+  border-radius:10px;background:#1b1b20;box-shadow:0 14px 34px rgba(0,0,0,.55);
+  opacity:0;visibility:hidden;transform:translateY(5px);transition:.14s ease}
+.ym-volume-hover:hover .ym-volume-pop,.ym-volume-hover:focus-within .ym-volume-pop{
+  opacity:1;visibility:visible;transform:none}
+.ym-volume-pop .ic{width:15px;height:15px;color:#9a9aa3;flex:0 0 auto}
+.ym-volume-pop input{flex:1;min-width:0;accent-color:#ffdb4d}
+.ym-volume-pop span{font-size:10px;color:#9a9aa3;min-width:30px;text-align:right;
+  font-variant-numeric:tabular-nums}
+.ym-hq{font-size:10px;font-weight:800;letter-spacing:.04em;color:#b9b9c1;
+  border:1px solid #4a4a53;border-radius:4px;padding:2px 5px;margin-right:4px}
+@media(max-width:980px){
+  .ym-promo{display:none}
+  .ym-head h2{font-size:32px}
+  .ym-main{padding-left:22px}
+  .ym-body{padding-right:22px}
+  .ym-top{gap:14px;padding:0 16px}
+  .ym-top .ym-search-wrap{width:220px;flex:1 1 220px}
+  .ym-tabs{gap:16px}
+  .ym-profile-label{display:none}
+}
+@media(max-width:700px){
+  .ym-top{height:auto;min-height:56px;flex-wrap:wrap;padding:9px 12px;gap:8px}
+  .ym-logo{font-size:16px}
+  .ym-top .ym-search-wrap{order:5;flex-basis:100%;width:100%;height:34px}
+  .ym-tabs{order:3;width:100%;justify-content:space-between;gap:8px;margin:0}
+  .ym-tab{padding:7px 0 9px;font-size:11px;flex:1;text-align:center}
+  .ym-profile{order:2}
+  .ym-content{padding:0}
+  .ym-main{padding:18px 14px 0}
+  .ym-head h2{font-size:28px}
+  .ym-head p{font-size:11px}
+  .ym-body{padding:0 0 16px}
+  .ym-section-title{font-size:17px}
+  .ym-grid{grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:12px}
+  .ym-card::after{display:none}
+  .ym-bar{grid-template-columns:auto 42px minmax(0,1fr) auto;gap:8px;padding:9px 12px 10px}
+  .ym-bar-art{width:40px;height:40px}
+  .ym-bar-controls .ym-bar-btn:nth-child(4){display:none}
+  .ym-bar-right .ym-bar-btn{display:none}
+  .ym-hq{display:none}
+  .ym-bar-meta .ym-bar-time{display:none}
+}
+.ym-main{position:relative}
+.ym-tabs{overflow:auto;scrollbar-width:none}
+.ym-tabs::-webkit-scrollbar{display:none}
+.ym-now{position:absolute;inset:0;z-index:25;overflow:auto;padding:22px 30px 30px;
+  background:#0b0b0d;border-radius:0}
+.ym-content.now-open .ym-promo{display:none}
+.ym-content.now-open .ym-main{padding-right:30px}
+.ym-content.now-open ~ .ym-bar{display:none}
+.ym-now{overflow-x:hidden!important}
+.ym-now-lyrics{position:relative;max-height:240px;overflow-y:auto;margin-top:26px;
+  padding:10px 0;scrollbar-width:none;
+  mask-image:linear-gradient(180deg,transparent,#000 14%,#000 86%,transparent)}
+.ym-now-lyrics::-webkit-scrollbar{display:none}
+.ym-now-line{font-size:20px;line-height:1.35;font-weight:700;color:#8a8a93;padding:6px 0;
+  transform-origin:left center;transition:color .3s ease,opacity .3s ease,transform .3s ease;
+  opacity:.32}
+.ym-now-line.active{color:#fff;opacity:1;transform:scale(1.04);
+  text-shadow:0 0 24px rgba(124,92,255,.45)}
+.ym-now-line.plain{color:#b8b8c1;opacity:.82;font-size:16px;line-height:1.55;font-weight:500}
+.ym-now-seek input,.ym-now-volume input,.ym-volume-pop input{
+  -webkit-appearance:none;appearance:none;height:4px;border-radius:4px;
+  background:#3d3d44;accent-color:#ffdb4d;outline:none}
+.ym-now-seek input::-webkit-slider-thumb,.ym-now-volume input::-webkit-slider-thumb,
+.ym-volume-pop input::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;
+  border-radius:50%;background:#ffdb4d;border:2px solid #ffdb4d;box-shadow:0 0 0 3px rgba(255,219,77,.15);
+  cursor:pointer;margin-top:-4px}
+.ym-now-seek input::-webkit-slider-runnable-track,.ym-now-volume input::-webkit-slider-runnable-track,
+.ym-volume-pop input::-webkit-slider-runnable-track{height:4px;border-radius:4px;background:#3d3d44}
+.ym-now-seek input::-moz-range-thumb,.ym-now-volume input::-moz-range-thumb,
+.ym-volume-pop input::-moz-range-thumb{width:12px;height:12px;border:0;border-radius:50%;
+  background:#ffdb4d;cursor:pointer}
+.ym-now-seek input::-moz-range-track,.ym-now-volume input::-moz-range-track,
+.ym-volume-pop input::-moz-range-track{height:4px;border-radius:4px;background:#3d3d44}
+@media(max-width:520px){
+  .radio-add{grid-template-columns:1fr!important}
+  .radio-add .net-input{width:100%}
+  .radio-add .btn{width:100%!important;flex:none!important}
+}
+@media(max-width:700px){
+  .ym-tabs{justify-content:flex-start!important;gap:18px!important;overflow-x:auto!important;
+    padding-bottom:3px}
+  .ym-tab{flex:0 0 auto!important;font-size:12px!important;padding:8px 0!important;
+    text-align:left!important}
+}
+.ym-search-wrap input:focus,.ym-search-wrap input:focus-visible{outline:0!important;
+  box-shadow:none!important}
+.ym-now[hidden]{display:none}
+.ym-now-bg{position:absolute;inset:0;background-size:cover;background-position:center;
+  filter:blur(54px) saturate(1.15);opacity:.24;pointer-events:none}
+.ym-now-top{position:relative;display:flex;align-items:center;gap:14px;color:#777780;font-size:12px}
+.ym-now-back{border:0;background:transparent;color:#b7b7c0;font:inherit;font-size:12px;cursor:pointer;padding:4px 0}
+.ym-now-back:hover{color:#fff}
+.ym-now-content{position:relative;display:grid;grid-template-columns:minmax(220px,360px) minmax(0,1fr);
+  gap:min(5vw,64px);align-items:center;max-width:1060px;margin:4vh auto 0}
+.ym-now-art-wrap{width:100%;aspect-ratio:1;border-radius:4px;overflow:hidden;display:grid;place-items:center;
+  background:linear-gradient(140deg,#383840,#1d1d22);box-shadow:0 28px 70px rgba(0,0,0,.5);color:#777780}
+.ym-now-art-wrap img{width:100%;height:100%;object-fit:cover}
+.ym-now-art-wrap .ic{width:56px;height:56px}
+.ym-now-info{min-width:0;color:#fff}
+.ym-now-info h2{font-size:clamp(26px,3.2vw,42px);line-height:1.06;letter-spacing:-.045em;margin:0;
+  overflow-wrap:anywhere}
+.ym-now-artist{font-size:15px;color:#9a9aa3;margin-top:10px}
+.ym-now-actions{display:flex;gap:6px;margin-top:24px}
+.ym-now-icon{display:grid;place-items:center;width:38px;height:38px;border:0;border-radius:50%;
+  background:transparent;color:#b8b8c1;cursor:pointer;transition:.15s}
+.ym-now-icon:hover{background:#222228;color:#ffdb4d}
+.ym-now-icon .ic{width:19px;height:19px}
+.ym-now-seek{display:flex;align-items:center;gap:10px;margin-top:28px}
+.ym-now-seek span{font-size:10px;color:#85858e;font-variant-numeric:tabular-nums;min-width:30px}
+.ym-now-seek span:last-child{text-align:right}
+.ym-now-seek input{flex:1;min-width:0;accent-color:#ffdb4d}
+.ym-now-controls{display:flex;align-items:center;gap:10px;margin-top:16px}
+.ym-now-play{display:grid;place-items:center;width:58px;height:58px;border:0;border-radius:50%;
+  background:#ffdb4d;color:#111;cursor:pointer;transition:transform .12s}
+.ym-now-play:hover{transform:scale(1.04)}
+.ym-now-play .ic{width:22px;height:22px}
+.ym-now-icon#ymNowPrev .ic,.ym-now-icon#ymNowNext .ic{width:20px;height:20px}
+.ym-now-volume{display:flex;align-items:center;gap:10px;margin-top:24px;color:#8d8d96;max-width:300px}
+.ym-now-volume .ic{width:17px;height:17px;flex:0 0 auto}
+.ym-now-volume input{flex:1;min-width:0;accent-color:#ffdb4d}
+.ym-now-volume output{font-size:10px;min-width:34px;text-align:right}
+@media(max-width:700px){
+  .ym-now{padding:16px 14px 22px}
+  .ym-now-content{grid-template-columns:1fr;gap:24px;margin-top:20px}
+  .ym-now-art-wrap{width:min(68vw,260px);justify-self:center}
+  .ym-now-info h2{font-size:28px}
+  .ym-now-actions{margin-top:16px}
+  .ym-now-seek{margin-top:18px}
+  .ym-now-lyrics{max-height:180px;margin-top:18px}
+  .ym-now-line{font-size:17px}
+}
+.ym-wave{max-width:980px}
+.ym-wave-hero{display:flex;align-items:center;gap:24px;padding:22px;border-radius:4px;
+  background:radial-gradient(520px 240px at 10% 20%,rgba(42,167,91,.32),transparent 70%),#17171b}
+.ym-wave-art{display:flex;flex-direction:column;justify-content:flex-end;width:190px;height:190px;
+  flex:0 0 auto;padding:16px;border-radius:3px;
+  background:linear-gradient(145deg,#2aa75b,#0b6d3d 55%,#58d68d);color:#072313;
+  text-transform:uppercase;line-height:.9;letter-spacing:-.06em;font-size:30px;font-weight:800}
+.ym-wave-art b{font-size:40px}
+.ym-wave-copy h3{margin:0;font-size:28px;letter-spacing:-.04em;color:#fff}
+.ym-wave-copy p{margin:8px 0 0;max-width:480px;font-size:13px;line-height:1.45;color:#9a9aa3}
+.ym-wave-play{margin-top:18px;height:40px;padding:0 22px;border:0;border-radius:22px;
+  background:#ffdb4d;color:#151515;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.ym-wave-play:hover{filter:brightness(1.05)}
+.ym-wave-settings{display:grid;gap:18px;margin-top:22px}
+.ym-choice-group{display:grid;gap:8px}
+.ym-choice-label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#777780;font-weight:700}
+.ym-choice-row{display:flex;gap:6px;flex-wrap:wrap}
+.ym-choice{border:1px solid #303037;background:#1b1b20;color:#b7b7c0;border-radius:18px;
+  padding:7px 13px;font:inherit;font-size:12px;cursor:pointer;transition:.15s}
+.ym-choice:hover{border-color:#5a5a65;color:#fff}
+.ym-choice[aria-pressed="true"]{background:#ffdb4d;border-color:#ffdb4d;color:#151515;font-weight:600}
+.ym-scale-legend{display:flex;justify-content:space-between;width:150px;margin-top:-2px;
+  font-size:10px;color:#777780}
+@media(max-width:700px){
+  .ym-wave-hero{flex-direction:column;align-items:flex-start;padding:16px}
+  .ym-wave-art{width:140px;height:140px;font-size:22px}
+  .ym-wave-art b{font-size:30px}
+  .ym-wave-copy h3{font-size:23px}
+}
+.ym-search-section{margin-bottom:26px}
+.ym-search-filters{display:flex;gap:6px;overflow-x:auto;margin:0 0 18px;padding-bottom:2px;
+  scrollbar-width:none}
+.ym-search-filters::-webkit-scrollbar{display:none}
+.ym-search-chip{border:1px solid #35353d;background:#1b1b20;color:#aaaab3;border-radius:16px;
+  padding:6px 12px;font:inherit;font-size:12px;white-space:nowrap;cursor:pointer;transition:.15s}
+.ym-search-chip:hover{color:#fff;border-color:#55555f}
+.ym-search-chip[aria-pressed="true"]{background:#ffdb4d;border-color:#ffdb4d;color:#151515;font-weight:600}
+.ym-audiobook-link{display:flex;flex-direction:column;gap:4px;max-width:420px;margin:0 0 26px;
+  padding:18px 20px;border:1px solid #35353d;border-radius:4px;color:#fff;text-decoration:none;
+  background:linear-gradient(135deg,#5b3bb5,#2b1e55)}
+.ym-audiobook-link b{font-size:17px}
+.ym-audiobook-link span{font-size:11px;color:#cfc6f5}
+.ym-audiobook-link:hover{filter:brightness(1.08)}
+.ym-audio-card{text-decoration:none;color:#fff}
+.ym-audio-card span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* ───────── плавные появления и микроанимации ───────── */
+@keyframes softDialogIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes softDialogOut{from{opacity:1;transform:none}to{opacity:0;transform:translateY(8px) scale(.99)}}
+@keyframes backdropIn{from{opacity:0}to{opacity:1}}
+@keyframes backdropOut{from{opacity:1}to{opacity:0}}
+@keyframes detailsIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+@keyframes ymContentIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes nowIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes lyricsOut{from{opacity:1;transform:none}to{opacity:0;transform:translateY(8px) scale(.99)}}
+dialog[open]{animation:softDialogIn .22s cubic-bezier(.2,.8,.2,1)}
+dialog::backdrop{animation:backdropIn .18s ease}
+dialog.closing{animation:softDialogOut .16s ease-in forwards}
+dialog.closing::backdrop{animation:backdropOut .16s ease-in forwards}
+details[open] > *:not(summary){animation:detailsIn .2s ease-out}
+.ym-dlg.closing .ym-side,.ym-dlg.closing .ym-main{animation:softDialogOut .16s ease-in forwards}
+.ym-dlg.closing::backdrop{animation:backdropOut .16s ease-in forwards}
+.lyrics-dlg.closing{animation:lyricsOut .15s ease-in forwards}
+.lyrics-dlg.closing::backdrop{animation:backdropOut .15s ease-in forwards}
+.ym-body > *{animation:ymContentIn .22s ease-out}
+.ym-now:not([hidden]){animation:nowIn .24s cubic-bezier(.2,.8,.2,1)}
+.card{transition:border-color .18s ease,box-shadow .18s ease}
+.card:hover{border-color:rgba(124,92,255,.28)}
+.btn{transition:transform .12s ease,filter .16s ease,background .16s ease,border-color .16s ease}
+.btn:active{transform:scale(.97)}
+.ym-tab,.ym-nav-item,.ym-search-chip,.ym-choice{transition:color .16s ease,background .16s ease,border-color .16s ease,transform .12s ease}
+.ym-tab:active,.ym-nav-item:active,.ym-search-chip:active,.ym-choice:active{transform:scale(.97)}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;
+    transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
 </style>
 </head>
 <body class="booting">
@@ -1558,15 +2059,6 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       <input type="range" id="ringSpeed" min="0" max="300" step="10" value="0" aria-label="Скорость анимации и мигания кольца">
     </div>
     <div class="field" style="margin-top:14px">
-      <div class="field-top"><label>Кольцо при музыке</label><output id="ringMusicStatus">не менять</output></div>
-      <div class="ring-music">
-        <button type="button" class="alarm-select" id="btnRingMusic" aria-haspopup="listbox" aria-expanded="false">
-          <span id="ringMusicName">Не менять</span><span class="alarm-caret">▾</span>
-        </button>
-        <div class="alarm-station-list ring-list" id="ringMusicPop" hidden></div>
-      </div>
-    </div>
-    <div class="field" style="margin-top:14px">
       <div class="field-top"><label>Логотип</label><output id="logoStatus">как кольцо</output></div>
       <div class="logo-modes" id="logoModes">
         <button type="button" class="chip" data-logo-mode="sync" aria-pressed="true">Как кольцо</button>
@@ -1630,45 +2122,75 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       <input type="range" id="mediaSeek" min="0" max="1000" step="1" value="0" aria-label="Перемотка">
       <span id="mediaDur">0:00</span>
     </div>
-    <div class="np-controls">
-      <button class="btn icon" id="btnPrev" aria-label="Предыдущий трек">
-        <svg class="ic" aria-hidden="true"><use href="#i-prev"/></svg>
-      </button>
-      <button class="btn icon big play" id="btnPlay" aria-label="Воспроизвести">
-        <svg class="ic" aria-hidden="true"><use href="#i-play"/></svg>
-      </button>
-      <button class="btn icon" id="btnNext" aria-label="Следующий трек">
-        <svg class="ic" aria-hidden="true"><use href="#i-next"/></svg>
-      </button>
-    </div>
-    <div class="np-actions">
-      <button class="btn icon-sm ghost" id="btnLike" aria-pressed="false" aria-label="Нравится" title="Нравится">
-        <svg class="ic" aria-hidden="true"><use href="#i-like"/></svg>
-      </button>
-      <button class="btn icon-sm ghost" id="btnDislike" aria-label="Не нравится" title="Не нравится">
-        <svg class="ic" aria-hidden="true"><use href="#i-dislike"/></svg>
-      </button>
-      <button class="btn icon-sm ghost" id="btnLyrics" aria-label="Текст песни" title="Текст песни">
-        <svg class="ic" aria-hidden="true"><use href="#i-text"/></svg>
-      </button>
-      <button class="btn icon-sm ghost" id="btnQueue" aria-label="Очередь" title="Очередь, похожие, избранное">
-        <svg class="ic" aria-hidden="true"><use href="#i-queue"/></svg>
-      </button>
-      <button class="btn icon-sm ghost" id="btnMusic" aria-label="Яндекс Музыка" title="Вернуться к Яндекс Музыке">
-        <svg class="ic" aria-hidden="true"><use href="#i-music"/></svg>
-      </button>
-      <span class="seg-note" id="lyricsStatus"></span>
+    <div class="np-transport">
+      <div class="np-aux np-aux-left">
+        <button class="btn icon-sm ghost" id="btnLike" aria-pressed="false" aria-label="Нравится" title="Нравится">
+          <svg class="ic" aria-hidden="true"><use href="#i-like"/></svg>
+        </button>
+        <button class="btn icon-sm ghost" id="btnDislike" aria-label="Не нравится" title="Не нравится">
+          <svg class="ic" aria-hidden="true"><use href="#i-dislike"/></svg>
+        </button>
+      </div>
+      <div class="np-controls">
+        <button class="btn icon" id="btnPrev" aria-label="Предыдущий трек">
+          <svg class="ic" aria-hidden="true"><use href="#i-prev"/></svg>
+        </button>
+        <button class="btn icon big play" id="btnPlay" aria-label="Воспроизвести">
+          <svg class="ic" aria-hidden="true"><use href="#i-play"/></svg>
+        </button>
+        <button class="btn icon" id="btnNext" aria-label="Следующий трек">
+          <svg class="ic" aria-hidden="true"><use href="#i-next"/></svg>
+        </button>
+      </div>
+      <div class="np-aux np-aux-right">
+        <button class="btn icon-sm ghost" id="btnLyrics" aria-label="Текст песни" title="Текст песни">
+          <svg class="ic" aria-hidden="true"><use href="#i-text"/></svg>
+        </button>
+        <button class="btn icon-sm ghost" id="btnQueue" aria-label="Очередь" title="Очередь, похожие, избранное">
+          <svg class="ic" aria-hidden="true"><use href="#i-queue"/></svg>
+        </button>
+        <button class="btn icon-sm ghost" id="btnMusic" aria-label="Яндекс Музыка" title="Вернуться к Яндекс Музыке">
+          <svg class="ic" aria-hidden="true"><use href="#i-music"/></svg>
+        </button>
+      </div>
     </div>
     <div class="np-volume">
-      <svg class="ic" aria-hidden="true" style="width:18px;height:18px;opacity:.65"><use href="#i-volume"/></svg>
+      <svg class="ic" data-volume-icon aria-hidden="true" style="width:18px;height:18px;opacity:.65"><use href="#i-volume"/></svg>
       <button class="btn ghost" id="btnVolDown" aria-label="Тише">−</button>
       <input type="range" id="volume" min="0" max="100" step="1" value="40" aria-label="Громкость">
       <button class="btn ghost" id="btnVolUp" aria-label="Громче">+</button>
       <button class="btn ghost" id="btnMute" aria-label="Без звука">
-        <svg class="ic" aria-hidden="true"><use href="#i-mute"/></svg>
+        <svg class="ic" data-volume-icon aria-hidden="true"><use href="#i-mute"/></svg>
       </button>
       <output id="volumeVal">40%</output>
     </div>
+    <details class="ym-auth" id="ymAuth">
+      <summary>
+        <span>Яндекс Музыка</span>
+        <span class="ym-summary-side">
+          <b id="ymStatus">не подключена</b>
+          <span class="ym-expand" id="btnYmExpand" role="button" tabindex="0"
+                aria-label="Открыть музыку на весь экран" title="Открыть музыку">⤢</span>
+        </span>
+      </summary>
+      <div class="ym-auth-body">
+        <div id="ymLoggedOut">
+          <p class="seg-note" style="margin:0 0 8px">Необязательный вход — для своих плейлистов и «Моей волны». Токен хранится только на станции.</p>
+          <div class="row">
+            <button class="btn sm" id="btnYmLogin">Войти в Яндекс</button>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <input type="text" id="ymTokenUrl" placeholder="Вставьте адрес страницы после входа" autocomplete="off">
+            <button class="btn sm ghost" id="btnYmSave">Сохранить</button>
+          </div>
+        </div>
+        <div id="ymLoggedIn" hidden>
+          <div class="seg-note" id="ymAccount" style="margin-bottom:8px"></div>
+          <div class="ym-playlists" id="ymPlaylists"></div>
+          <button class="btn sm ghost" id="btnYmLogout" style="margin-top:8px">Выйти</button>
+        </div>
+      </div>
+    </details>
   </section>
 
   <!-- ───────── голос ───────── -->
@@ -2280,6 +2802,151 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     <div class="seg-note" id="pinInsecure" hidden style="margin-top:6px;color:#ffb86b">PIN передаётся по HTTP — используйте доверенную сеть или VPN.</div>
   </section>
 
+  <dialog id="ymDlg" class="ym-dlg" aria-labelledby="ymTitle">
+    <div class="ym-shell">
+      <header class="ym-top">
+        <div class="ym-logo">Яндекс Музыка</div>
+        <div class="ym-search-wrap">
+          <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
+          <input type="text" id="ymSearch" placeholder="Трек, альбом, исполнитель" autocomplete="off">
+        </div>
+        <nav class="ym-tabs" id="ymFilters">
+          <button type="button" class="ym-tab" data-ym-view="all" aria-pressed="true">Главное</button>
+          <button type="button" class="ym-tab" data-ym-view="playlists" aria-pressed="false">Плейлисты</button>
+          <button type="button" class="ym-tab" data-ym-view="tracks" aria-pressed="false">Треки</button>
+          <button type="button" class="ym-tab" data-ym-view="liked" aria-pressed="false">Избранное</button>
+          <button type="button" class="ym-tab" data-ym-view="wave" aria-pressed="false">Моя волна</button>
+          <button type="button" class="ym-tab" data-ym-view="trends" aria-pressed="false">Тренды</button>
+          <button type="button" class="ym-tab" data-ym-view="audio" aria-pressed="false">Аудио</button>
+        </nav>
+        <div class="ym-profile">
+          <span class="ym-profile-label">Моя музыка</span>
+          <span class="ym-avatar">Я</span>
+          <button type="button" class="ym-close" id="btnYmDlgClose" aria-label="Закрыть">✕</button>
+        </div>
+      </header>
+      <div class="ym-content">
+        <main class="ym-main">
+          <header class="ym-head">
+            <div>
+              <div class="ym-kicker">Коллекция</div>
+              <h2 id="ymTitle">Главное</h2>
+              <p>Плейлисты, треки и избранное</p>
+            </div>
+          </header>
+          <div class="ym-body" id="ymBody"></div>
+          <div class="ym-now" id="ymNow" hidden>
+            <div class="ym-now-bg" id="ymNowBg"></div>
+            <div class="ym-now-top">
+              <button type="button" class="ym-now-back" id="ymNowBack">← Назад</button>
+              <span>Сейчас играет</span>
+            </div>
+            <div class="ym-now-content">
+              <div class="ym-now-art-wrap">
+                <img id="ymNowCover" alt="" hidden>
+                <svg class="ic" aria-hidden="true"><use href="#i-music"/></svg>
+              </div>
+              <div class="ym-now-info">
+                <h2 id="ymNowTitle">Ничего не играет</h2>
+                <div class="ym-now-artist" id="ymNowArtist">Яндекс Музыка</div>
+                <div class="ym-now-actions">
+                  <button type="button" class="ym-now-icon" id="ymNowLike" aria-label="Нравится">
+                    <svg class="ic" aria-hidden="true"><use href="#i-like"/></svg>
+                  </button>
+                  <button type="button" class="ym-now-icon" id="ymNowDislike" aria-label="Не нравится">
+                    <svg class="ic" aria-hidden="true"><use href="#i-dislike"/></svg>
+                  </button>
+                  <button type="button" class="ym-now-icon" id="ymNowQueue" aria-label="Очередь">
+                    <svg class="ic" aria-hidden="true"><use href="#i-queue"/></svg>
+                  </button>
+                  <button type="button" class="ym-now-icon" id="ymNowLyrics" aria-label="Текст песни">
+                    <svg class="ic" aria-hidden="true"><use href="#i-text"/></svg>
+                  </button>
+                </div>
+                <div class="ym-now-seek">
+                  <span id="ymNowPos">0:00</span>
+                  <input type="range" id="ymNowSeek" min="0" max="1000" step="1" value="0" aria-label="Перемотка">
+                  <span id="ymNowDur">0:00</span>
+                </div>
+                <div class="ym-now-controls">
+                  <button type="button" class="ym-now-icon" id="ymNowPrev" aria-label="Предыдущий трек">
+                    <svg class="ic" aria-hidden="true"><use href="#i-prev"/></svg>
+                  </button>
+                  <button type="button" class="ym-now-play" id="ymNowPlay" aria-label="Воспроизвести">
+                    <svg class="ic" aria-hidden="true"><use href="#i-play"/></svg>
+                  </button>
+                  <button type="button" class="ym-now-icon" id="ymNowNext" aria-label="Следующий трек">
+                    <svg class="ic" aria-hidden="true"><use href="#i-next"/></svg>
+                  </button>
+                </div>
+                <div class="ym-now-volume">
+                  <svg class="ic" data-volume-icon aria-hidden="true"><use href="#i-volume"/></svg>
+                  <input type="range" id="ymNowVolume" min="0" max="100" step="1" value="40" aria-label="Громкость">
+                  <output id="ymNowVolumeVal">40%</output>
+                </div>
+                <div class="ym-now-lyrics" id="ymNowLyricsBox" hidden></div>
+              </div>
+            </div>
+          </div>
+        </main>
+        <aside class="ym-promo" id="ymPromo">
+          <div class="ym-promo-cover" id="ymPromoCover"></div>
+          <div class="ym-promo-body">
+            <b id="ymPromoTitle">Музыка для вас</b>
+            <span id="ymPromoSub">Подборки на основе ваших вкусов</span>
+          </div>
+        </aside>
+      </div>
+      <div class="ym-bar">
+        <div class="ym-bar-topline">
+          <i id="ymBarFill"></i>
+          <input type="range" id="ymBarSeek" min="0" max="1000" step="1" value="0" aria-label="Перемотка трека">
+        </div>
+        <div class="ym-bar-controls">
+          <button type="button" class="ym-bar-btn" id="ymBarPrev" aria-label="Предыдущий трек">
+            <svg class="ic" aria-hidden="true"><use href="#i-prev"/></svg>
+          </button>
+          <button type="button" class="ym-bar-play" id="ymBarPlay" aria-label="Воспроизвести">
+            <svg class="ic" aria-hidden="true"><use href="#i-play"/></svg>
+          </button>
+          <button type="button" class="ym-bar-btn" id="ymBarNext" aria-label="Следующий трек">
+            <svg class="ic" aria-hidden="true"><use href="#i-next"/></svg>
+          </button>
+          <button type="button" class="ym-bar-btn" id="ymBarQueue" aria-label="Очередь">
+            <svg class="ic" aria-hidden="true"><use href="#i-queue"/></svg>
+          </button>
+        </div>
+        <div class="ym-bar-art" id="ymBarArt">
+          <img id="ymBarCover" alt="" hidden>
+          <svg class="ic" aria-hidden="true"><use href="#i-music"/></svg>
+        </div>
+        <div class="ym-bar-meta">
+          <b id="ymBarTitle">Ничего не играет</b>
+          <span id="ymBarSub">Выберите плейлист или трек</span>
+          <span id="ymBarTime" class="ym-bar-time">0:00 / 0:00</span>
+        </div>
+        <div class="ym-bar-right">
+          <span class="ym-hq">HQ</span>
+          <button type="button" class="ym-bar-btn" id="ymBarLike" aria-label="Нравится">
+            <svg class="ic" aria-hidden="true"><use href="#i-like"/></svg>
+          </button>
+          <button type="button" class="ym-bar-btn" id="ymBarDislike" aria-label="Не нравится">
+            <svg class="ic" aria-hidden="true"><use href="#i-dislike"/></svg>
+          </button>
+          <div class="ym-volume-hover" id="ymVolumeHover">
+            <button type="button" class="ym-bar-btn" id="ymBarMute" aria-label="Звук">
+              <svg class="ic" data-volume-icon aria-hidden="true"><use href="#i-mute"/></svg>
+            </button>
+            <div class="ym-volume-pop" id="ymBarVolumePop">
+              <svg class="ic" data-volume-icon aria-hidden="true"><use href="#i-volume"/></svg>
+              <input type="range" id="ymBarVolume" min="0" max="100" step="1" value="40" aria-label="Громкость">
+              <span id="ymBarVolumeVal">40%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </dialog>
 </main>
 
 <footer>
@@ -2319,10 +2986,10 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     <details>
       <summary>Почему кольцо в панели не совпадает с реальным?</summary>
       <p>Панель читает реальные 24 RGB-диода из sysfs и обновляет предпросмотр
-      и 3D-модель примерно раз в 0,4 секунды. Если выбран режим «Волна»,
-      «Градиент», «Радуга» или своя анимация, панель специально перекрывает
-      штатную подсветку. Чтобы видеть стандартную анимацию прошивки, выберите
-      «Кольцо при музыке → Не менять» и не меняйте цвет кольца вручную.</p>
+      и 3D-модель примерно раз в 0,4 секунды. Если играет музыка или Алиса
+      слушает/говорит, кольцом управляет прошивка: панель в это время не
+      перекрывает штатную подсветку своей анимацией. На паузе свою подсветку
+      можно включить снова.</p>
     </details>
     <details>
       <summary>Как настроить логотип из 6 LED?</summary>
@@ -2335,17 +3002,6 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       <p>Под 3D-моделью на главной есть ряд «Корпус»: чёрный, серый,
       изумрудный, малиновый и жёлтый. Меняется только модель в панели, цвет
       реальной колонки не затрагивается; выбор сохраняется.</p>
-    </details>
-    <details>
-      <summary>Почему часы исчезли из раздела «Дисплей»?</summary>
-      <p>Время и дата переехали в шапку панели. На мобильной версии они
-      скрыты, чтобы не занимать место. Сами часы станции по-прежнему задаёт
-      Алиса/Luna.</p>
-    </details>
-    <details>
-      <summary>Почему окно будильника было обрезано?</summary>
-      <p>Это исправлено: окно ограничено высотой экрана, форма прокручивается,
-      а кнопка «Добавить будильник» закреплена внизу и всегда видна.</p>
     </details>
     <details>
       <summary>Как открыть пульт с телефона?</summary>
@@ -2526,6 +3182,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       <div class="lyr-artist" id="lyrArtist"></div>
     </div>
     <div class="lyr-head-actions">
+      <span class="seg-note" id="lyricsStatus"></span>
       <label class="lyr-inline">
         <input type="checkbox" id="lyricsInline">
         <span>Строка в плеере</span>
@@ -2535,6 +3192,45 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   </div>
   <div class="lyr-stage" id="lyrStage">
     <div class="lyr-lines" id="lyricsBox"></div>
+  </div>
+  <div class="lyr-player" id="lyrPlayer">
+    <div class="lyr-player-now">
+      <div class="lyr-player-art">
+        <img id="lyrPlayerCover" alt="" hidden>
+        <svg class="ic" aria-hidden="true"><use href="#i-music"/></svg>
+      </div>
+      <div class="lyr-player-meta">
+        <b id="lyrPlayerTitle">Ничего не играет</b>
+        <span id="lyrPlayerArtist"></span>
+      </div>
+    </div>
+    <div class="lyr-player-controls">
+      <button type="button" class="lyr-icon" id="lyrPlayerLike" aria-label="Нравится">
+        <svg class="ic" aria-hidden="true"><use href="#i-like"/></svg>
+      </button>
+      <button type="button" class="lyr-icon" id="lyrPlayerDislike" aria-label="Не нравится">
+        <svg class="ic" aria-hidden="true"><use href="#i-dislike"/></svg>
+      </button>
+      <button type="button" class="lyr-icon" id="lyrPlayerPrev" aria-label="Предыдущий трек">
+        <svg class="ic" aria-hidden="true"><use href="#i-prev"/></svg>
+      </button>
+      <button type="button" class="lyr-play" id="lyrPlayerPlay" aria-label="Воспроизвести">
+        <svg class="ic" aria-hidden="true"><use href="#i-play"/></svg>
+      </button>
+      <button type="button" class="lyr-icon" id="lyrPlayerNext" aria-label="Следующий трек">
+        <svg class="ic" aria-hidden="true"><use href="#i-next"/></svg>
+      </button>
+    </div>
+    <div class="lyr-player-progress">
+      <span id="lyrPlayerPos">0:00</span>
+      <input type="range" id="lyrPlayerSeek" min="0" max="1000" step="1" value="0" aria-label="Перемотка">
+      <span id="lyrPlayerDur">0:00</span>
+    </div>
+    <div class="lyr-player-volume">
+      <svg class="ic" data-volume-icon aria-hidden="true"><use href="#i-volume"/></svg>
+      <input type="range" id="lyrPlayerVolume" min="0" max="100" step="1" value="40" aria-label="Громкость">
+      <span id="lyrPlayerVolumeVal">40%</span>
+    </div>
   </div>
 </dialog>
 
@@ -2563,11 +3259,15 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3.5v8.5"/><path d="M7.2 6.6a7.5 7.5 0 1 0 9.6 0"/></symbol>
   <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M18.5 11.5a6.5 6.5 0 0 1-13 0"/><path d="M12 18v3"/></symbol>
   <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 5.5 6.5 9H3.5v6h3L11 18.5z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6"/></symbol>
+<symbol id="i-volume-1" viewBox="0 0 24 24"><path d="M11 5.5 6.5 9H3.5v6h3L11 18.5z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6"/></symbol>
+<symbol id="i-volume-2" viewBox="0 0 24 24"><path d="M11 5.5 6.5 9H3.5v6h3L11 18.5z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6"/><path d="M18 6.7a7.2 7.2 0 0 1 0 10.6"/></symbol>
+<symbol id="i-volume-3" viewBox="0 0 24 24"><path d="M11 5.5 6.5 9H3.5v6h3L11 18.5z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6"/><path d="M18 6.7a7.2 7.2 0 0 1 0 10.6"/><path d="M20.5 4.4a10.4 10.4 0 0 1 0 15.2"/></symbol>
   <symbol id="i-mute" viewBox="0 0 24 24"><path d="M11 5.5 6.5 9H3.5v6h3L11 18.5z"/><path d="M16 9.5l4 5M20 9.5l-4 5"/></symbol>
   <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 17.5V6l10-2v11"/><circle cx="6.5" cy="17.5" r="2.6"/><circle cx="16.5" cy="15" r="2.6"/></symbol>
   <symbol id="i-like" viewBox="0 0 24 24"><path d="M12 20.2S4 15.1 4 9.4A4.4 4.4 0 0 1 12 6.6a4.4 4.4 0 0 1 8 2.8c0 5.7-8 10.8-8 10.8z"/></symbol>
   <symbol id="i-dislike" viewBox="0 0 24 24"><path d="M7 4h9.5L20 9.2v3.3a2 2 0 0 1-2 2h-4.1l1.1 4.2a2 2 0 0 1-3.8 1.1L7 12.5"/><path d="M7 4H4v8.5h3"/></symbol>
   <symbol id="i-text" viewBox="0 0 24 24"><path d="M5 7h14M5 12h10M5 17h13"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></symbol>
   <symbol id="i-queue" viewBox="0 0 24 24"><path d="M4 6.5h16M4 12h11M4 17.5h14"/><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none"/></symbol>
 </svg>
 
@@ -2698,15 +3398,41 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     displayOverride: false,
     displayOff: false,
     ringBrightness: 255,
+    ringAuto: false,
     ringSpeed: 0,
     ringMusic: 'off',
     ringMusicActive: false,
     ringMusicPrev: null,
+    alice: 'IDLE',
     logoMode: 'sync',
     logoLast: '',
     logoSending: false,
     hwPollBusy: false,
     hwLast: '',
+    hwActive: false,
+    hwHoldUntil: 0,
+    ymOauthUrl: '',
+    ymLoggedIn: false,
+    ymRestored: false,
+    ymView: 'all',
+    ymPlaylists: [],
+    ymMine: [],
+    ymTracks: [],
+    ymLiked: [],
+    ymAudio: [],
+    ymBooks: [],
+    ymSearchResults: null,
+    ymSearchPending: '',
+    ymSearchTimer: null,
+    ymSearchFilter: 'all',
+    ymWave: null,
+    ymWaveSettings: null,
+    ymTrends: [],
+    ymNowOpen: false,
+    ymSeeking: false,
+    ymVolumeBusy: false,
+    ymSelected: null,
+    ymSearch: '',
     ringAnimName: null,
     ringPreview: null,
     ringAnimations: [],
@@ -2750,6 +3476,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     lyricsInline: false,
     lyricsActive: null,
     lyricsLines: [],
+    nowLyricsLines: [],
+    nowLyricsActive: null,
+    lyrSeeking: false,
     audioProgress: 0,
     homeVolumeDragging: false,
     homeExtra: 'resources',
@@ -3187,6 +3916,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 
   function paintRing(colors, label) {
     State.ringPreview = null;
+    State.hwActive = false;
     if (!ringDots.length) return;
     for (var i = 0; i < ringDots.length; i++) {
       var c = colors[i % colors.length];
@@ -3199,12 +3929,22 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 
   function paintOff() {
     State.ringPreview = null;
+    State.hwActive = false;
     ringDots.forEach(function (dot) {
       dot.style.background = '#171b26';
       dot.style.color = 'transparent';
       dot.style.boxShadow = 'none';
     });
     el.ringHex.textContent = 'OFF';
+  }
+
+  function ringOffBurst() {
+    function off() {
+      luna('/api/led/off/ring', {}, { timeout: 4000, silent: true }).catch(function () {});
+    }
+    off();
+    setTimeout(off, 600);
+    setTimeout(off, 1400);
   }
 
   function markActiveChip() {
@@ -3306,7 +4046,33 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   var ringBusy = false;
   var ringPending = null;
 
+  function nativeLightActive() {
+    return !!State.playing || (State.alice && State.alice !== 'IDLE');
+  }
+
+  function stopCustomRingForNative() {
+    if (State.ledMode === 'off' && !State.ledAnim &&
+        !State.ringAnimName && !State.ringPreview) return;
+    stopLedAnimation();
+    State.ledAnim = null;
+    State.ringPreview = null;
+    State.ringAnimName = null;
+    State.ringMusicActive = false;
+    State.ledMode = 'off';
+    State.selected = null;
+    store.set('ledMode', 'off');
+    ringDots.forEach(function (dot) { dot.classList.remove('sel'); });
+    if (el.ledHint) el.ledHint.textContent = 'Кольцом управляет станция';
+    cgi('display.py', { ring_anim_stop: 1, keep: 1 }, { timeout: 8000, silent: true })
+      .catch(function () {});
+    markActiveChip();
+  }
+
   function ringFrame(colors) {
+    if (nativeLightActive()) {
+      if (State.ledMode !== 'off') stopCustomRingForNative();
+      return;
+    }
     if (ringBusy) {
       ringPending = colors;
       return;
@@ -3353,6 +4119,11 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   }
 
   function startLedAnimation(kind) {
+    if (nativeLightActive()) {
+      stopCustomRingForNative();
+      toast('Во время музыки или ответа Алисы кольцом управляет станция', 'warn');
+      return;
+    }
     stopLedAnimation();
     stopFirmwareRingAnim();
     State.selected = null;
@@ -3386,6 +4157,11 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   }
 
   function applyColor(hex, mode) {
+    if (nativeLightActive()) {
+      stopCustomRingForNative();
+      toast('Во время музыки или ответа Алисы кольцом управляет станция', 'warn');
+      return;
+    }
     stopLedAnimation();
     stopFirmwareRingAnim();
     State.color = hex.toUpperCase();
@@ -3468,16 +4244,6 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       item.addEventListener('click', function () { setRingMusic(pair[0]); });
       pop.appendChild(item);
     });
-    (State.ringAnimations || []).slice(0, 30).forEach(function (anim) {
-      var value = 'anim:' + anim.name;
-      var item = document.createElement('button');
-      item.type = 'button';
-      item.className = 'alarm-station-item';
-      item.textContent = RING_ANIM_LABELS[anim.name] || anim.name;
-      item.setAttribute('aria-selected', State.ringMusic === value ? 'true' : 'false');
-      item.addEventListener('click', function () { setRingMusic(value); });
-      pop.appendChild(item);
-    });
   }
 
   function updateRingMusicUi() {
@@ -3490,23 +4256,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   }
 
   function startMusicRing() {
-    if (State.ringMusic === 'off' || !State.playing || State.ringMusicActive) return;
-    State.ringMusicPrev = {
-      mode: State.ledMode,
-      color: State.color,
-      colors: State.ledColors ? State.ledColors.slice() : null,
-      anim: State.ringAnimName
-    };
-    State.ringMusicActive = true;
-    var value = State.ringMusic;
-    if (value === 'rainbow' || value === 'gradient') {
-      applyColor(State.color, value);
-    } else if (value === 'wave' || value === 'candle') {
-      startLedAnimation(value);
-    } else if (value.indexOf('anim:') === 0) {
-      playRingAnim(value.slice(5));
-    }
-    updateRingMusicUi();
+    // Своя подсветка при музыке отключена: кольцом управляет прошивка.
+    State.ringMusic = 'off';
+    return;
   }
 
   function stopMusicRing() {
@@ -3555,8 +4307,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 
   function initRingMusic() {
     var saved = store.get('ringMusic', 'off');
+    if (String(saved).indexOf('anim:') === 0) saved = 'off';
     State.ringMusic = saved === 'off' || saved === 'rainbow' || saved === 'gradient' ||
-      saved === 'wave' || saved === 'candle' || String(saved).indexOf('anim:') === 0
+      saved === 'wave' || saved === 'candle'
       ? saved : 'off';
     updateRingMusicUi();
     var button = document.getElementById('btnRingMusic');
@@ -3624,7 +4377,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   }
 
   function syncLogo() {
-    if (document.hidden || State.logoSending) return;
+    if (nativeLightActive() || document.hidden || State.logoSending) return;
     var colors = logoColors();
     var key = colors.join(',');
     if (key === State.logoLast) return;
@@ -3666,20 +4419,28 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 
   function pollRingState() {
     if (document.hidden || State.hwPollBusy) return;
-    if (State.ledMode === 'off' || State.ledMode === 'wave' ||
-        State.ledMode === 'candle') return;
+    if (Date.now() < State.hwHoldUntil) return;
+    if (State.ledMode === 'wave' || State.ledMode === 'candle' ||
+        State.ledMode === 'anim' || State.ringPreview) return;
     State.hwPollBusy = true;
     request('/ring_state', { method: 'GET', timeout: 4000, silent: true })
       .catch(function () {
         return cgi('ring_state.py', {}, { timeout: 4000, silent: true });
       }).then(function (data) {
-      if (!data || State.ledMode === 'off') return;
-      if (!Array.isArray(data.colors) || data.colors.length !== 24) return;
+      if (!data || !Array.isArray(data.colors) || data.colors.length !== 24) return;
       var colors = data.colors.map(function (hex) { return '#' + String(hex); });
       var key = colors.join(',');
       if (key === State.hwLast) return;
       State.hwLast = key;
-      paintRing(colors, 'HW');
+      var lit = colors.some(function (hex) { return parseInt(hex.slice(1), 16) > 0; });
+      if (!lit) {
+        paintOff();
+        if (el.ledHint) el.ledHint.textContent = 'Кольцо выключено';
+        return;
+      }
+      paintRing(colors, 'КОЛОНКА');
+      State.hwActive = true;
+      if (el.ledHint) el.ledHint.textContent = 'Как на колонке';
     }).catch(function () {}).then(function () {
       State.hwPollBusy = false;
     });
@@ -3688,6 +4449,1134 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   function initRingStatePolling() {
     setInterval(pollRingState, 400);
     setTimeout(pollRingState, 900);
+  }
+
+  function renderYmPlaylists(items) {
+    var box = document.getElementById('ymPlaylists');
+    if (!box) return;
+    box.innerHTML = '';
+    if (!items || !items.length) {
+      var empty = document.createElement('div');
+      empty.className = 'seg-note';
+      empty.textContent = 'Плейлисты не найдены';
+      box.appendChild(empty);
+      return;
+    }
+    items.forEach(function (item) {
+      var row = document.createElement('div');
+      row.className = 'ym-item';
+      var cover = document.createElement('div');
+      cover.className = 'ym-cover';
+      if (item.cover) {
+        var img = document.createElement('img');
+        img.src = item.cover;
+        img.alt = '';
+        img.loading = 'lazy';
+        cover.textContent = '';
+        cover.appendChild(img);
+      }
+      var meta = document.createElement('div');
+      meta.className = 'ym-meta';
+      var title = document.createElement('div');
+      title.className = 'ym-title';
+      title.textContent = item.title || 'Плейлист';
+      var count = document.createElement('div');
+      count.className = 'ym-count';
+      count.textContent = item.tracks ? item.tracks + ' треков' : 'плейлист';
+      meta.appendChild(title);
+      meta.appendChild(count);
+      var play = document.createElement('button');
+      play.className = 'btn sm';
+      play.type = 'button';
+      play.textContent = '▶';
+      play.title = 'Включить через Алису';
+      play.addEventListener('click', function () { playYmPlaylist(item); });
+      row.appendChild(cover);
+      row.appendChild(meta);
+      row.appendChild(play);
+      box.appendChild(row);
+    });
+  }
+
+  function restoreYmIfNeeded() {
+    if (State.ymRestored || !State.ymLoggedIn || !store.get('ymOpen', false)) return;
+    State.ymRestored = true;
+    var view = store.get('ymView', 'all');
+    if (!view || view === 'tracks' || view === 'now') view = 'all';
+    State.ymView = view;
+    setTimeout(function () { ymOpen(); }, 0);
+  }
+
+  function applyYmAuth(data) {
+    var status = document.getElementById('ymStatus');
+    var out = document.getElementById('ymLoggedOut');
+    var inn = document.getElementById('ymLoggedIn');
+    var account = document.getElementById('ymAccount');
+    if (data && data.oauth_url) State.ymOauthUrl = data.oauth_url;
+    if (data && data.logged_in) {
+      State.ymLoggedIn = true;
+      if (status) status.textContent = 'подключена';
+      if (out) out.hidden = true;
+      if (inn) inn.hidden = false;
+      if (account) account.textContent = 'Вы вошли как ' + (data.login || 'Яндекс');
+      loadYmPlaylists();
+      restoreYmIfNeeded();
+    } else {
+      State.ymLoggedIn = false;
+      if (status) status.textContent = 'не подключена';
+      if (out) out.hidden = false;
+      if (inn) inn.hidden = true;
+    }
+  }
+
+  function loadYmAuth() {
+    return cgi('yandex_auth.py', {}, { timeout: 12000, silent: true })
+      .then(applyYmAuth)
+      .catch(function () {
+        var status = document.getElementById('ymStatus');
+        if (status) status.textContent = 'недоступно';
+      });
+  }
+
+  function loadYmPlaylists() {
+    cgi('ymusic.py', {}, { timeout: 20000, silent: true })
+      .then(function (data) { renderYmPlaylists(data && data.playlists); })
+      .catch(function () {
+        renderYmPlaylists([]);
+      });
+  }
+
+  function playYmPlaylist(item) {
+    var title = item && item.title ? item.title : '';
+    cgi('ymusic.py', { play: title, id: item && item.id || '' }, { timeout: 20000 })
+      .then(function () { toast('Включаю: ' + title, 'ok'); })
+      .catch(function (err) { toast('Яндекс Музыка: ' + err.message, 'bad'); });
+  }
+
+  function ymTime(seconds) {
+    seconds = Math.max(0, Math.round(Number(seconds) || 0));
+    return Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+  }
+
+  function ymCover(url, className) {
+    var node;
+    if (url) {
+      node = document.createElement('img');
+      node.src = url;
+      node.alt = '';
+      node.loading = 'lazy';
+    } else {
+      node = document.createElement('div');
+      node.className = className + ' ym-cover-stub';
+    }
+    node.className = className;
+    return node;
+  }
+
+  function ymLoadLibrary() {
+    if (!State.ymLoggedIn) {
+      ymRenderMessage('Войдите в Яндекс Музыку в блоке ниже.');
+      return;
+    }
+    ymRenderMessage('Загружаю музыку…');
+    cgi('ymusic.py', { playlists: 1 }, { timeout: 20000, silent: true })
+      .then(function (data) {
+        State.ymPlaylists = (data && data.playlists) || [];
+        ymRender();
+        cgi('ymusic.py', { my_playlists: 1 }, { timeout: 20000, silent: true })
+          .then(function (mine) {
+            State.ymMine = (mine && mine.playlists) || [];
+            ymRender();
+          })
+          .catch(function () { /* сохранённые плейлисты необязательны */ });
+      })
+      .catch(function (err) {
+        ymRenderMessage('Не удалось загрузить: ' + err.message);
+      });
+  }
+
+  function ymLoadLiked() {
+    if (!State.ymLoggedIn) return;
+    if (State.ymLiked.length) { ymRender(); return; }
+    ymRenderMessage('Загружаю избранное…');
+    cgi('ymusic.py', { liked: 1 }, { timeout: 25000, silent: true })
+      .then(function (data) {
+        State.ymLiked = (data && data.tracks) || [];
+        ymRender();
+      })
+      .catch(function (err) { ymRenderMessage('Избранное: ' + err.message); });
+  }
+
+  function ymOpenPlaylist(item) {
+    State.ymSelected = item;
+    State.ymView = 'tracks';
+    ymSetFilterButtons();
+    ymRenderMessage('Загружаю треки…');
+    cgi('ymusic.py', { playlist: item.id }, { timeout: 25000, silent: true })
+      .then(function (data) {
+        State.ymTracks = (data && data.tracks) || [];
+        ymRender();
+      })
+      .catch(function (err) { ymRenderMessage('Плейлист: ' + err.message); });
+  }
+
+  function ymPlayTrack(track) {
+    cgi('ymusic.py', {
+      play: track.title || 'трек', id: track.id || '', type: 'track'
+    }, { timeout: 20000 })
+      .then(function () {
+        toast('Включаю: ' + (track.title || 'трек'), 'ok');
+        setTimeout(ymOpenNow, 700);
+      })
+      .catch(function (err) { toast('Яндекс Музыка: ' + err.message, 'bad'); });
+  }
+
+  function ymRenderMessage(text) {
+    var body = document.getElementById('ymBody');
+    if (!body) return;
+    body.innerHTML = '';
+    var note = document.createElement('div');
+    note.className = 'ym-empty';
+    note.textContent = text;
+    body.appendChild(note);
+  }
+
+  function ymSetFilterButtons() {
+    var filters = document.getElementById('ymFilters');
+    if (!filters) return;
+    Array.prototype.forEach.call(filters.querySelectorAll('[data-ym-view]'), function (button) {
+      button.setAttribute('aria-pressed',
+        String(button.dataset.ymView === State.ymView));
+    });
+  }
+
+  function ymUpdatePromo() {
+    var promo = document.getElementById('ymPromo');
+    var cover = document.getElementById('ymPromoCover');
+    var title = document.getElementById('ymPromoTitle');
+    var sub = document.getElementById('ymPromoSub');
+    if (!promo || !cover || !title || !sub) return;
+    if (State.ymView !== 'all' || State.ymSearch.trim().length >= 2) {
+      promo.hidden = true;
+      return;
+    }
+    var item = State.ymPlaylists[0];
+    if (!item) {
+      promo.hidden = true;
+      return;
+    }
+    promo.hidden = false;
+    cover.style.backgroundImage = item.cover
+      ? 'linear-gradient(180deg,rgba(0,0,0,.05),rgba(0,0,0,.35)),url("' + item.cover + '")'
+      : 'linear-gradient(140deg,#5b3bb5,#ff7043)';
+    title.textContent = item.title || 'Музыка для вас';
+    sub.textContent = (item.tracks || 0) + ' треков · персональная подборка';
+    promo.onclick = function () { ymOpenPlaylist(item); };
+    promo.setAttribute('role', 'button');
+    promo.tabIndex = 0;
+  }
+
+  function ymRender() {
+    var body = document.getElementById('ymBody');
+    if (!body) return;
+    body.innerHTML = '';
+    ymSetFilterButtons();
+    var query = (State.ymSearch || '').trim().toLowerCase();
+    var view = State.ymView;
+    var pageTitle = document.getElementById('ymTitle');
+    if (pageTitle) {
+      pageTitle.textContent = view === 'tracks'
+        ? (State.ymSelected ? State.ymSelected.title : 'Треки')
+        : view === 'liked' ? 'Избранное'
+          : view === 'playlists' ? 'Плейлисты'
+            : view === 'wave' ? 'Моя волна'
+              : view === 'trends' ? 'Тренды'
+                : view === 'audio' ? 'Аудио' : 'Главное';
+    }
+    if (query.length >= 2) {
+      if (pageTitle) pageTitle.textContent = 'Поиск';
+    }
+    ymUpdatePromo();
+    if (query.length >= 2) {
+      ymRenderGlobalSearch(body, query);
+      return;
+    }
+    if (view === 'audio') {
+      ymRenderAudio(body, query);
+      return;
+    }
+    if (view === 'wave') {
+      ymRenderWave(body);
+      return;
+    }
+    if (view === 'trends') {
+      ymRenderTrends(body, query);
+      return;
+    }
+    if (view === 'liked' && !State.ymLiked.length) {
+      ymLoadLiked();
+      return;
+    }
+
+    var section = document.createElement('div');
+    var title = document.createElement('div');
+    title.className = 'ym-section-title';
+    section.appendChild(title);
+
+    if (view === 'tracks') {
+      title.hidden = true;
+      if (!State.ymSelected) {
+        ymRenderMessage('Откройте плейлист, чтобы увидеть треки.');
+        return;
+      }
+      title.textContent = State.ymSelected.title || 'Треки плейлиста';
+      var tracks = State.ymTracks.filter(function (track) {
+        return !query || ((track.title || '') + ' ' + (track.artist || '')).toLowerCase().indexOf(query) !== -1;
+      });
+      if (!tracks.length) {
+        section.appendChild(ymEmptyNode(query ? 'Ничего не найдено.' : 'В плейлисте нет треков.'));
+      } else {
+        section.appendChild(ymTrackList(tracks));
+      }
+      body.appendChild(section);
+      return;
+    }
+
+    if (view === 'liked') {
+      title.textContent = 'Избранное';
+      var liked = State.ymLiked.filter(function (track) {
+        return !query || ((track.title || '') + ' ' + (track.artist || '')).toLowerCase().indexOf(query) !== -1;
+      });
+      if (!liked.length) section.appendChild(ymEmptyNode(query ? 'Ничего не найдено.' : 'В избранном пока пусто.'));
+      else section.appendChild(ymTrackList(liked));
+      body.appendChild(section);
+      return;
+    }
+
+    if (State.ymMine.length) {
+      body.appendChild(ymSearchSection('Мои плейлисты',
+        ymSearchCards(State.ymMine, ymOpenPlaylist)));
+    }
+    title.textContent = 'Умные плейлисты для вас';
+    var playlists = State.ymPlaylists.filter(function (item) {
+      return !query || String(item.title || '').toLowerCase().indexOf(query) !== -1;
+    });
+    if (!playlists.length) {
+      section.appendChild(ymEmptyNode(query ? 'Ничего не найдено.' : 'Плейлисты не найдены.'));
+      body.appendChild(section);
+      return;
+    }
+    var grid = document.createElement('div');
+    grid.className = 'ym-grid';
+    playlists.forEach(function (item) {
+      var card = document.createElement('div');
+      card.className = 'ym-card';
+      card.tabIndex = 0;
+      card.setAttribute('role', 'button');
+      card.appendChild(ymCover(item.cover, 'ym-card-cover'));
+      var name = document.createElement('b');
+      name.textContent = item.title || 'Плейлист';
+      var count = document.createElement('span');
+      count.textContent = (item.tracks || 0) + ' треков';
+      card.appendChild(name);
+      card.appendChild(count);
+      card.addEventListener('click', function () { ymOpenPlaylist(item); });
+      card.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          ymOpenPlaylist(item);
+        }
+      });
+      grid.appendChild(card);
+    });
+    section.appendChild(grid);
+    body.appendChild(section);
+  }
+
+  function ymEmptyNode(text) {
+    var note = document.createElement('div');
+    note.className = 'ym-empty';
+    note.textContent = text;
+    return note;
+  }
+
+  function ymRenderAudio(body, query) {
+    if (!State.ymAudio.length && !State.ymBooks.length) { ymLoadAudio(); return; }
+    var wrap = document.createElement('div');
+    var books = State.ymBooks.filter(function (item) {
+      return !query || ((item.title || '') + ' ' + (item.author || '')).toLowerCase().indexOf(query) !== -1;
+    });
+    if (books.length) {
+      wrap.appendChild(ymSearchSection('Аудиокниги', ymSearchCards(books, ymOpenBook)));
+    }
+    var book = document.createElement('a');
+    book.className = 'ym-audiobook-link';
+    book.href = 'https://books.yandex.ru/audiobooks';
+    book.target = '_blank';
+    book.rel = 'noopener';
+    book.innerHTML = '<b>Все аудиокниги</b><span>Открыть каталог Яндекс Книг</span>';
+    wrap.appendChild(book);
+    var title = document.createElement('div');
+    title.className = 'ym-section-title';
+    title.textContent = 'Подкасты';
+    wrap.appendChild(title);
+    var grid = document.createElement('div');
+    grid.className = 'ym-grid ym-audio-grid';
+    State.ymAudio.filter(function (item) {
+      return !query || String(item.title || '').toLowerCase().indexOf(query) !== -1;
+    }).forEach(function (item) {
+      var card = document.createElement('a');
+      card.className = 'ym-card ym-audio-card';
+      card.href = 'https://music.yandex.ru/podcast/' + encodeURIComponent(item.id);
+      card.target = '_blank';
+      card.rel = 'noopener';
+      card.appendChild(ymCover(item.cover, 'ym-card-cover'));
+      var name = document.createElement('b');
+      name.textContent = item.title;
+      card.appendChild(name);
+      var desc = document.createElement('span');
+      desc.textContent = item.description || 'Подкаст';
+      card.appendChild(desc);
+      grid.appendChild(card);
+    });
+    wrap.appendChild(grid);
+    body.appendChild(wrap);
+  }
+
+  function ymOpenBook(item) {
+    window.open(item.url || ('https://books.yandex.ru/audiobooks/' + item.id), '_blank', 'noopener');
+  }
+
+  function ymLoadAudio() {
+    if (State.ymAudio.length) { ymRender(); return; }
+    ymRenderMessage('Загружаю аудио…');
+    cgi('ymusic.py', { podcasts: 1 }, { timeout: 20000, silent: true })
+      .then(function (data) {
+        State.ymAudio = (data && data.podcasts) || [];
+        ymRender();
+        cgi('ymusic.py', { books: 1 }, { timeout: 25000, silent: true })
+          .then(function (books) {
+            State.ymBooks = (books && books.books) || [];
+            ymRender();
+          })
+          .catch(function () { /* книги необязательны */ });
+      })
+      .catch(function (err) { ymRenderMessage('Аудио: ' + err.message); });
+  }
+
+  function ymSearchSection(title, node) {
+    var section = document.createElement('section');
+    section.className = 'ym-search-section';
+    var caption = document.createElement('div');
+    caption.className = 'ym-section-title';
+    caption.textContent = title;
+    section.appendChild(caption);
+    section.appendChild(node);
+    return section;
+  }
+
+  function ymSearchCards(items, onOpen) {
+    var grid = document.createElement('div');
+    grid.className = 'ym-grid';
+    items.forEach(function (item) {
+      var card = document.createElement('div');
+      card.className = 'ym-card';
+      card.tabIndex = 0;
+      card.setAttribute('role', 'button');
+      card.appendChild(ymCover(item.cover, 'ym-card-cover'));
+      var title = document.createElement('b');
+      title.textContent = item.title;
+      card.appendChild(title);
+      var sub = document.createElement('span');
+      sub.textContent = item.artist || item.author || item.description ||
+        (item.tracks ? item.tracks + ' треков' : '');
+      card.appendChild(sub);
+      if (onOpen) {
+        card.addEventListener('click', function () { onOpen(item); });
+        card.addEventListener('keydown', function (event) {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onOpen(item);
+          }
+        });
+      }
+      grid.appendChild(card);
+    });
+    return grid;
+  }
+
+  function ymDoSearch(query) {
+    if (State.ymSearchPending === query) return;
+    State.ymSearchPending = query;
+    cgi('ymusic.py', { search: query }, { timeout: 25000, silent: true })
+      .then(function (data) {
+        if (State.ymSearch.trim().toLowerCase() !== query) return;
+        State.ymSearchResults = {
+          query: query,
+          tracks: (data && data.tracks) || [],
+          albums: (data && data.albums) || [],
+          playlists: (data && data.playlists) || [],
+          artists: (data && data.artists) || [],
+          podcasts: (data && data.podcasts) || [],
+          books: (data && data.books) || []
+        };
+        State.ymSearchPending = '';
+        ymRender();
+      })
+      .catch(function (err) {
+        State.ymSearchPending = '';
+        ymRenderMessage('Поиск: ' + err.message);
+      });
+  }
+
+  function ymRenderGlobalSearch(body, query) {
+    var results = State.ymSearchResults;
+    if (!results || results.query !== query) {
+      ymDoSearch(query);
+      ymRenderMessage('Ищу «' + query + '»…');
+      return;
+    }
+    var filter = State.ymSearchFilter || 'all';
+    var chips = document.createElement('div');
+    chips.className = 'ym-search-filters';
+    [
+      ['all', 'Все'], ['tracks', 'Треки'], ['albums', 'Альбомы'],
+      ['playlists', 'Плейлисты'], ['artists', 'Артисты'],
+      ['podcasts', 'Подкасты'], ['books', 'Аудиокниги']
+    ].forEach(function (pair) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'ym-search-chip';
+      button.textContent = pair[1];
+      button.setAttribute('aria-pressed', String(filter === pair[0]));
+      button.addEventListener('click', function () {
+        State.ymSearchFilter = pair[0];
+        ymRender();
+      });
+      chips.appendChild(button);
+    });
+    body.appendChild(chips);
+
+    var found = false;
+    function add(key, title, node, count) {
+      if (!count || (filter !== 'all' && filter !== key)) return;
+      body.appendChild(ymSearchSection(title, node));
+      found = true;
+    }
+    add('tracks', 'Треки', ymTrackList(results.tracks), results.tracks.length);
+    add('albums', 'Альбомы', ymSearchCards(results.albums, ymOpenAlbum), results.albums.length);
+    add('playlists', 'Плейлисты', ymSearchCards(results.playlists, ymOpenPlaylist), results.playlists.length);
+    add('artists', 'Артисты', ymSearchCards(results.artists), results.artists.length);
+    add('podcasts', 'Подкасты', ymSearchCards(results.podcasts), results.podcasts.length);
+    add('books', 'Аудиокниги', ymSearchCards(results.books || [], ymOpenBook),
+      (results.books || []).length);
+    if (!found) body.appendChild(ymEmptyNode('В этом разделе ничего не найдено.'));
+  }
+
+  function ymOpenAlbum(album) {
+    State.ymSelected = { title: album.title || 'Альбом' };
+    State.ymView = 'tracks';
+    ymSetFilterButtons();
+    ymRenderMessage('Загружаю альбом…');
+    cgi('ymusic.py', { album: album.id }, { timeout: 25000, silent: true })
+      .then(function (data) {
+        State.ymTracks = (data && data.tracks) || [];
+        ymRender();
+      })
+      .catch(function (err) { ymRenderMessage('Альбом: ' + err.message); });
+  }
+
+  function ymLoadWave() {
+    if (State.ymWave) { ymRender(); return; }
+    ymRenderMessage('Загружаю настройки волны…');
+    cgi('ymusic.py', { wave: 1 }, { timeout: 20000, silent: true })
+      .then(function (data) {
+        State.ymWave = {
+          settings: (data && data.settings) || {},
+          restrictions: (data && data.restrictions) || {}
+        };
+        State.ymWaveSettings = {
+          mood: Number(State.ymWave.settings.mood) || 2,
+          energy: Number(State.ymWave.settings.energy) || 2,
+          language: State.ymWave.settings.language || 'any',
+          diversity: State.ymWave.settings.diversity || 'default'
+        };
+        ymRender();
+      })
+      .catch(function (err) { ymRenderMessage('Моя волна: ' + err.message); });
+  }
+
+  function ymLoadTrends() {
+    if (State.ymTrends.length) { ymRender(); return; }
+    ymRenderMessage('Загружаю тренды…');
+    cgi('ymusic.py', { trends: 1 }, { timeout: 20000, silent: true })
+      .then(function (data) {
+        State.ymTrends = (data && data.tracks) || [];
+        ymRender();
+      })
+      .catch(function (err) { ymRenderMessage('Тренды: ' + err.message); });
+  }
+
+  function ymRenderTrends(body, query) {
+    if (!State.ymTrends.length) { ymLoadTrends(); return; }
+    var tracks = State.ymTrends.filter(function (track) {
+      return !query || ((track.title || '') + ' ' + (track.artist || '')).toLowerCase().indexOf(query) !== -1;
+    });
+    var section = document.createElement('div');
+    var title = document.createElement('div');
+    title.className = 'ym-section-title';
+    title.textContent = 'Популярно сейчас';
+    section.appendChild(title);
+    section.appendChild(tracks.length ? ymTrackList(tracks) : ymEmptyNode('Ничего не найдено.'));
+    body.appendChild(section);
+  }
+
+  function ymChoice(value, label, active, onPick, hint) {
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'ym-choice';
+    button.textContent = label;
+    button.setAttribute('aria-pressed', String(active));
+    if (hint) {
+      button.title = hint;
+      button.setAttribute('aria-label', hint);
+    }
+    button.addEventListener('click', function () { onPick(value); });
+    return button;
+  }
+
+  function ymRenderWave(body) {
+    if (!State.ymWave) { ymLoadWave(); return; }
+    var wave = State.ymWave;
+    var chosen = State.ymWaveSettings;
+    var restrictions = wave.restrictions || {};
+    var wrap = document.createElement('div');
+    wrap.className = 'ym-wave';
+
+    var hero = document.createElement('div');
+    hero.className = 'ym-wave-hero';
+    var art = document.createElement('div');
+    art.className = 'ym-wave-art';
+    art.innerHTML = '<span>МОЯ</span><b>волна</b>';
+    var copy = document.createElement('div');
+    copy.className = 'ym-wave-copy';
+    var heading = document.createElement('h3');
+    heading.textContent = 'Настроение под вас';
+    var note = document.createElement('p');
+    note.textContent = 'Настроение: 1 — грустнее, 4 — веселее. Энергичность: 1 — спокойнее, 4 — бодрее.';
+    var play = document.createElement('button');
+    play.type = 'button';
+    play.className = 'ym-wave-play';
+    play.textContent = 'Включить волну';
+    play.addEventListener('click', ymApplyWave);
+    copy.appendChild(heading);
+    copy.appendChild(note);
+    copy.appendChild(play);
+    hero.appendChild(art);
+    hero.appendChild(copy);
+
+    var settingsBox = document.createElement('div');
+    settingsBox.className = 'ym-wave-settings';
+
+    function addGroup(label, control, extra) {
+      var group = document.createElement('div');
+      group.className = 'ym-choice-group';
+      var caption = document.createElement('span');
+      caption.className = 'ym-choice-label';
+      caption.textContent = label;
+      group.appendChild(caption);
+      group.appendChild(control);
+      if (extra) group.appendChild(extra);
+      settingsBox.appendChild(group);
+    }
+
+    var lang = document.createElement('div');
+    lang.className = 'ym-choice-row';
+    ((restrictions.language || {}).possibleValues || [
+      { value: 'any', name: 'Любой' }, { value: 'russian', name: 'Русский' }
+    ]).forEach(function (item) {
+      lang.appendChild(ymChoice(item.value, item.name || item.value,
+        chosen.language === item.value, function (value) {
+          chosen.language = value;
+          ymRender();
+        }));
+    });
+    addGroup((restrictions.language || {}).name || 'По языку', lang);
+
+    function scaleGroup(key, restriction) {
+      var row = document.createElement('div');
+      row.className = 'ym-choice-row';
+      var min = (restriction || {}).min || { value: 1, name: 'Меньше' };
+      var max = (restriction || {}).max || { value: 4, name: 'Больше' };
+      for (var value = min.value; value <= max.value; value += 1) {
+        row.appendChild(ymChoice(value, String(value), chosen[key] === value,
+          function (picked) {
+            chosen[key] = picked;
+            ymRender();
+          }, (restriction || {}).name + ': ' + value + ' из ' + max.value +
+            ' — ' + (value <= min.value ? min.name : value >= max.value ? max.name : 'среднее')));
+      }
+      var legend = document.createElement('div');
+      legend.className = 'ym-scale-legend';
+      var left = document.createElement('span');
+      left.textContent = min.name;
+      var right = document.createElement('span');
+      right.textContent = max.name;
+      legend.appendChild(left);
+      legend.appendChild(right);
+      addGroup((restriction || {}).name || key, row, legend);
+    }
+    scaleGroup('mood', restrictions.mood);
+    scaleGroup('energy', restrictions.energy);
+
+    var diversity = document.createElement('div');
+    diversity.className = 'ym-choice-row';
+    ((restrictions.diversity || {}).possibleValues || [
+      { value: 'default', name: 'Все' }, { value: 'diverse', name: 'Редкие' },
+      { value: 'favorite', name: 'Любимые' }, { value: 'popular', name: 'Популярные' }
+    ]).forEach(function (item) {
+      diversity.appendChild(ymChoice(item.value, item.name || item.value,
+        chosen.diversity === item.value, function (value) {
+          chosen.diversity = value;
+          ymRender();
+        }));
+    });
+    addGroup((restrictions.diversity || {}).name || 'По характеру', diversity);
+
+    wrap.appendChild(hero);
+    wrap.appendChild(settingsBox);
+    body.appendChild(wrap);
+  }
+
+  function ymApplyWave() {
+    var chosen = State.ymWaveSettings;
+    if (!chosen) return;
+    cgi('ymusic.py', {
+      wave_play: 1, mood: chosen.mood, energy: chosen.energy,
+      language: chosen.language, diversity: chosen.diversity
+    }, { timeout: 20000 }).then(function () {
+      toast('Включаю Мою волну', 'ok');
+      ymOpenNow();
+    }).catch(function (err) { toast('Моя волна: ' + err.message, 'bad'); });
+  }
+
+  function ymTrackList(tracks) {
+    var list = document.createElement('div');
+    tracks.forEach(function (track) {
+      var row = document.createElement('div');
+      row.className = 'ym-track';
+      row.appendChild(ymCover(track.cover, 'ym-track-cover'));
+      var meta = document.createElement('div');
+      meta.className = 'ym-track-meta';
+      var name = document.createElement('b');
+      name.textContent = track.title || 'Трек';
+      var artist = document.createElement('span');
+      artist.textContent = track.artist || 'Яндекс Музыка';
+      meta.appendChild(name);
+      meta.appendChild(artist);
+      row.appendChild(meta);
+      var duration = document.createElement('span');
+      duration.className = 'ym-duration';
+      duration.textContent = ymTime(track.duration);
+      row.appendChild(duration);
+      var play = document.createElement('button');
+      play.type = 'button';
+      play.className = 'btn icon-sm ghost';
+      play.setAttribute('aria-label', 'Воспроизвести');
+      play.innerHTML = '<svg class="ic" aria-hidden="true"><use href="#i-play"/></svg>';
+      play.addEventListener('click', function () { ymPlayTrack(track); });
+      row.appendChild(play);
+      list.appendChild(row);
+    });
+    return list;
+  }
+
+  function ymSyncNow() {
+    var now = document.getElementById('ymNow');
+    if (!now || now.hidden) return;
+    var cover = document.getElementById('ymNowCover');
+    var bg = document.getElementById('ymNowBg');
+    var title = document.getElementById('ymNowTitle');
+    var artist = document.getElementById('ymNowArtist');
+    var play = document.getElementById('ymNowPlay');
+    var seek = document.getElementById('ymNowSeek');
+    var pos = document.getElementById('ymNowPos');
+    var dur = document.getElementById('ymNowDur');
+    var volume = document.getElementById('ymNowVolume');
+    var volumeVal = document.getElementById('ymNowVolumeVal');
+    var duration = Number(State.mediaDuration) || 0;
+    var current = Number(State.mediaProgress) || 0;
+    if (title) title.textContent = State.mediaTitle || 'Ничего не играет';
+    if (artist) artist.textContent = State.mediaArtist || 'Яндекс Музыка';
+    if (cover) {
+      if (State.mediaCover) {
+        cover.src = State.mediaCover;
+        cover.hidden = false;
+      } else {
+        cover.hidden = true;
+      }
+    }
+    if (bg) {
+      bg.style.backgroundImage = State.mediaCover
+        ? 'url("' + State.mediaCover + '")' : 'linear-gradient(140deg,#2a2a31,#101014)';
+    }
+    if (play) {
+      var use = play.querySelector('use');
+      if (use) use.setAttribute('href', State.playing ? '#i-pause' : '#i-play');
+      play.setAttribute('aria-label', State.playing ? 'Пауза' : 'Воспроизвести');
+    }
+    if (seek) {
+      seek.max = String(Math.max(1, Math.round(duration)));
+      if (!State.ymSeeking) seek.value = String(Math.min(duration, current));
+    }
+    if (pos) pos.textContent = ymTime(current);
+    if (dur) dur.textContent = ymTime(duration);
+    if (volume && !State.ymVolumeBusy) volume.value = String(State.volume || 0);
+    if (volumeVal) volumeVal.textContent = (State.volume || 0) + '%';
+  }
+
+  function ymOpenNow() {
+    if (!State.mediaTitle) {
+      toast('Сейчас ничего не играет', 'warn');
+      return;
+    }
+    var now = document.getElementById('ymNow');
+    if (!now) return;
+    now.hidden = false;
+    var content = document.querySelector('.ym-content');
+    if (content) content.classList.add('now-open');
+    State.ymNowOpen = true;
+    ymSyncNow();
+    if (State.playerKind === 'Track' && !State.lyricsLines.length) loadLyrics(true);
+    else highlightNowLyrics(true);
+  }
+
+  function ymCloseNow() {
+    var now = document.getElementById('ymNow');
+    if (now) now.hidden = true;
+    var content = document.querySelector('.ym-content');
+    if (content) content.classList.remove('now-open');
+    State.ymNowOpen = false;
+  }
+
+  function ymSeekTo(seconds) {
+    var duration = Number(State.mediaDuration) || 0;
+    if (!duration) return;
+    var target = Math.max(0, Math.min(duration, Number(seconds) || 0));
+    State.mediaProgress = target;
+    if (typeof seekMedia === 'function') {
+      seekMedia(target / duration * 1000);
+      return;
+    }
+    cgi('media.py', {
+      action: 'seek', position: Math.round(target)
+    }, { timeout: 10000, silent: true }).catch(function (err) {
+      toast('Перемотка: ' + err.message, 'bad');
+    });
+  }
+
+  function ymSyncBar() {
+    var title = document.getElementById('ymBarTitle');
+    var sub = document.getElementById('ymBarSub');
+    var cover = document.getElementById('ymBarCover');
+    var play = document.getElementById('ymBarPlay');
+    var time = document.getElementById('ymBarTime');
+    var fill = document.getElementById('ymBarFill');
+    if (!title) return;
+    title.textContent = State.mediaTitle || 'Ничего не играет';
+    sub.textContent = State.mediaArtist || (State.mediaTitle ? 'Яндекс Музыка' : 'Выберите плейлист или трек');
+    if (cover) {
+      if (State.mediaCover) {
+        cover.src = State.mediaCover;
+        cover.hidden = false;
+      } else {
+        cover.hidden = true;
+      }
+    }
+    if (play) {
+      var use = play.querySelector('use');
+      if (use) use.setAttribute('href', State.playing ? '#i-pause' : '#i-play');
+      play.setAttribute('aria-label', State.playing ? 'Пауза' : 'Воспроизвести');
+    }
+    var duration = State.mediaDuration || 0;
+    var current = State.mediaProgress || 0;
+    if (time) time.textContent = ymTime(current) + ' / ' + ymTime(duration);
+    if (fill) fill.style.width = duration ? Math.min(100, current / duration * 100) + '%' : '0%';
+    var seek = document.getElementById('ymBarSeek');
+    if (seek) {
+      seek.max = String(Math.max(1, Math.round(duration)));
+      if (!State.ymSeeking) seek.value = String(Math.max(0, Math.min(duration, current)));
+    }
+    var volume = document.getElementById('ymBarVolume');
+    if (volume && !State.ymVolumeBusy) volume.value = String(State.volume || 0);
+    var volumeVal = document.getElementById('ymBarVolumeVal');
+    if (volumeVal) volumeVal.textContent = (State.volume || 0) + '%';
+    updateVolumeIcons();
+    ymSyncNow();
+  }
+
+  var ymCloseTimer = null;
+
+  function closeYmDialog() {
+    var dialog = document.getElementById('ymDlg');
+    if (!dialog || !dialog.open || dialog.classList.contains('closing')) return;
+    dialog.classList.add('closing');
+    clearTimeout(ymCloseTimer);
+    ymCloseTimer = setTimeout(function () {
+      if (dialog.open) dialog.close();
+    }, 170);
+  }
+
+  function ymOpen() {
+    var dialog = document.getElementById('ymDlg');
+    if (!dialog) return;
+    if (!State.ymLoggedIn) {
+      toast('Сначала войдите в Яндекс Музыку', 'warn');
+      var auth = document.getElementById('ymAuth');
+      if (auth) auth.open = true;
+      return;
+    }
+    clearTimeout(ymCloseTimer);
+    dialog.classList.remove('closing');
+    if (!dialog.open) dialog.showModal();
+    store.set('ymOpen', true);
+    store.set('ymView', State.ymView);
+    ymCloseNow();
+    ymSyncBar();
+    ymLoadLibrary();
+  }
+
+  function initLyricsPlayer() {
+    [['lyrPlayerPrev', 'btnPrev'], ['lyrPlayerPlay', 'btnPlay'],
+      ['lyrPlayerNext', 'btnNext'], ['lyrPlayerLike', 'btnLike'],
+      ['lyrPlayerDislike', 'btnDislike']
+    ].forEach(function (pair) {
+      var button = document.getElementById(pair[0]);
+      var target = document.getElementById(pair[1]);
+      if (button && target) button.addEventListener('click', function () { target.click(); });
+    });
+    var seek = document.getElementById('lyrPlayerSeek');
+    if (seek) {
+      seek.addEventListener('input', function () {
+        State.lyrSeeking = true;
+        var duration = Number(State.mediaDuration) || 0;
+        var pos = document.getElementById('lyrPlayerPos');
+        if (pos && duration) pos.textContent = fmtTime(Number(seek.value) / 1000 * duration);
+      });
+      seek.addEventListener('change', function () {
+        State.lyrSeeking = false;
+        var duration = Number(State.mediaDuration) || 0;
+        if (duration) State.mediaProgress = Number(seek.value) / 1000 * duration;
+        seekMedia(Number(seek.value));
+        syncLyricsPlayer();
+      });
+    }
+    var volume = document.getElementById('lyrPlayerVolume');
+    if (volume) {
+      volume.addEventListener('input', function () {
+        State.ymVolumeBusy = true;
+        var value = Math.max(0, Math.min(100, parseInt(volume.value, 10) || 0));
+        var label = document.getElementById('lyrPlayerVolumeVal');
+        if (label) label.textContent = value + '%';
+        var main = document.getElementById('volume');
+        if (main) {
+          main.value = String(value);
+          main.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        setTimeout(function () { State.ymVolumeBusy = false; }, 400);
+      });
+    }
+  }
+
+  function initYmDialog() {
+    var dialog = document.getElementById('ymDlg');
+    if (!dialog) return;
+    var open = document.getElementById('btnYmExpand');
+    if (open) {
+      open.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        ymOpen();
+      });
+      open.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          event.stopPropagation();
+          ymOpen();
+        }
+      });
+    }
+    var close = document.getElementById('btnYmDlgClose');
+    if (close) close.addEventListener('click', closeYmDialog);
+    dialog.addEventListener('cancel', function (event) {
+      event.preventDefault();
+      closeYmDialog();
+    });
+    dialog.addEventListener('close', function () {
+      State.ymSearch = '';
+      dialog.classList.remove('closing');
+      store.set('ymOpen', false);
+      ymCloseNow();
+    });
+    var back = document.getElementById('ymNowBack');
+    if (back) back.addEventListener('click', ymCloseNow);
+    var barArt = document.getElementById('ymBarArt');
+    var barMeta = document.querySelector('.ym-bar-meta');
+    [barArt, barMeta].forEach(function (node) {
+      if (node) {
+        node.style.cursor = 'pointer';
+        node.addEventListener('click', ymOpenNow);
+      }
+    });
+    [['ymNowPrev', 'btnPrev'], ['ymNowPlay', 'btnPlay'], ['ymNowNext', 'btnNext'],
+      ['ymNowLike', 'btnLike'], ['ymNowDislike', 'btnDislike'],
+      ['ymNowQueue', 'btnQueue'], ['ymNowLyrics', 'btnLyrics']
+    ].forEach(function (pair) {
+      var button = document.getElementById(pair[0]);
+      var target = document.getElementById(pair[1]);
+      if (button && target) button.addEventListener('click', function () { target.click(); });
+    });
+    var nowSeek = document.getElementById('ymNowSeek');
+    if (nowSeek) {
+      nowSeek.addEventListener('input', function () {
+        State.ymSeeking = true;
+        var pos = document.getElementById('ymNowPos');
+        if (pos) pos.textContent = ymTime(Number(nowSeek.value));
+      });
+      nowSeek.addEventListener('change', function () {
+        State.ymSeeking = false;
+        State.mediaProgress = Number(nowSeek.value) || 0;
+        ymSeekTo(Number(nowSeek.value));
+        ymSyncNow();
+      });
+    }
+    var nowVolume = document.getElementById('ymNowVolume');
+    if (nowVolume) {
+      nowVolume.addEventListener('input', function () {
+        State.ymVolumeBusy = true;
+        var value = Math.max(0, Math.min(100, parseInt(nowVolume.value, 10) || 0));
+        var label = document.getElementById('ymNowVolumeVal');
+        if (label) label.textContent = value + '%';
+        var main = document.getElementById('volume');
+        if (main) {
+          main.value = String(value);
+          main.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        setTimeout(function () { State.ymVolumeBusy = false; }, 400);
+      });
+    }
+    var barSeek = document.getElementById('ymBarSeek');
+    if (barSeek) {
+      barSeek.addEventListener('input', function () {
+        State.ymSeeking = true;
+        var max = Number(barSeek.max) || 1;
+        var fill = document.getElementById('ymBarFill');
+        if (fill) fill.style.width = Math.min(100, Number(barSeek.value) / max * 100) + '%';
+      });
+      barSeek.addEventListener('change', function () {
+        State.ymSeeking = false;
+        State.mediaProgress = Number(barSeek.value) || 0;
+        ymSeekTo(Number(barSeek.value));
+        ymSyncBar();
+      });
+    }
+    var barVolume = document.getElementById('ymBarVolume');
+    if (barVolume) {
+      barVolume.addEventListener('input', function () {
+        State.ymVolumeBusy = true;
+        var value = Math.max(0, Math.min(100, parseInt(barVolume.value, 10) || 0));
+        var label = document.getElementById('ymBarVolumeVal');
+        if (label) label.textContent = value + '%';
+        var main = document.getElementById('volume');
+        if (main) {
+          main.value = String(value);
+          main.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        setTimeout(function () { State.ymVolumeBusy = false; }, 500);
+      });
+    }
+    var filters = document.getElementById('ymFilters');
+    if (filters) {
+      filters.addEventListener('click', function (event) {
+        var button = event.target.closest('[data-ym-view]');
+        if (!button) return;
+        ymCloseNow();
+        if (State.ymSearchTimer) { clearTimeout(State.ymSearchTimer); State.ymSearchTimer = null; }
+        State.ymSearch = '';
+        State.ymSearchResults = null;
+        State.ymSearchPending = '';
+        var searchBox = document.getElementById('ymSearch');
+        if (searchBox) searchBox.value = '';
+        State.ymView = button.dataset.ymView;
+        store.set('ymView', State.ymView);
+        if (State.ymView !== 'tracks') {
+          State.ymSelected = null;
+          State.ymTracks = [];
+        }
+        ymRender();
+      });
+    }
+    var search = document.getElementById('ymSearch');
+    if (search) {
+      search.addEventListener('input', function () {
+        State.ymSearch = search.value;
+        State.ymSearchResults = null;
+        State.ymSearchPending = '';
+        State.ymSearchFilter = 'all';
+        if (State.ymSearchTimer) clearTimeout(State.ymSearchTimer);
+        State.ymSearchTimer = setTimeout(function () {
+          State.ymSearchTimer = null;
+          ymRender();
+        }, State.ymSearch.trim().length >= 2 ? 320 : 0);
+      });
+    }
+    [['ymBarPrev', 'btnPrev'], ['ymBarPlay', 'btnPlay'], ['ymBarNext', 'btnNext'],
+      ['ymBarQueue', 'btnQueue'], ['ymBarLike', 'btnLike'], ['ymBarDislike', 'btnDislike'],
+      ['ymBarMute', 'btnMute']
+    ].forEach(function (pair) {
+      var button = document.getElementById(pair[0]);
+      var target = document.getElementById(pair[1]);
+      if (button && target) button.addEventListener('click', function () { target.click(); });
+    });
+    setInterval(function () { if (dialog.open) ymSyncBar(); }, 1000);
+  }
+
+  function initYandexMusic() {
+    var login = document.getElementById('btnYmLogin');
+    var save = document.getElementById('btnYmSave');
+    var logout = document.getElementById('btnYmLogout');
+    var input = document.getElementById('ymTokenUrl');
+    if (!login || !save || !logout) return;
+    login.addEventListener('click', function () {
+      if (State.ymOauthUrl) {
+        var win = window.open(State.ymOauthUrl, '_blank', 'noopener');
+        if (!win) toast('Разрешите всплывающие окна для входа', 'warn');
+        return;
+      }
+      loadYmAuth().then(function () {
+        if (!State.ymOauthUrl) { toast('Ссылка входа недоступна', 'bad'); return; }
+        var popup = window.open(State.ymOauthUrl, '_blank', 'noopener');
+        if (!popup) toast('Разрешите всплывающие окна для входа', 'warn');
+      });
+    });
+    save.addEventListener('click', function () {
+      var value = (input && input.value || '').trim();
+      if (!value) { toast('Вставьте адрес после входа', 'warn'); return; }
+      withBusy(save, function () {
+        return cgi('yandex_auth.py', { url: value }, { timeout: 20000 }).then(function (data) {
+          if (input) input.value = '';
+          applyYmAuth(data);
+          toast('Яндекс Музыка подключена', 'ok');
+        }).catch(function (err) {
+          toast('Яндекс Музыка: ' + err.message, 'bad');
+        });
+      });
+    });
+    logout.addEventListener('click', function () {
+      cgi('yandex_auth.py', { logout: 1 }, { timeout: 10000 }).then(applyYmAuth)
+        .catch(function (err) { toast('Яндекс Музыка: ' + err.message, 'bad'); });
+    });
+    loadYmAuth();
   }
 
   function setRingBrightness(value, save) {
@@ -3711,6 +5600,10 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   }
 
   function pushRing() {
+    if (nativeLightActive()) {
+      stopCustomRingForNative();
+      return;
+    }
     if (ledTimer) clearTimeout(ledTimer);
     ledPending = true;
     ledTimer = setTimeout(function () {
@@ -4498,6 +6391,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       el.mediaDur.textContent = duration > 0 ? fmtTime(duration) : '0:00';
     }
     highlightLyrics();
+    syncLyricsPlayer();
   }
 
   function clearLyrics() {
@@ -4509,7 +6403,112 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     }
     if (el.lyricsStatus) el.lyricsStatus.textContent = '';
     if (el.lyricsDlg && el.lyricsDlg.open) el.lyricsDlg.close();
+    clearNowLyrics();
     updateInlineLine();
+  }
+
+  function syncLyricsPlayer() {
+    var dialog = el.lyricsDlg;
+    if (!dialog || !dialog.open) return;
+    var title = document.getElementById('lyrPlayerTitle');
+    var artist = document.getElementById('lyrPlayerArtist');
+    var cover = document.getElementById('lyrPlayerCover');
+    var play = document.getElementById('lyrPlayerPlay');
+    var seek = document.getElementById('lyrPlayerSeek');
+    var pos = document.getElementById('lyrPlayerPos');
+    var dur = document.getElementById('lyrPlayerDur');
+    var volume = document.getElementById('lyrPlayerVolume');
+    var volumeVal = document.getElementById('lyrPlayerVolumeVal');
+    var duration = Number(State.mediaDuration) || 0;
+    var current = Number(State.mediaProgress) || 0;
+    if (title) title.textContent = State.mediaTitle || 'Ничего не играет';
+    if (artist) artist.textContent = State.mediaArtist || 'Яндекс Музыка';
+    if (cover) {
+      if (State.mediaCover) {
+        cover.src = State.mediaCover;
+        cover.hidden = false;
+      } else {
+        cover.hidden = true;
+      }
+    }
+    if (play) {
+      var use = play.querySelector('use');
+      if (use) use.setAttribute('href', State.playing ? '#i-pause' : '#i-play');
+    }
+    if (seek) {
+      seek.max = '1000';
+      if (!State.lyrSeeking) {
+        seek.value = duration ? String(Math.round(current / duration * 1000)) : '0';
+      }
+    }
+    if (pos) pos.textContent = fmtTime(current);
+    if (dur) dur.textContent = duration ? fmtTime(duration) : '0:00';
+    if (volume && !State.ymVolumeBusy) volume.value = String(State.volume || 0);
+    if (volumeVal) volumeVal.textContent = (State.volume || 0) + '%';
+    updateVolumeIcons();
+  }
+
+  function clearNowLyrics() {
+    var box = document.getElementById('ymNowLyricsBox');
+    if (box) {
+      box.innerHTML = '';
+      box.hidden = true;
+    }
+    State.nowLyricsLines = [];
+    State.nowLyricsActive = null;
+  }
+
+  function renderNowLyrics(data) {
+    var box = document.getElementById('ymNowLyricsBox');
+    if (!box) return;
+    box.innerHTML = '';
+    State.nowLyricsLines = [];
+    State.nowLyricsActive = null;
+    if (!data || !data.found) {
+      box.hidden = true;
+      return;
+    }
+    box.hidden = false;
+    if (data.synced && data.synced.length) {
+      data.synced.forEach(function (item) {
+        var line = document.createElement('div');
+        line.className = 'ym-now-line';
+        line.textContent = item.text;
+        line.dataset.t = item.t;
+        box.appendChild(line);
+      });
+    } else {
+      String(data.plain || '').split('\n').forEach(function (text) {
+        if (!text.trim()) return;
+        var line = document.createElement('div');
+        line.className = 'ym-now-line plain';
+        line.textContent = text;
+        box.appendChild(line);
+      });
+    }
+    State.nowLyricsLines = Array.prototype.slice.call(box.children);
+    highlightNowLyrics(true);
+  }
+
+  function highlightNowLyrics(force) {
+    var lines = State.nowLyricsLines;
+    if (!lines || !lines.length) return;
+    var now = State.audioProgress || State.mediaProgress || 0;
+    var active = null;
+    lines.forEach(function (line) {
+      var moment = parseFloat(line.dataset.t);
+      if (!isNaN(moment) && moment <= now + 0.08) active = line;
+    });
+    if (!force && State.nowLyricsActive === active) return;
+    State.nowLyricsActive = active;
+    lines.forEach(function (line) {
+      line.classList.toggle('active', line === active);
+    });
+    var box = document.getElementById('ymNowLyricsBox');
+    if (active && box && box.scrollHeight > box.clientHeight) {
+      var top = active.offsetTop - box.clientHeight / 2 + active.offsetHeight / 2;
+      box.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    }
   }
 
   function renderLyrics(data) {
@@ -4519,7 +6518,8 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     State.lyricsLines = [];
     State.lyricsActive = null;
     if (!data || !data.found) {
-      el.lyricsStatus.textContent = 'не найдено';
+      if (el.lyricsStatus) el.lyricsStatus.textContent = '';
+      renderNowLyrics(data);
       var empty = document.createElement('div');
       empty.className = 'plain';
       empty.textContent = 'Текст не найден';
@@ -4536,6 +6536,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         el.lyricsBox.appendChild(line);
       });
       State.lyricsLines = Array.prototype.slice.call(el.lyricsBox.children);
+      renderNowLyrics(data);
       highlightLyrics();
       return;
     }
@@ -4543,6 +6544,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     plain.className = 'plain';
     plain.textContent = data.plain || '';
     el.lyricsBox.appendChild(plain);
+    renderNowLyrics(data);
   }
 
   function highlightLyrics() {
@@ -4558,6 +6560,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       if (!isNaN(moment) && moment <= now + 0.08) active = line;
     });
     if (State.lyricsActive === active) {
+      highlightNowLyrics();
       updateInlineLine();
       return;
     }
@@ -4572,6 +6575,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       var top = active.offsetTop - stage.clientHeight / 2 + active.offsetHeight / 2;
       stage.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
     }
+    highlightNowLyrics();
     updateInlineLine();
   }
 
@@ -5065,6 +7069,18 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     loadQueueTab(State.queueTab || 'queue');
   }
 
+  var lyricsCloseTimer = null;
+
+  function closeLyricsDialog() {
+    if (!el.lyricsDlg || !el.lyricsDlg.open || el.lyricsDlg.classList.contains('closing')) return;
+    el.lyricsDlg.classList.add('closing');
+    clearTimeout(lyricsCloseTimer);
+    lyricsCloseTimer = setTimeout(function () {
+      if (el.lyricsDlg && el.lyricsDlg.open) el.lyricsDlg.close();
+      if (el.lyricsDlg) el.lyricsDlg.classList.remove('closing');
+    }, 160);
+  }
+
   function openLyrics() {
     if (!State.mediaTitle) {
       toast('Сейчас ничего не играет', 'warn');
@@ -5078,7 +7094,12 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     }
     State.lyricsActive = null;
     if (el.lyricsBox) el.lyricsBox.style.transform = '';
-    if (el.lyricsDlg && !el.lyricsDlg.open) el.lyricsDlg.showModal();
+    if (el.lyricsDlg && !el.lyricsDlg.open) {
+      clearTimeout(lyricsCloseTimer);
+      el.lyricsDlg.classList.remove('closing');
+      el.lyricsDlg.showModal();
+    }
+    syncLyricsPlayer();
     if (State.lyricsLines.length) highlightLyrics();
     else loadLyrics();
   }
@@ -5239,6 +7260,12 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       State.lyricsActive = null;
       updateMediaProgress();
     }
+    if (was !== State.playing && State.playing) {
+      stopCustomRingForNative();
+    }
+    if (was && !State.playing && !State.ringMusicActive && State.ledMode === 'off') {
+      setTimeout(ringOffBurst, 350);
+    }
     if (was !== State.playing) syncMusicRing();
   }
 
@@ -5259,13 +7286,18 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     }
     var playing = expected !== null ? expected : !!data.playing;
     setPlaying(playing);
+    State.alice = data.alice || 'IDLE';
+    if (nativeLightActive()) stopCustomRingForNative();
     State.playerKind = data.kind || null;
     State.mediaDuration = Number(data.duration) || 0;
-    // Лайки, текст и очередь имеют смысл только для трека Яндекс Музыки.
-    // На радио (и любом потоке) эти кнопки убираем.
+    // Лайки и текст имеют смысл только для трека Яндекс Музыки. На радио
+    // и на пустом плеере кнопки не убираем, а оставляем неактивными: ряд
+    // управления не должен «прыгать».
     var musicTrack = State.playerKind === 'Track' && !!data.id && !!data.title;
     [el.btnLike, el.btnDislike, el.btnLyrics].forEach(function (button) {
-      if (button) button.hidden = !musicTrack;
+      if (!button) return;
+      button.hidden = false;
+      button.disabled = !musicTrack;
     });
     if (!musicTrack) {
       if (State.lyricsLines.length) clearLyrics();
@@ -5474,11 +7506,27 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     if (typeof state.volume === 'number') setVolumeUI(state.volume);
   }
 
+  function volumeIconHref() {
+    if (State.muted || !Number(State.volume)) return '#i-mute';
+    var level = Number(State.volume);
+    if (level <= 33) return '#i-volume-1';
+    if (level <= 66) return '#i-volume-2';
+    return '#i-volume-3';
+  }
+
+  function updateVolumeIcons() {
+    var href = volumeIconHref();
+    Array.prototype.forEach.call(
+      document.querySelectorAll('[data-volume-icon] use'),
+      function (use) { use.setAttribute('href', href); });
+  }
+
   function setVolumeUI(level, silent) {
     var v = clamp(Math.round(level), 0, 100);
     State.volume = v;
     if (!silent) { el.volume.value = v; el.volumeVal.textContent = v + '%'; }
     store.set('volume', v);
+    updateVolumeIcons();
   }
 
   var volTimer = null;
@@ -7764,6 +9812,11 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     el.brightChips.classList.toggle('is-auto', State.displayAuto);
     el.brightness.title = State.displayAuto
       ? 'Автояркость включена: движение ползунка выключит её' : '';
+    State.ringAuto = ringOn;
+    el.ringBrightness.classList.toggle('is-auto', ringOn);
+    el.ringBrightVal.classList.toggle('is-auto', ringOn);
+    el.ringBrightness.title = ringOn
+      ? 'Автояркость кольца включена: движение ползунка выключит её' : '';
   }
 
   function loadDisplayState() {
@@ -8257,9 +10310,14 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     });
   }
 
-  function playRingAnim(name) {
+  function playRingAnim(name, allowDuringMusic) {
     name = typeof name === 'string' ? name : (State.ringAnimName || '');
     if (!name) { toast('Выберите анимацию кольца', 'warn'); return; }
+    if (nativeLightActive()) {
+      stopCustomRingForNative();
+      toast('Во время музыки или ответа Алисы кольцом управляет станция', 'warn');
+      return;
+    }
     stopLedAnimation();
     State.ledMode = 'anim';
     store.set('ledMode', 'anim');
@@ -8299,19 +10357,24 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   }
 
   function stopRingAnim() {
+    // Сначала гасим UI, не дожидаясь ответа: даже если backend завис,
+    // пользователь не должен остаться с «залипшей» анимацией.
     State.ringPreview = null;
-    return cgi('display.py', { ring_anim_stop: 1 }, { timeout: 8000 }).then(function () {
-      State.ringAnimName = null;
-      markRingAnim(null);
-      stopLedAnimation();
-      State.ledMode = 'off';
-      store.set('ledMode', 'off');
-      State.selected = null;
-      ringDots.forEach(function (dot) { dot.classList.remove('sel'); });
-      paintOff();
-      markActiveChip();
-      el.ledHint.textContent = 'Кольцо выключено';
-      toast('Анимация остановлена, кольцо выключено', 'ok');
+    State.ringAnimName = null;
+    State.ledMode = 'off';
+    State.hwActive = false;
+    State.hwLast = '';
+    State.hwHoldUntil = Date.now() + 1500;
+    store.set('ledMode', 'off');
+    stopLedAnimation();
+    State.selected = null;
+    ringDots.forEach(function (dot) { dot.classList.remove('sel'); });
+    paintOff();
+    markRingAnim(null);
+    markActiveChip();
+    if (el.ledHint) el.ledHint.textContent = 'Кольцо выключено';
+    ringOffBurst();
+    return cgi('display.py', { ring_anim_stop: 1 }, { timeout: 8000 }).then(function () {      toast('Анимация остановлена, кольцо выключено', 'ok');
     }).catch(function (err) {
       toast('Анимация: ' + err.message, 'bad');
     });
@@ -8365,6 +10428,18 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     el.brightChips.classList.remove('is-auto');
     return cgi('display.py', { display_auto_brightness: 0 }, { timeout: 8000, silent: true })
       .then(function (data) { applyAutoConfig(data.auto || {}, data.mode || {}); })
+      .catch(function () { /* тихо */ });
+  }
+
+  function disableRingAuto() {
+    if (!State.ringAuto) return Promise.resolve();
+    State.ringAuto = false;
+    el.autoBright.checked = false;
+    el.autoBrightStatus.textContent = 'выкл';
+    el.ringBrightness.classList.remove('is-auto');
+    el.ringBrightVal.classList.remove('is-auto');
+    return cgi('display.py', { auto_brightness: 0 }, { timeout: 8000, silent: true })
+      .then(function (data) { applyAutoConfig(data.auto || {}); })
       .catch(function () { /* тихо */ });
   }
 
@@ -8884,12 +10959,172 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       updateMoveButtons();
     }
 
+    function layoutRect(card) {
+      var parent = card.offsetParent || main;
+      var parentBox = parent.getBoundingClientRect();
+      return {
+        left: parentBox.left + card.offsetLeft,
+        top: parentBox.top + card.offsetTop,
+        right: parentBox.left + card.offsetLeft + card.offsetWidth,
+        bottom: parentBox.top + card.offsetTop + card.offsetHeight,
+        width: card.offsetWidth,
+        height: card.offsetHeight
+      };
+    }
+
+    function cardPlacement(card, x, y) {
+      var box = layoutRect(card);
+      if (y < box.top + box.height * 0.3) return false;
+      if (y > box.top + box.height * 0.7) return true;
+      return x > box.left + box.width / 2;
+    }
+
+    function pointerTarget(x, y, drag) {
+      var node = document.elementFromPoint(x, y);
+      var found = node && node.closest ? node.closest('.card') : null;
+      if (found && found !== drag && found.dataset.group === drag.dataset.group) {
+        return { card: found, after: cardPlacement(found, x, y) };
+      }
+      var best = null;
+      var bestDistance = Infinity;
+      groupCards(drag).forEach(function (card) {
+        if (card === drag) return;
+        var box = layoutRect(card);
+        var dx = x < box.left ? box.left - x : (x > box.right ? x - box.right : 0);
+        var dy = y < box.top ? box.top - y : (y > box.bottom ? y - box.bottom : 0);
+        var distance = dx * dx + dy * dy;
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          best = card;
+        }
+      });
+      return best ? { card: best, after: cardPlacement(best, x, y) } : null;
+    }
+
+    var cardAnimations = new WeakMap();
+
+    function reorderAnimated(drag, target, after) {
+      if (!target || target === drag) return;
+      var siblings = groupCards(drag);
+      var before = siblings.map(function (card) { return card.dataset.cardId; }).join('|');
+      var first = {};
+      siblings.forEach(function (card) {
+        first[card.dataset.cardId] = card.getBoundingClientRect();
+      });
+      main.insertBefore(drag, after ? target.nextSibling : target);
+      var next = groupCards(drag);
+      var afterIds = next.map(function (card) { return card.dataset.cardId; }).join('|');
+      if (before === afterIds) return;
+      next.forEach(function (card) {
+        if (card === drag) return;
+        var previous = cardAnimations.get(card);
+        if (previous) {
+          try { previous.cancel(); } catch (e) { /* уже завершена */ }
+        }
+        var a = first[card.dataset.cardId];
+        var b = card.getBoundingClientRect();
+        if (!a) return;
+        var dx = a.left - b.left;
+        var dy = a.top - b.top;
+        if (!dx && !dy) return;
+        var anim = card.animate([
+          { transform: 'translate3d(' + dx + 'px,' + dy + 'px,0)' },
+          { transform: 'translate3d(0,0,0)' }
+        ], {
+          duration: 190,
+          easing: 'cubic-bezier(.2,.7,.2,1)'
+        });
+        cardAnimations.set(card, anim);
+        anim.onfinish = function () {
+          if (cardAnimations.get(card) === anim) cardAnimations.delete(card);
+        };
+      });
+    }
+
+    function beginPointerDrag(card, event) {
+      if (event.button !== 0 || !event.target.closest || event.target.closest('.card-move')) return;
+      event.preventDefault();
+      var startX = event.clientX;
+      var startY = event.clientY;
+      var active = false;
+      var ghost = null;
+      var offsetX = 0;
+      var offsetY = 0;
+      var frame = 0;
+      var latest = null;
+
+      function stopFrame() {
+        if (frame) {
+          cancelAnimationFrame(frame);
+          frame = 0;
+        }
+      }
+
+      function finish() {
+        stopFrame();
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', finish);
+        document.removeEventListener('pointercancel', finish);
+        if (!active) return;
+        if (ghost) ghost.remove();
+        card.classList.remove('dragging');
+        document.body.classList.remove('card-dragging');
+        State.dragCard = null;
+        saveCardOrder();
+        updateMoveButtons();
+      }
+
+      function processMove() {
+        frame = 0;
+        if (!active || !latest || !ghost) return;
+        ghost.style.transform = 'translate3d(' + (latest.x - offsetX) + 'px,' +
+          (latest.y - offsetY) + 'px,0) rotate(.45deg) scale(1.012)';
+        if (latest.y < 90) window.scrollBy(0, -16);
+        if (latest.y > window.innerHeight - 90) window.scrollBy(0, 16);
+        var target = pointerTarget(latest.x, latest.y, card);
+        if (target) reorderAnimated(card, target.card, target.after);
+      }
+
+      function onMove(move) {
+        move.preventDefault();
+        latest = { x: move.clientX, y: move.clientY };
+        if (!active) {
+          if (Math.abs(move.clientX - startX) + Math.abs(move.clientY - startY) < 6) return;
+          active = true;
+          State.dragCard = card;
+          var startRect = card.getBoundingClientRect();
+          offsetX = move.clientX - startRect.left;
+          offsetY = move.clientY - startRect.top;
+          ghost = card.cloneNode(true);
+          Array.prototype.forEach.call(ghost.querySelectorAll('[id]'), function (node) {
+            node.removeAttribute('id');
+          });
+          ghost.classList.add('card-ghost');
+          ghost.style.width = startRect.width + 'px';
+          ghost.style.height = startRect.height + 'px';
+          ghost.style.transform = 'translate3d(' + startRect.left + 'px,' +
+            startRect.top + 'px,0) rotate(.45deg) scale(1.012)';
+          document.body.appendChild(ghost);
+          card.classList.add('dragging');
+          document.body.classList.add('card-dragging');
+        }
+        if (!frame) frame = requestAnimationFrame(processMove);
+      }
+
+      document.addEventListener('pointermove', onMove, { passive: false });
+      document.addEventListener('pointerup', finish);
+      document.addEventListener('pointercancel', finish);
+    }
+
     cards.forEach(function (card, index) {
       var head = card.querySelector('h2');
       if (!head) return;
       card.dataset.cardId = head.id || ((head.textContent.trim() || 'card') + '-' + index);
       card.dataset.legacyCardId = (head.textContent.trim() || 'card') + '-' + index;
-      head.draggable = true;
+      head.draggable = false;
+      head.addEventListener('pointerdown', function (event) {
+        beginPointerDrag(card, event);
+      });
       var controls = document.createElement('div');
       controls.className = 'card-move';
       var up = document.createElement('button');
@@ -8917,18 +11152,6 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       card.insertBefore(header, head);
       header.appendChild(head);
       header.appendChild(controls);
-      head.addEventListener('dragstart', function (event) {
-        State.dragCard = card;
-        card.classList.add('dragging');
-        event.dataTransfer.effectAllowed = 'move';
-        try { event.dataTransfer.setData('text/plain', card.dataset.cardId); } catch (e) {}
-      });
-      head.addEventListener('dragend', function () {
-        card.classList.remove('dragging');
-        State.dragCard = null;
-        saveCardOrder();
-        updateMoveButtons();
-      });
     });
 
     var saved = [];
@@ -8947,24 +11170,95 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     }
     updateMoveButtons();
 
-    var lastDragAt = 0;
+    function clearCardDropTarget() {
+      Array.prototype.forEach.call(main.querySelectorAll('.card.drop-before,.card.drop-after'),
+        function (card) { card.classList.remove('drop-before', 'drop-after'); });
+      State.dropCard = null;
+      State.dropAfter = false;
+    }
+
+    function cardDropPlacement(card, event) {
+      var box = card.getBoundingClientRect();
+      var y = event.clientY;
+      if (y < box.top + box.height * 0.25) return false;
+      if (y > box.top + box.height * 0.75) return true;
+      return event.clientX > box.left + box.width / 2;
+    }
+
+    function nearestDropTarget(event) {
+      var drag = State.dragCard;
+      if (!drag) return null;
+      var cards = Array.prototype.filter.call(
+        main.querySelectorAll('.card[data-group="' + drag.dataset.group + '"]'),
+        function (card) {
+          return card !== drag && !card.classList.contains('is-hidden') &&
+            card.getBoundingClientRect().height > 0;
+        });
+      var best = null;
+      var bestDistance = Infinity;
+      cards.forEach(function (card) {
+        var box = card.getBoundingClientRect();
+        var dx = event.clientX < box.left ? box.left - event.clientX :
+          (event.clientX > box.right ? event.clientX - box.right : 0);
+        var dy = event.clientY < box.top ? box.top - event.clientY :
+          (event.clientY > box.bottom ? event.clientY - box.bottom : 0);
+        var distance = dx * dx + dy * dy;
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          best = card;
+        }
+      });
+      if (!best) return null;
+      var box = best.getBoundingClientRect();
+      var after = event.clientY > box.top + box.height / 2;
+      return { card: best, after: after };
+    }
+
+    function useDropTarget(target) {
+      if (!target || !target.card) return false;
+      if (State.dropCard === target.card && State.dropAfter === target.after) return true;
+      clearCardDropTarget();
+      State.dropCard = target.card;
+      State.dropAfter = target.after;
+      target.card.classList.add(target.after ? 'drop-after' : 'drop-before');
+      return true;
+    }
+
     main.addEventListener('dragover', function (event) {
       if (!State.dragCard) return;
       var card = event.target.closest ? event.target.closest('.card') : null;
-      if (!card || card === State.dragCard) return;
-      if (card.dataset.group !== State.dragCard.dataset.group) return;
-      if (Date.now() - lastDragAt < 25) return;
+      if (card === State.dragCard) card = null;
+      if (card && card.dataset.group !== State.dragCard.dataset.group) card = null;
+      var target = card
+        ? { card: card, after: cardDropPlacement(card, event) }
+        : nearestDropTarget(event);
+      if (!target) {
+        clearCardDropTarget();
+        return;
+      }
       event.preventDefault();
-      var box = card.getBoundingClientRect();
-      var after = event.clientY > box.top + box.height / 2;
-      if (after && card.nextElementSibling === State.dragCard) return;
-      if (!after && card.previousElementSibling === State.dragCard) return;
-      lastDragAt = Date.now();
-      main.insertBefore(State.dragCard, after ? card.nextSibling : card);
+      if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+      useDropTarget(target);
+    });
+    main.addEventListener('dragleave', function (event) {
+      if (!event.relatedTarget || !main.contains(event.relatedTarget)) clearCardDropTarget();
     });
     main.addEventListener('drop', function (event) {
+      if (!State.dragCard) return;
       event.preventDefault();
+      var card = State.dropCard;
+      var after = State.dropAfter;
+      if (!card) {
+        var target = nearestDropTarget(event);
+        card = target && target.card;
+        after = target && target.after;
+      }
+      if (card && card !== State.dragCard &&
+          card.dataset.group === State.dragCard.dataset.group) {
+        main.insertBefore(State.dragCard, after ? card.nextSibling : card);
+      }
       State.dragCard = null;
+      clearCardDropTarget();
       saveCardOrder();
       updateMoveButtons();
     });
@@ -9196,6 +11490,14 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       else el.faqDlg.setAttribute('open', '');
     });
     el.btnCloseFaq.addEventListener('click', function () { el.faqDlg.close(); });
+    el.faqDlg.addEventListener('click', function (event) {
+      if (event.target !== el.faqDlg) return;
+      var rect = el.faqDlg.getBoundingClientRect();
+      if (event.clientX < rect.left || event.clientX > rect.right ||
+          event.clientY < rect.top || event.clientY > rect.bottom) {
+        el.faqDlg.close();
+      }
+    });
     el.btnCloseDebug.addEventListener('click', function () { el.debugDlg.close(); });
     el.btnTheme.addEventListener('click', function () {
       var light = !document.body.classList.contains('light');
@@ -9307,6 +11609,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       applyBrightness(el.brightness.value, true);
     });
     el.ringBrightness.addEventListener('input', function () {
+      if (State.ringAuto) disableRingAuto();
       setRingBrightness(el.ringBrightness.value, true);
     });
     el.ringSpeed.addEventListener('input', function () {
@@ -9374,6 +11677,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
           el.ledHint.textContent = 'Кольцо выключено';
           paintOff();
           markActiveChip();
+          ringOffBurst();
           toast('Кольцо погашено', 'ok');
         }).catch(function (err) { toast('Кольцо: ' + err.message, 'bad'); });
       });
@@ -9384,8 +11688,10 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     el.btnNext.addEventListener('click', function () { mediaAction('next'); });
     el.btnMusic.addEventListener('click', function () { mediaAction('music'); });
     el.btnLyrics.addEventListener('click', openLyrics);
-    if (el.btnLyricsClose) el.btnLyricsClose.addEventListener('click', function () {
-      if (el.lyricsDlg) el.lyricsDlg.close();
+    if (el.btnLyricsClose) el.btnLyricsClose.addEventListener('click', closeLyricsDialog);
+    if (el.lyricsDlg) el.lyricsDlg.addEventListener('cancel', function (event) {
+      event.preventDefault();
+      closeLyricsDialog();
     });
     if (el.btnLike) el.btnLike.addEventListener('click', toggleLike);
     if (el.btnDislike) el.btnDislike.addEventListener('click', dislikeTrack);
@@ -9529,6 +11835,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         return cgi('volume.py', payload, { timeout: 9000 }).then(function (data) {
           State.muted = !!(data && data.muted);
           el.btnMute.setAttribute('aria-pressed', State.muted ? 'true' : 'false');
+          updateVolumeIcons();
           if (data && typeof data.level === 'number') setVolumeUI(data.level);
           toast(State.muted ? 'Звук выключен (0%)' : ('Звук включён' +
             (data && data.level ? ' · ' + data.level + '%' : '')), 'ok');
@@ -10638,7 +12945,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 
   function syncHomeRing() {
     var ring = document.getElementById('homeRing');
-    var off = State.ledMode === 'off' && !State.ringPreview;
+    var off = State.ledMode === 'off' && !State.ringPreview && !State.hwActive;
     var color = '';
     if (!off) {
       for (var i = 0; i < ringDots.length; i++) {
@@ -10702,6 +13009,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
           var cm = dotColor.match(/\d+/g);
           if (cm && cm.length >= 3) cr = [cm[0] / 255, cm[1] / 255, cm[2] / 255];
         }
+        if (off) cr = [0.018, 0.019, 0.022];
         colors24.push(cr);
       }
       var geom = gltfState.ringMesh.geometry;
@@ -10723,7 +13031,8 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
           c0[2] + (c1[2] - c0[2]) * frac);
       }
       col.needsUpdate = true;
-      gltfState.ringMesh.material.opacity = off ? 0.5 : 1;
+      gltfState.ringMesh.visible = true;
+      gltfState.ringMesh.material.opacity = 1;
     }
     if (gltfState && gltfState.ringBand) {
       gltfState.ringBand.color.setRGB(rgb[0], rgb[1], rgb[2]);
@@ -11211,6 +13520,10 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     initRingMusic();
     initLogo();
     initRingStatePolling();
+    initYandexMusic();
+    initYmDialog();
+    initLyricsPlayer();
+    updateVolumeIcons();
     renderAlarmDays();
     loadAlarms(true);
     clockAnimBind();

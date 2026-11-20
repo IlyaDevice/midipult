@@ -308,6 +308,9 @@ def auto_apply():
         return None
     ratio = max(0.0, min(lux / 200.0, 1.0)) ** 0.6
     level = int(round(config["min"] + (config["max"] - config["min"]) * ratio))
+    # Автояркость в полной темноте не должна гасить кольцо почти в ноль:
+    # иначе штатная анимация музыки визуально исчезает.
+    level = max(60, min(level, 255))
     set_ring_brightness(level)
     return {"lux": lux, "level": level}
 
@@ -737,6 +740,10 @@ def main():
         # так переключение на «Волну»/свой цвет не мигает.
         keep = common.truthy(data.get("keep"))
         if not keep:
+            luna_ring_off()
+            # Прошивка может успеть перерисовать последний штатный кадр
+            # уже после остановки led_util — гасим ещё раз с задержкой.
+            time.sleep(0.25)
             luna_ring_off()
         common.ok(playing=False, off=not keep)
         return

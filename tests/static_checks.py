@@ -48,6 +48,9 @@ def test_encoding():
             path = os.path.join(folder, name)
             with open(path, "rb") as fh:
                 raw = fh.read()
+            # push-to-station.ps1 намеренно UTF-16LE для Windows PowerShell.
+            if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
+                continue
             if b"\r\n" in raw:
                 bad.append(os.path.relpath(path, ROOT) + " (CRLF)")
             # .ps1 намеренно с BOM: Windows PowerShell 5.1 иначе читает
@@ -609,8 +612,9 @@ def test_yapanel_features():
     check("UI: диалог очереди",
           'id="queueDlg"' in html and 'id="queueList"' in html
           and "function loadQueueTab(" in html and "function openQueue(" in html)
-    check("UI: кнопки трека скрыты на радио",
-          "musicTrack" in html and "button.hidden = !musicTrack" in html)
+    check("UI: кнопки трека неактивны без трека",
+          "musicTrack" in html and "button.hidden = false" in html
+          and "button.disabled = !musicTrack" in html)
     check("UI: строка текста в плеере и закрытие по фону",
           'id="lyricsNow"' in html and 'id="lyricsInline"' in html
           and "function setLyricsInline(" in html
