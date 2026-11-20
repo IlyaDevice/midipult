@@ -1146,6 +1146,54 @@ def test_music_queue():
           str(favorites))
 
 
+def _fresh_module(name, folder):
+    import importlib
+    sys.path.insert(0, folder)
+    sys.modules.pop(name, None)
+    return importlib.import_module(name)
+
+
+def test_alarm_rules():
+    """Валидация будильника и расписание."""
+    import datetime
+
+    alarm = _fresh_module("alarm", CGI_DIR)
+    alarmd = _fresh_module("alarmd", SERVICE_DIR)
+
+    item = alarm.build({
+        "time": "07:30", "days": [1, 2, 3, 4, 5], "mode": "radio",
+        "text": "Маяк", "volume": 150, "ramp": -5, "stop_after": 0, "snooze": 0,
+    })
+    check("будильник: время и дни", item["time"] == "07:30"
+          and item["days"] == [1, 2, 3, 4, 5], str(item))
+    check("будильник: границы громкости", item["volume"] == 100, str(item["volume"]))
+    check("будильник: рампа и snooze зажаты", item["ramp"] == 0
+          and item["snooze"] == 1, str((item["ramp"], item["snooze"])))
+    check("будильник: текст сохранён", item["text"] == "Маяк")
+
+    try:
+        alarm.build({"time": "25:00"})
+        bad = False
+    except ValueError:
+        bad = True
+    check("будильник: неверное время отклонено", bad)
+
+    scheduler = alarmd.AlarmScheduler()
+    friday = datetime.datetime(2026, 11, 20, 7, 30)
+    rule = {"enabled": True, "time": "07:30", "days": [1, 2, 3, 4, 5], "id": "a1"}
+    check("будильник: срабатывает в срок",
+          scheduler._due(rule, friday) is True)
+    check("будильник: не срабатывает в другую минуту",
+          scheduler._due(rule, friday.replace(minute=31)) is False)
+    check("будильник: выключенный не срабатывает",
+          scheduler._due(dict(rule, enabled=False), friday) is False)
+    check("будильник: без дней — каждый день",
+          scheduler._due(dict(rule, days=[]), friday) is True)
+    check("будильник: ключ уникален по дате",
+          scheduler._key(rule, friday) == "a1|2026-11-20|07:30",
+          scheduler._key(rule, friday))
+
+
 def test_discovery_payload():
     import json
 
@@ -1478,6 +1526,7 @@ def main():
         test_media_pause_via_cli,
         test_musicapi,
         test_music_queue,
+        test_alarm_rules,
         test_media_config_override,
         test_speak_frames,
         test_display_auto,

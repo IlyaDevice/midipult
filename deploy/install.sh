@@ -77,6 +77,9 @@ if [ -f "$SRC/service/voice_daemon.py" ]; then
     mkdir -p /data/mypult
     cp -f "$SRC/service/state_daemon.py" /data/mypult/state_daemon.py 2>/dev/null || true
     cp -f "$SRC/service/discovery.py" /data/mypult/discovery.py 2>/dev/null || true
+    cp -f "$SRC/service/alarmd.py" /data/mypult/alarmd.py 2>/dev/null || true
+    chmod 600 /data/mypult/alarmd.py 2>/dev/null
+    sed -i 's/\r$//' /data/mypult/alarmd.py 2>/dev/null
 cp -f "$SRC/service/voice_daemon.py" /data/mypult/voice_daemon.py \
         || warn "не скопировался voice_daemon.py"
     chmod 700 /data/mypult 2>/dev/null

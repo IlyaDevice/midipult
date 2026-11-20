@@ -342,6 +342,38 @@ main.grid{
     .c-tts{grid-column:span 12}
     .c-llm{grid-column:span 12}
     .c-radio{grid-column:span 12}
+.c-alarm{grid-column:span 12}
+.alarm-grid{display:grid;grid-template-columns:1fr minmax(300px,380px);gap:18px;margin-top:12px;align-items:start}
+.alarm-list{display:flex;flex-direction:column;gap:8px;min-width:0}
+.alarm-empty{color:var(--muted);font-size:13px;padding:14px;border:1px dashed var(--stroke);border-radius:14px;text-align:center}
+.alarm-item{display:grid;grid-template-columns:76px 1fr auto;gap:14px;align-items:center;padding:12px 14px;
+  border-radius:14px;background:rgba(255,255,255,.035);border:1px solid var(--stroke)}
+.alarm-item.off{opacity:.55}
+.alarm-time{font-size:26px;font-weight:750;font-variant-numeric:tabular-nums;letter-spacing:.5px;line-height:1}
+.alarm-meta{min-width:0}
+.alarm-when{font-size:12px;color:var(--muted);margin-top:3px}
+.alarm-what{font-size:13px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.alarm-actions{display:flex;gap:6px;align-items:center}
+.alarm-form{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:16px;
+  background:rgba(255,255,255,.03);border:1px solid var(--stroke);height:max-content}
+.alarm-row{display:flex;gap:10px;align-items:center}
+.alarm-row > *{flex:1 1 0;min-width:0}
+.alarm-form input[type="time"]{height:40px;font-size:18px;font-weight:650;text-align:center}
+.alarm-form select{height:40px}
+.alarm-form input[type="text"]{height:38px}
+.alarm-num{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.alarm-num output{color:var(--text);font-weight:650;font-size:12px}
+.alarm-num input[type="number"]{height:34px;font-size:13px}
+.alarm-days{display:flex;gap:4px;flex-wrap:wrap}
+.alarm-days .chip{height:30px;padding:0 9px;font-size:11px;flex:0 0 auto}
+.alarm-ringing{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:10px;padding:14px 16px;
+  border-radius:16px;border:1px solid rgba(124,92,255,.5);
+  background:linear-gradient(135deg,rgba(124,92,255,.28),rgba(79,124,255,.16));
+  box-shadow:0 12px 34px rgba(92,110,255,.25);animation:alarmPulse 1.6s ease-in-out infinite}
+@keyframes alarmPulse{50%{box-shadow:0 14px 44px rgba(124,92,255,.5)}}
+.alarm-ring-kicker{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#cfc7ff}
+.alarm-ring-label{font-size:17px;font-weight:700;margin-top:2px}
+@media (max-width:900px){.alarm-grid{grid-template-columns:1fr}}
     .c-vpn{grid-column:span 12}
     .c-sys{grid-column:span 12}
     .c-bt,.c-net{grid-column:span 6}
@@ -1265,6 +1297,51 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   </section>
 
   <!-- ───────── озвучка ───────── -->
+  <section class="card c-alarm" data-group="sound" aria-labelledby="h-alarm">
+    <h2 id="h-alarm"><span class="dot"></span>Будильники</h2>
+    <div class="alarm-ringing" id="alarmRinging" hidden>
+      <div>
+        <div class="alarm-ring-kicker">Звонит</div>
+        <div class="alarm-ring-label" id="alarmRingLabel">Будильник</div>
+      </div>
+      <div class="row">
+        <button class="btn sm primary" id="btnAlarmDismiss">Выключить</button>
+        <button class="btn sm ghost" id="btnAlarmSnooze">Отложить</button>
+      </div>
+    </div>
+    <div class="alarm-grid">
+      <div class="alarm-list" id="alarmList"></div>
+      <div class="alarm-form">
+        <div class="alarm-row">
+          <input type="time" id="alarmTime" value="07:00" aria-label="Время будильника">
+          <select id="alarmMode" aria-label="Что включать">
+            <option value="radio">Радио</option>
+            <option value="query">Фраза Алисе</option>
+          </select>
+        </div>
+        <input type="text" id="alarmText" placeholder="Станция или фраза" maxlength="200" aria-label="Станция или фраза">
+        <div class="alarm-days" id="alarmDays"></div>
+        <div class="alarm-row">
+          <label class="alarm-num">Громкость <output id="alarmVolumeVal">40%</output>
+            <input type="range" id="alarmVolume" min="0" max="100" step="5" value="40">
+          </label>
+          <label class="alarm-num">Нарастание, с
+            <input type="number" id="alarmRamp" min="0" max="300" step="5" value="30">
+          </label>
+        </div>
+        <div class="alarm-row">
+          <label class="alarm-num">Стоп через, мин
+            <input type="number" id="alarmStop" min="0" max="120" value="10">
+          </label>
+          <label class="alarm-num">Отложить, мин
+            <input type="number" id="alarmSnooze" min="1" max="60" value="5">
+          </label>
+        </div>
+        <button class="btn primary" id="btnAlarmAdd">Добавить будильник</button>
+      </div>
+    </div>
+  </section>
+
   <section class="card c-tts" data-group="sound" aria-labelledby="h-tts">
     <h2 id="h-tts"><span class="dot"></span>Озвучка голосом Алисы</h2>
     <div class="field" style="margin-top:12px">
@@ -3196,6 +3273,172 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       stage.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
     }
     updateInlineLine();
+  }
+
+  var ALARM_DAYS = [[1, 'Пн'], [2, 'Вт'], [3, 'Ср'], [4, 'Чт'],
+                    [5, 'Пт'], [6, 'Сб'], [7, 'Вс']];
+  var alarmDays = new Set([1, 2, 3, 4, 5]);
+
+  function alarmDaysText(days) {
+    if (!days || !days.length) return 'Один раз';
+    var sorted = days.slice().sort();
+    var key = sorted.join(',');
+    if (key === '1,2,3,4,5') return 'Пн–Пт';
+    if (key === '6,7') return 'Сб, Вс';
+    if (sorted.length === 7) return 'Каждый день';
+    return sorted.map(function (d) {
+      return (ALARM_DAYS[d - 1] || ['', ''])[1];
+    }).join(', ');
+  }
+
+  function renderAlarmDays() {
+    if (!el.alarmDays) return;
+    el.alarmDays.innerHTML = '';
+    ALARM_DAYS.forEach(function (pair) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'chip';
+      button.textContent = pair[1];
+      button.setAttribute('aria-pressed', alarmDays.has(pair[0]) ? 'true' : 'false');
+      button.addEventListener('click', function () {
+        if (alarmDays.has(pair[0])) alarmDays.delete(pair[0]);
+        else alarmDays.add(pair[0]);
+        button.setAttribute('aria-pressed', alarmDays.has(pair[0]) ? 'true' : 'false');
+      });
+      el.alarmDays.appendChild(button);
+    });
+  }
+
+  function renderAlarmRinging(state) {
+    if (!el.alarmRinging) return;
+    var ringing = !!(state && state.ringing);
+    el.alarmRinging.hidden = !ringing;
+    if (ringing && el.alarmRingLabel) {
+      el.alarmRingLabel.textContent = state.label || 'Будильник';
+    }
+  }
+
+  function renderAlarmList(alarms) {
+    if (!el.alarmList) return;
+    el.alarmList.innerHTML = '';
+    if (!alarms || !alarms.length) {
+      var empty = document.createElement('div');
+      empty.className = 'alarm-empty';
+      empty.textContent = 'Пока нет будильников — добавьте первый справа.';
+      el.alarmList.appendChild(empty);
+      return;
+    }
+    alarms.slice().sort(function (a, b) {
+      return String(a.time).localeCompare(String(b.time));
+    }).forEach(function (alarm) {
+      var row = document.createElement('div');
+      row.className = 'alarm-item' + (alarm.enabled ? '' : ' off');
+      var time = document.createElement('div');
+      time.className = 'alarm-time';
+      time.textContent = alarm.time || '--:--';
+      var meta = document.createElement('div');
+      meta.className = 'alarm-meta';
+      var what = document.createElement('div');
+      what.className = 'alarm-what';
+      what.textContent = (alarm.mode === 'query' ? 'Алиса: ' : 'Радио: ') +
+        (alarm.text || '');
+      var when = document.createElement('div');
+      when.className = 'alarm-when';
+      when.textContent = alarmDaysText(alarm.days) +
+        (alarm.enabled ? '' : ' · выключен');
+      meta.appendChild(what);
+      meta.appendChild(when);
+      var actions = document.createElement('div');
+      actions.className = 'alarm-actions';
+      var toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'chip';
+      toggle.textContent = alarm.enabled ? 'вкл' : 'выкл';
+      toggle.setAttribute('aria-pressed', alarm.enabled ? 'true' : 'false');
+      toggle.addEventListener('click', function () {
+        alarmToggle(alarm.id, !alarm.enabled);
+      });
+      var test = document.createElement('button');
+      test.type = 'button';
+      test.className = 'btn sm ghost';
+      test.textContent = 'Тест';
+      test.addEventListener('click', function () { alarmTest(alarm.id); });
+      var remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'btn sm ghost';
+      remove.textContent = '×';
+      remove.title = 'Удалить';
+      remove.addEventListener('click', function () { alarmDelete(alarm.id); });
+      actions.appendChild(toggle);
+      actions.appendChild(test);
+      actions.appendChild(remove);
+      row.appendChild(time);
+      row.appendChild(meta);
+      row.appendChild(actions);
+      el.alarmList.appendChild(row);
+    });
+  }
+
+  function loadAlarms(silent) {
+    return cgi('alarm.py', {}, { timeout: 15000, silent: !!silent }).then(function (data) {
+      renderAlarmList(data.alarms || []);
+      renderAlarmRinging(data.state || {});
+      return data;
+    }).catch(function (err) {
+      if (!silent) toast('Будильники: ' + err.message, 'bad');
+    });
+  }
+
+  function alarmToggle(id, enabled) {
+    return cgi('alarm.py', { toggle: id, enabled: enabled ? 1 : 0 }, { timeout: 15000 })
+      .then(function (data) { renderAlarmList(data.alarms || []); })
+      .catch(function (err) { toast('Будильник: ' + err.message, 'bad'); });
+  }
+
+  function alarmDelete(id) {
+    return cgi('alarm.py', { delete: id }, { timeout: 15000 })
+      .then(function (data) {
+        renderAlarmList(data.alarms || []);
+        toast('Будильник удалён', 'ok');
+      }).catch(function (err) { toast('Будильник: ' + err.message, 'bad'); });
+  }
+
+  function alarmTest(id) {
+    return cgi('alarm.py', { test: id }, { timeout: 15000 }).then(function () {
+      toast('Проверяю будильник — прозвучит через пару секунд', 'ok');
+      setTimeout(function () { loadAlarms(true); }, 3000);
+    }).catch(function (err) { toast('Будильник: ' + err.message, 'bad'); });
+  }
+
+  function alarmAdd() {
+    var payload = {
+      time: el.alarmTime.value || '07:00',
+      mode: el.alarmMode.value || 'radio',
+      text: (el.alarmText.value || '').trim(),
+      days: Array.from(alarmDays),
+      volume: parseInt(el.alarmVolume.value, 10) || 40,
+      ramp: parseInt(el.alarmRamp.value, 10) || 0,
+      stop_after: parseInt(el.alarmStop.value, 10) || 0,
+      snooze: parseInt(el.alarmSnooze.value, 10) || 5
+    };
+    return cgi('alarm.py', { add: payload }, { timeout: 15000 }).then(function (data) {
+      renderAlarmList(data.alarms || []);
+      el.alarmText.value = '';
+      toast('Будильник добавлен', 'ok');
+    }).catch(function (err) { toast('Будильник: ' + err.message, 'bad'); });
+  }
+
+  function alarmDismiss() {
+    return cgi('alarm.py', { dismiss: 1 }, { timeout: 15000 }).then(function () {
+      setTimeout(function () { loadAlarms(true); }, 1200);
+    });
+  }
+
+  function alarmSnooze() {
+    return cgi('alarm.py', { snooze: 1 }, { timeout: 15000 }).then(function () {
+      toast('Будильник отложен', 'ok');
+      setTimeout(function () { loadAlarms(true); }, 1200);
+    });
   }
 
   function playQueueItem(track) {
@@ -6819,6 +7062,15 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         setLyricsInline(el.lyricsInline.checked);
       });
     }
+    if (el.btnAlarmAdd) el.btnAlarmAdd.addEventListener('click', function (event) {
+      event.preventDefault();
+      alarmAdd();
+    });
+    if (el.btnAlarmDismiss) el.btnAlarmDismiss.addEventListener('click', alarmDismiss);
+    if (el.btnAlarmSnooze) el.btnAlarmSnooze.addEventListener('click', alarmSnooze);
+    if (el.alarmVolume) el.alarmVolume.addEventListener('input', function () {
+      if (el.alarmVolumeVal) el.alarmVolumeVal.textContent = el.alarmVolume.value + '%';
+    });
     [el.lyricsDlg, el.queueDlg].forEach(function (dialog) {
       if (!dialog) return;
       dialog.addEventListener('click', function (event) {
@@ -7272,6 +7524,10 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'btnLyricsClose', 'lyrStage', 'npGlow',
       'btnQueue', 'queueDlg', 'queueName', 'queueList', 'btnQueueClose', 'queueKicker',
       'lyricsNow', 'lyricsInline',
+      'alarmList', 'alarmRinging', 'alarmRingLabel', 'btnAlarmDismiss',
+      'btnAlarmSnooze', 'alarmTime', 'alarmMode', 'alarmText', 'alarmDays',
+      'alarmVolume', 'alarmVolumeVal', 'alarmRamp', 'alarmStop', 'alarmSnooze',
+      'btnAlarmAdd',
       'volume', 'volumeVal', 'btnVolDown', 'btnVolUp', 'btnMute',
       'btnMic', 'micHint', 'micTimer', 'transcript', 'btnRepeat', 'btnCancelListen',
       'command', 'btnSendCmd', 'ttsText', 'ttsCount', 'btnTtsClear', 'btnSay', 'ttsChips',
@@ -7321,6 +7577,11 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     buildSevenSeg();
     restore();
     bind();
+    renderAlarmDays();
+    loadAlarms(true);
+    setInterval(function () {
+      if (State.tab === 'sound' && !document.hidden) loadAlarms(true);
+    }, 5000);
     tickClock();
     setInterval(tickClock, 1000);
     setInterval(tickRingAnims, 130);

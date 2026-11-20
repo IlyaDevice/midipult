@@ -126,6 +126,15 @@ def _read_stdin() -> bytes:
 AUTH_PATH = os.environ.get("MYPULT_AUTH_PATH") or "/data/mypult/auth.json"
 
 
+def read_json(path, default=None):
+    """Прочитать JSON; при ошибке вернуть default."""
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return default
+
+
 def write_json(path, data, mode=0o600, **kwargs):
     """Атомарно записать JSON: временный файл + rename."""
     folder = os.path.dirname(path)

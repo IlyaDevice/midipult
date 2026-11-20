@@ -555,6 +555,15 @@ def test_yapanel_features():
           and "function setLyricsInline(" in html
           and "event.target === dialog" in html
           and "[el.lyricsDlg, el.queueDlg]" in html)
+    check("UI: карточка будильников",
+          'id="alarmList"' in html and 'id="btnAlarmAdd"' in html
+          and "function alarmAdd(" in html and "function loadAlarms(" in html)
+    voice_py = read(os.path.join(ROOT, "service", "voice_daemon.py"))
+    alarm_py = read(os.path.join(ROOT, "cgi-bin", "alarm.py"))
+    alarmd_py = read(os.path.join(ROOT, "service", "alarmd.py"))
+    check("будильник: демон и API",
+          "alarmd.start()" in voice_py and "def build(" in alarm_py
+          and "class AlarmScheduler" in alarmd_py)
     check("поиск: без скрейпинга выдачи",
           "_bing" not in search_py and "duckduckgo" not in search_py.lower())
 

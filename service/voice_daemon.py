@@ -29,6 +29,10 @@ try:
     import alice_cli  # noqa: E402
 except Exception:  # noqa: BLE001
     alice_cli = None
+try:
+    import alarmd  # noqa: E402
+except Exception:  # noqa: BLE001
+    alarmd = None
 
 
 def log(message):
@@ -806,6 +810,12 @@ def should_silence(text):
 
 def main():
     log("голосовой пульт запущен")
+    if alarmd is not None:
+        try:
+            alarmd.start()
+            log("будильники запущены")
+        except Exception as exc:  # noqa: BLE001
+            log("будильники: %s" % exc)
     threading.Thread(target=scheduler_loop, daemon=True).start()
     threading.Thread(target=autobright_loop, daemon=True).start()
     threading.Thread(target=volume_sync_loop, daemon=True).start()
