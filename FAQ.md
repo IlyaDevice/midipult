@@ -693,3 +693,12 @@ Entware и их конфиги не затрагиваются. Перезагр
 В режиме «Музыка» Алиса получает «включи …» (по умолчанию «мою волну»), в
 режиме «Радио» — выбранную станцию, в режиме «Фраза» — заданный текст.
 Громкость поднимается плавно через ALSA, кольцо мигает.
+### Пишет «No module named 'websocket'» или «websocket-client ✗»
+В Entware нет отдельного пакета `python3-websocket-client`, он ставится через pip:
+
+```sh
+/opt/bin/opkg update
+/opt/bin/python3 -m pip install --no-cache-dir websocket-client==1.9.2
+/opt/bin/python3 -c "import websocket; print(websocket.__version__)"
+```
+Если pip нет: `/opt/bin/opkg install python3-pip`. После установки обновите диагностику кнопкой «Проверить снова».

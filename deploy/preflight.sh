@@ -203,6 +203,7 @@ write_lock() {
         if [ -x "$LUNA_BIN" ]; then
             echo "luna_sha=$(sha256sum "$LUNA_BIN" 2>/dev/null | awk '{ print $1 }')"
         fi
+        echo "websocket=$(/opt/bin/python3 -c 'import websocket; print(websocket.__version__)' 2>/dev/null)"
         echo "luna_expected=$LUNA_VERSION"
     } >"$LOCK" 2>/dev/null || warn "не могу записать $LOCK"
 }
@@ -229,11 +230,32 @@ fi
 [ -f /opt/lib/lighttpd/mod_proxy.so ] || ensure_pkg lighttpd-mod-proxy "прокси Luna"
 [ -x /opt/bin/curl ] || ensure_pkg curl "HTTP-запросы"
 
-# websocket-client нужен плееру/Glagol
-if [ -x /opt/bin/python3 ] && ! /opt/bin/python3 -c 'import websocket' >/dev/null 2>&1; then
-    ensure_pkg python3-websocket-client "WebSocket Glagol" || \
-        warn "плеер может не работать без python3-websocket-client"
-fi
+# websocket-client нужен плееру/Glagol. В Entware отдельного пакета нет —
+# поэтому сначала пробуем opkg, затем ставим закреплённую версию через pip.
+ensure_websocket() {
+    /opt/bin/python3 -c 'import websocket' >/dev/null 2>&1 && {
+        say "websocket-client уже есть ($(/opt/bin/python3 -c 'import websocket; print(websocket.__version__)' 2>/dev/null))"
+        return 0
+    }
+    if ensure_pkg python3-websocket-client "WebSocket Glagol"; then
+        return 0
+    fi
+    if ! /opt/bin/python3 -m pip --version >/dev/null 2>&1; then
+        ensure_pkg python3-pip "pip для websocket-client" || true
+    fi
+    if /opt/bin/python3 -m pip --version >/dev/null 2>&1; then
+        say "пакета websocket-client в Entware нет — ставлю 1.9.2 через pip"
+        if /opt/bin/python3 -m pip install --no-cache-dir "websocket-client==1.9.2" >>"$LOG" 2>&1; then
+            /opt/bin/python3 -c 'import websocket' >/dev/null 2>&1 && return 0
+        fi
+        warn "pip не смог поставить websocket-client, см. $LOG"
+    else
+        warn "нет pip; websocket-client не установлен — плеер/радио будут недоступны"
+    fi
+    return 1
+}
+
+ensure_websocket || warn "плеер может не работать без websocket-client"
 
 # Не обязательные для запуска, но нужны функциям
 command -v amixer >/dev/null 2>&1 || warn "amixer не найден — громкость через Glagol"
