@@ -579,16 +579,40 @@ input[type="color"]::-moz-color-swatch{border:2px solid rgba(255,255,255,.32);bo
 .chip .sw{width:12px;height:12px;border-radius:50%;display:inline-block;box-shadow:0 0 0 1px rgba(255,255,255,.25)}
 
 /* ---------- media ---------- */
-.media-now{display:flex;align-items:center;gap:var(--gap-md);margin:14px 0 16px}
-.media-art{
-  width:56px;height:56px;flex:0 0 auto;border-radius:var(--r16);display:grid;place-items:center;
-  color:#dbe4ff;background:linear-gradient(140deg,rgba(124,92,255,.35),rgba(34,211,238,.18));
-  border:1px solid rgba(255,255,255,.1);overflow:hidden;
-}
-.media-art img{width:100%;height:100%;object-fit:cover;display:block}
-.media-title{font-size:var(--fs-15);font-weight:600}
-.media-sub{font-size:var(--fs-12);color:var(--muted);margin-top:2px}
-.transport{display:flex;align-items:center;justify-content:center;gap:var(--gap-lg);margin:4px 0 8px}
+.player-card{position:relative;overflow:hidden}
+.np-glow{position:absolute;left:0;right:0;top:-40px;height:230px;z-index:0;pointer-events:none;
+  background-size:cover;background-position:center;filter:blur(54px) saturate(1.5) brightness(.55);
+  opacity:.55;mask-image:linear-gradient(180deg,#000,transparent 92%);
+  -webkit-mask-image:linear-gradient(180deg,#000,transparent 92%)}
+body.light .np-glow{opacity:.30;filter:blur(60px) saturate(1.2) brightness(.95)}
+.player-card h2{margin:0}
+.np-now{position:relative;z-index:1;display:flex;align-items:center;gap:16px;margin:18px 0 16px}
+.np-art{width:92px;height:92px;flex:0 0 auto;border-radius:20px;display:grid;place-items:center;overflow:hidden;
+  color:#e6ecff;background:linear-gradient(140deg,rgba(124,92,255,.38),rgba(34,211,238,.2));
+  border:1px solid rgba(255,255,255,.14);box-shadow:0 18px 42px rgba(0,0,0,.45)}
+.np-art img{width:100%;height:100%;object-fit:cover;display:block}
+.np-meta{min-width:0;flex:1 1 auto}
+.np-kicker{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);min-height:12px}
+.np-title{font-size:var(--fs-20);font-weight:700;line-height:1.22;margin-top:4px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.np-sub{font-size:var(--fs-13);color:var(--muted);margin-top:3px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.np-controls{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;
+  gap:24px;margin:2px 0 8px}
+.np-controls .btn.icon{width:48px;height:48px;background:transparent;border-color:transparent;color:var(--text)}
+.np-controls .btn.icon:hover{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.12)}
+.np-controls .btn.icon.big.play{width:66px;height:66px;color:#fff;
+  background:linear-gradient(135deg,#7c5cff,#4f7cff);border-color:transparent;
+  box-shadow:0 16px 34px rgba(92,110,255,.45)}
+.np-controls .btn.icon.big.play:hover{filter:brightness(1.08)}
+.np-actions{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:2px}
+.np-actions .btn.icon-sm{width:38px;height:38px;opacity:.8}
+.np-actions .btn.on{color:#ff5c8a;background:rgba(255,92,138,.14);border-color:rgba(255,92,138,.42);opacity:1}
+.np-volume{position:relative;z-index:1;display:flex;align-items:center;gap:8px;margin-top:16px}
+.np-volume input{flex:1;min-width:0}
+.np-volume .btn{height:32px;width:32px;padding:0;font-size:var(--fs-15);line-height:1}
+.np-volume #volumeVal{font-size:var(--fs-12);color:var(--muted);min-width:40px;text-align:right;
+  font-variant-numeric:tabular-nums}
 .btn.play{background:linear-gradient(135deg,#7c5cff,#4f7cff);border-color:transparent;color:#fff;box-shadow:0 12px 30px rgba(92,110,255,.35)}
 .vol-row{display:grid;grid-template-columns:auto 1fr auto auto;gap:var(--gap-sm);align-items:center}
 .vol-row .btn{height:var(--ctl-h-sm);width:var(--ctl-h-sm);padding:0;font-size:var(--fs-16);line-height:1}
@@ -827,26 +851,28 @@ body.light .reboot-bar{background:rgba(76,62,48,.1)}
 .llm-source{font-size:var(--fs-12);line-height:1.4;color:#8fc7ff;text-decoration:none;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .llm-sources .seg-note{color:#8f9bb3}
-.lyrics-dlg{width:min(760px,96vw);max-height:88vh;border:0;border-radius:24px;padding:0;
-  background:#0b0e16;color:#eef2ff;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.6)}
-.lyrics-dlg::backdrop{background:rgba(4,6,12,.72);backdrop-filter:blur(8px)}
-.lyr-bg{position:absolute;inset:-60px;background-size:cover;background-position:center;
-  filter:blur(64px) saturate(1.3) brightness(.32);transform:scale(1.1);z-index:0}
-.lyr-head{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;
-  gap:14px;padding:18px 22px 6px}
-.lyr-title{font-size:17px;font-weight:650;line-height:1.25}
-.lyr-artist{font-size:13px;opacity:.6;margin-top:2px}
-.lyr-stage{position:relative;z-index:1;height:min(64vh,540px);overflow:hidden;
-  -webkit-mask-image:linear-gradient(180deg,transparent,#000 14%,#000 86%,transparent);
-  mask-image:linear-gradient(180deg,transparent,#000 14%,#000 86%,transparent)}
-.lyr-lines{position:relative;display:flex;flex-direction:column;gap:16px;padding:46% 26px;
-  transition:transform .5s cubic-bezier(.22,.61,.36,1);will-change:transform}
-.lyr-lines .line{font-size:21px;line-height:1.34;font-weight:650;opacity:.32;cursor:pointer;
+.lyrics-dlg{width:min(680px,94vw);height:min(82vh,760px);border:0;border-radius:28px;padding:0;
+  background:#0b0e16;color:#eef2ff;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.65)}
+.lyrics-dlg[open]{display:flex;flex-direction:column}
+.lyrics-dlg::backdrop{background:rgba(4,6,12,.74);backdrop-filter:blur(10px)}
+.lyr-bg{position:absolute;inset:-80px;background-size:cover;background-position:center;
+  filter:blur(90px) saturate(1.2) brightness(.34);opacity:.42;z-index:0}
+.lyr-head{position:relative;z-index:1;flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;
+  gap:14px;padding:22px 26px 14px;
+  background:linear-gradient(180deg,rgba(11,14,22,.96),rgba(11,14,22,.6) 72%,transparent)}
+.lyr-title{font-size:18px;font-weight:700;line-height:1.25}
+.lyr-artist{font-size:13px;opacity:.62;margin-top:2px}
+.lyr-stage{position:relative;z-index:1;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  scrollbar-width:none;-webkit-mask-image:linear-gradient(180deg,transparent,#000 16%,#000 84%,transparent);
+  mask-image:linear-gradient(180deg,transparent,#000 16%,#000 84%,transparent)}
+.lyr-stage::-webkit-scrollbar{display:none}
+.lyr-lines{position:relative;display:flex;flex-direction:column;gap:18px;padding:36% 26px}
+.lyr-lines .line{font-size:22px;line-height:1.32;font-weight:700;opacity:.34;cursor:pointer;
   transform-origin:left center;transition:opacity .3s, transform .3s, color .3s}
-.lyr-lines .line:hover{opacity:.6}
-.lyr-lines .line.active{opacity:1;transform:scale(1.05);color:#fff;
-  text-shadow:0 0 26px rgba(124,92,255,.45)}
-.lyr-lines .plain{white-space:pre-wrap;font-size:15px;font-weight:500;opacity:.8;line-height:1.6}
+.lyr-lines .line:hover{opacity:.62}
+.lyr-lines .line.active{opacity:1;transform:scale(1.04);color:#fff;
+  text-shadow:0 0 24px rgba(124,92,255,.4)}
+.lyr-lines .plain{white-space:pre-wrap;font-size:16px;font-weight:500;opacity:.82;line-height:1.65}
 .anim-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;margin-top:8px}
 .anim-tile{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 4px;
   border:1px solid rgba(255,255,255,.09);border-radius:12px;background:transparent;color:inherit;
@@ -1015,19 +1041,26 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   </section>
 
   <!-- ───────── плеер ───────── -->
-  <section class="card c-media" data-group="sound" aria-labelledby="h-media">
+  <section class="card c-media player-card" data-group="sound" aria-labelledby="h-media">
+    <div class="np-glow" id="npGlow" aria-hidden="true"></div>
     <h2 id="h-media"><span class="dot"></span>Плеер</h2>
-    <div class="media-now">
-      <div class="media-art" aria-hidden="true">
+    <div class="np-now">
+      <div class="np-art" aria-hidden="true">
         <img id="mediaCover" alt="" hidden>
-        <svg class="ic" id="mediaArtIcon" style="width:26px;height:26px"><use href="#i-music"/></svg>
+        <svg class="ic" id="mediaArtIcon" style="width:30px;height:30px"><use href="#i-music"/></svg>
       </div>
-      <div>
-        <div class="media-title" id="mediaTitle">Glagol</div>
-        <div class="media-sub" id="mediaSub">ws://127.0.0.1:1961</div>
+      <div class="np-meta">
+        <div class="np-kicker" id="mediaKind"></div>
+        <div class="np-title" id="mediaTitle">Glagol</div>
+        <div class="np-sub" id="mediaSub">ws://127.0.0.1:1961</div>
       </div>
     </div>
-    <div class="transport">
+    <div class="media-progress" id="mediaProgress">
+      <span id="mediaPos">0:00</span>
+      <input type="range" id="mediaSeek" min="0" max="1000" step="1" value="0" aria-label="Перемотка">
+      <span id="mediaDur">0:00</span>
+    </div>
+    <div class="np-controls">
       <button class="btn icon" id="btnPrev" aria-label="Предыдущий трек">
         <svg class="ic" aria-hidden="true"><use href="#i-prev"/></svg>
       </button>
@@ -1038,31 +1071,30 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         <svg class="ic" aria-hidden="true"><use href="#i-next"/></svg>
       </button>
     </div>
-    <div class="row" style="margin-top:8px">
-      <button class="btn sm ghost" id="btnMusic" title="Вернуться к Яндекс Музыке">Яндекс Музыка</button>
-      <span class="seg-note" id="mediaKind"></span>
-    </div>
-    <div class="media-progress" id="mediaProgress">
-      <span id="mediaPos">0:00</span>
-      <input type="range" id="mediaSeek" min="0" max="1000" step="1" value="0" aria-label="Перемотка">
-      <span id="mediaDur">0:00</span>
-    </div>
-    <div class="row" style="margin-top:10px">
-      <button class="btn sm ghost" id="btnLike" aria-pressed="false">♥ Нравится</button>
-      <button class="btn sm ghost" id="btnDislike" title="Не нравится">👎</button>
-      <button class="btn sm ghost" id="btnLyrics">Текст песни</button>
+    <div class="np-actions">
+      <button class="btn icon-sm ghost" id="btnLike" aria-pressed="false" aria-label="Нравится" title="Нравится">
+        <svg class="ic" aria-hidden="true"><use href="#i-like"/></svg>
+      </button>
+      <button class="btn icon-sm ghost" id="btnDislike" aria-label="Не нравится" title="Не нравится">
+        <svg class="ic" aria-hidden="true"><use href="#i-dislike"/></svg>
+      </button>
+      <button class="btn icon-sm ghost" id="btnLyrics" aria-label="Текст песни" title="Текст песни">
+        <svg class="ic" aria-hidden="true"><use href="#i-text"/></svg>
+      </button>
+      <button class="btn icon-sm ghost" id="btnMusic" aria-label="Яндекс Музыка" title="Вернуться к Яндекс Музыке">
+        <svg class="ic" aria-hidden="true"><use href="#i-music"/></svg>
+      </button>
       <span class="seg-note" id="lyricsStatus"></span>
     </div>
-    <div class="field">
-      <div class="field-top"><label for="volume">Громкость</label><output id="volumeVal">40%</output></div>
-      <div class="vol-row">
-        <button class="btn ghost" id="btnVolDown" aria-label="Тише">−</button>
-        <input type="range" id="volume" min="0" max="100" step="1" value="40" aria-label="Громкость">
-        <button class="btn ghost" id="btnVolUp" aria-label="Громче">+</button>
-        <button class="btn ghost" id="btnMute" aria-label="Без звука">
-          <svg class="ic" aria-hidden="true"><use href="#i-mute"/></svg>
-        </button>
-      </div>
+    <div class="np-volume">
+      <svg class="ic" aria-hidden="true" style="width:18px;height:18px;opacity:.65"><use href="#i-volume"/></svg>
+      <button class="btn ghost" id="btnVolDown" aria-label="Тише">−</button>
+      <input type="range" id="volume" min="0" max="100" step="1" value="40" aria-label="Громкость">
+      <button class="btn ghost" id="btnVolUp" aria-label="Громче">+</button>
+      <button class="btn ghost" id="btnMute" aria-label="Без звука">
+        <svg class="ic" aria-hidden="true"><use href="#i-mute"/></svg>
+      </button>
+      <output id="volumeVal">40%</output>
     </div>
   </section>
 
@@ -1710,6 +1742,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 5.5 6.5 9H3.5v6h3L11 18.5z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6"/></symbol>
   <symbol id="i-mute" viewBox="0 0 24 24"><path d="M11 5.5 6.5 9H3.5v6h3L11 18.5z"/><path d="M16 9.5l4 5M20 9.5l-4 5"/></symbol>
   <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 17.5V6l10-2v11"/><circle cx="6.5" cy="17.5" r="2.6"/><circle cx="16.5" cy="15" r="2.6"/></symbol>
+  <symbol id="i-like" viewBox="0 0 24 24"><path d="M12 20.2S4 15.1 4 9.4A4.4 4.4 0 0 1 12 6.6a4.4 4.4 0 0 1 8 2.8c0 5.7-8 10.8-8 10.8z"/></symbol>
+  <symbol id="i-dislike" viewBox="0 0 24 24"><path d="M7 4h9.5L20 9.2v3.3a2 2 0 0 1-2 2h-4.1l1.1 4.2a2 2 0 0 1-3.8 1.1L7 12.5"/><path d="M7 4H4v8.5h3"/></symbol>
+  <symbol id="i-text" viewBox="0 0 24 24"><path d="M5 7h14M5 12h10M5 17h13"/></symbol>
 </svg>
 
 <script>
@@ -3009,11 +3044,12 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     lines.forEach(function (line) {
       line.classList.toggle('active', line === active);
     });
-    // Плавная прокрутка активной строки к центру (как в Яндекс Музыке).
+    // Плавно ведём активную строку к центру внутри stage. scrollIntoView не
+    // используем: он прокручивает и сам dialog, обрезая заголовок.
     if (active && el.lyricsDlg && el.lyricsDlg.open && el.lyrStage) {
-      var shift = active.offsetTop - el.lyrStage.clientHeight / 2
-        + active.offsetHeight / 2;
-      el.lyricsBox.style.transform = 'translateY(' + (-shift) + 'px)';
+      var stage = el.lyrStage;
+      var top = active.offsetTop - stage.clientHeight / 2 + active.offsetHeight / 2;
+      stage.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
     }
   }
 
@@ -3039,7 +3075,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     State.liked = !!liked;
     if (!el.btnLike) return;
     el.btnLike.setAttribute('aria-pressed', State.liked ? 'true' : 'false');
-    el.btnLike.textContent = State.liked ? '♥ В избранном' : '♥ Нравится';
+    el.btnLike.classList.toggle('on', State.liked);
+    el.btnLike.setAttribute('title', State.liked ? 'Убрать из избранного' : 'Нравится');
+    el.btnLike.setAttribute('aria-label', State.liked ? 'Убрать из избранного' : 'Нравится');
   }
 
   function loadLiked() {
@@ -3224,11 +3262,13 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       el.mediaCover.src = data.cover;
       el.mediaCover.hidden = false;
       el.mediaArtIcon.style.display = 'none';
+      if (el.npGlow) el.npGlow.style.backgroundImage = 'url("' + data.cover + '")';
     } else {
       el.mediaCover.hidden = true;
       el.mediaCover.removeAttribute('src');
       el.mediaCover.hidden = true;
       State.mediaCover = '';
+      if (el.npGlow) el.npGlow.style.backgroundImage = '';
       el.mediaArtIcon.style.display = '';
     }
   }
@@ -6909,7 +6949,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'btnMusic', 'mediaKind', 'mediaSeek', 'mediaPos', 'mediaDur', 'mediaProgress',
       'btnLyrics', 'lyricsStatus', 'lyricsBox',
       'btnLike', 'btnDislike', 'lyricsDlg', 'lyrBg', 'lyrTitle', 'lyrArtist',
-      'btnLyricsClose', 'lyrStage',
+      'btnLyricsClose', 'lyrStage', 'npGlow',
       'volume', 'volumeVal', 'btnVolDown', 'btnVolUp', 'btnMute',
       'btnMic', 'micHint', 'micTimer', 'transcript', 'btnRepeat', 'btnCancelListen',
       'command', 'btnSendCmd', 'ttsText', 'ttsCount', 'btnTtsClear', 'btnSay', 'ttsChips',
