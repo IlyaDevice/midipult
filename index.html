@@ -1125,6 +1125,82 @@ body.light .reboot-bar{background:rgba(76,62,48,.1)}
   *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important}
 }
 body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
+/* ───────── главная: 3D-станция ───────── */
+.c-home-model{grid-column:span 7}
+.c-home-side{grid-column:span 5}
+.station-stage{position:relative;height:500px;margin-top:10px;border-radius:22px;overflow:hidden;
+  background:radial-gradient(60% 80% at 50% 20%,rgba(124,92,255,.18),transparent 70%),
+             radial-gradient(70% 60% at 50% 100%,rgba(34,211,238,.10),transparent 70%),
+             #070a12;
+  perspective:1100px;display:flex;align-items:center;justify-content:center;touch-action:none;
+  cursor:grab}
+.station-stage:active{cursor:grabbing}
+.station-scene{position:relative;width:280px;height:460px;transform-style:preserve-3d;
+  transform:rotateX(var(--rx,-8deg)) rotateY(var(--ry,-18deg))}
+.station-body{position:absolute;left:50%;top:48px;width:0;height:390px;transform-style:preserve-3d}
+.station-facet{position:absolute;left:0;top:0;height:390px;margin-left:-15px;
+  border-radius:8px 8px 4px 4px;
+  background:linear-gradient(90deg,#151a28,#252c40 35%,#111624 100%);
+  border-top:1px solid rgba(255,255,255,.10);border-bottom:1px solid rgba(0,0,0,.55)}
+.station-screen{position:absolute;left:50%;top:118px;width:188px;height:104px;
+  transform:translateX(-50%) translateZ(138px);border-radius:16px;overflow:hidden;
+  background:#040b08;border:2px solid #242b38;box-shadow:0 0 0 2px rgba(0,0,0,.5),
+  0 0 32px rgba(52,211,153,.18), inset 0 0 24px rgba(0,0,0,.7)}
+.station-screen canvas{display:block;width:100%;height:100%}
+.station-live{position:absolute;right:7px;top:6px;font-size:8px;letter-spacing:.14em;
+  color:#7ef3c7;opacity:.8}
+.station-top{position:absolute;left:50%;top:26px;width:236px;height:72px;
+  transform:translateX(-50%) translateZ(126px);border-radius:50%;background:
+  radial-gradient(50% 55% at 50% 45%,#232a3c,#0b0f18 70%);
+  border:1px solid rgba(255,255,255,.10);box-shadow:0 10px 24px rgba(0,0,0,.5),
+  inset 0 1px 2px rgba(255,255,255,.12);z-index:9}
+.station-ring{position:absolute;inset:0;z-index:2}
+.station-ring i{position:absolute;width:7px;height:7px;margin:-3.5px;border-radius:50%;
+  background:#16352a;border:1px solid rgba(255,255,255,.16);box-shadow:none}
+.station-hint{text-align:center;font-size:11px;color:var(--muted);margin-top:8px}
+.home-now{display:flex;align-items:center;gap:12px;margin-top:12px;min-width:0}
+.home-now img,.home-art{width:54px;height:54px;border-radius:12px;object-fit:cover;flex:0 0 auto;
+  background:rgba(255,255,255,.06);padding:14px}
+.home-meta{flex:1 1 auto;min-width:0}
+.home-title{font-size:16px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.home-artist{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.home-volume{display:flex;align-items:center;gap:8px;margin-top:16px}
+.home-volume input{flex:1 1 auto;min-width:0}
+.home-volume output{font-size:12px;color:var(--muted);width:34px;text-align:right}
+.home-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:16px}
+.home-stats>div{padding:10px;border-radius:12px;border:1px solid var(--stroke);
+  background:rgba(255,255,255,.035);min-width:0}
+.home-stats span{display:block;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.home-stats b{display:block;font-size:16px;margin-top:4px;font-variant-numeric:tabular-nums}
+.home-shortcuts{display:flex;flex-wrap:wrap;gap:6px;margin-top:16px}
+.c-led{background:radial-gradient(80% 60% at 50% 0%,rgba(124,92,255,.14),transparent 65%),
+  linear-gradient(160deg,var(--card-a),var(--card-b))}
+.c-led .ring{margin:6px auto 0;filter:drop-shadow(0 18px 36px rgba(0,0,0,.45))}
+.c-led .led-hint{text-align:center}
+.c-led .led-controls{justify-content:center}
+.c-led .chips{justify-content:center}
+.mobile-tabs-btn{display:none;width:100%;max-width:520px;margin:0 auto 12px;height:44px;
+  align-items:center;justify-content:space-between;gap:10px;padding:0 16px;
+  border-radius:14px;border:1px solid var(--stroke);background:rgba(18,22,34,.9);
+  color:var(--text);font:inherit;font-size:14px;cursor:pointer}
+.mobile-tabs-menu{display:none;gap:4px;width:100%;max-width:520px;margin:0 auto 12px;
+  padding:6px;border-radius:14px;border:1px solid var(--stroke);background:#121724;
+  box-shadow:0 18px 40px rgba(0,0,0,.5)}
+.mobile-tabs-menu[hidden]{display:none}
+.mobile-tabs-menu button{height:40px;text-align:left;padding:0 12px;border:0;border-radius:10px;
+  background:transparent;color:var(--text);font:inherit;font-size:14px}
+.mobile-tabs-menu button[aria-pressed="true"]{background:rgba(124,92,255,.22)}
+@media(max-width:900px){
+  .c-home-model,.c-home-side{grid-column:span 12}
+  .station-stage{height:430px}
+}
+@media(max-width:760px){
+  .tabs{display:none!important}
+  .mobile-tabs-btn{display:flex}
+  .mobile-tabs-menu{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .mobile-tabs-menu[hidden]{display:none}
+}
+
 </style>
 </head>
 <body class="booting">
@@ -1163,6 +1239,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 </div>
 
 <nav class="tabs" id="tabs" aria-label="Разделы">
+  <button class="tab" data-tab="home" aria-pressed="true">⌂ Главная</button>
   <button class="tab" data-tab="display" aria-pressed="false">◐ Дисплей</button>
   <button class="tab" data-tab="sound" aria-pressed="false">♪ Звук</button>
   <button class="tab" data-tab="ai" aria-pressed="false">✦ Нейросеть</button>
@@ -1171,7 +1248,60 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   <button class="tab" data-tab="system" aria-pressed="false">▤ Система</button>
 </nav>
 
+<button type="button" class="mobile-tabs-btn" id="btnMobileTabs" aria-expanded="false">
+  <span id="mobileTabLabel">Главная</span><span class="alarm-caret">▾</span>
+</button>
+<div class="mobile-tabs-menu" id="mobileTabsMenu" hidden></div>
+
 <main class="grid">
+
+  <!-- ───────── главная ───────── -->
+  <section class="card c-home-model" data-group="home" aria-labelledby="h-home">
+    <h2 id="h-home"><span class="dot"></span>Станция</h2>
+    <div class="station-stage" id="stationStage">
+      <div class="station-scene" id="stationScene">
+        <div class="station-body" id="stationBody"></div>
+        <div class="station-screen">
+          <canvas id="homeScreen" width="360" height="150"></canvas>
+          <span class="station-live">LIVE</span>
+        </div>
+        <div class="station-top"><div class="station-ring" id="homeRing"></div></div>
+      </div>
+    </div>
+    <div class="station-hint">Потяните, чтобы повернуть · двойной клик — сброс</div>
+  </section>
+
+  <section class="card c-home-side" data-group="home" aria-labelledby="h-home-now">
+    <h2 id="h-home-now"><span class="dot"></span>Сейчас</h2>
+    <div class="home-now">
+      <img id="homeCover" alt="" hidden>
+      <svg class="ic home-art" id="homeArt"><use href="#i-music"/></svg>
+      <div class="home-meta">
+        <div class="home-title" id="homeTitle">—</div>
+        <div class="home-artist" id="homeArtist"></div>
+      </div>
+      <button class="btn icon" id="homePlay" aria-label="Играть/пауза">
+        <svg class="ic"><use href="#i-play"/></svg>
+      </button>
+    </div>
+    <div class="home-volume">
+      <button class="btn icon-sm ghost" id="homeVolDown" aria-label="Тише">−</button>
+      <input type="range" id="homeVolume" min="0" max="100" step="1" value="40" aria-label="Громкость">
+      <button class="btn icon-sm ghost" id="homeVolUp" aria-label="Громче">+</button>
+      <output id="homeVolumeVal">40%</output>
+    </div>
+    <div class="home-stats">
+      <div><span>CPU</span><b id="homeCpu">—</b></div>
+      <div><span>Температура</span><b id="homeTemp">—</b></div>
+      <div><span>Будильник</span><b id="homeAlarm">—</b></div>
+    </div>
+    <div class="home-shortcuts">
+      <button class="btn sm" data-goto="sound">Плеер</button>
+      <button class="btn sm ghost" data-goto="display">Дисплей</button>
+      <button class="btn sm ghost" data-goto="ai">Нейросеть</button>
+      <button class="btn sm ghost" data-goto="system">Система</button>
+    </div>
+  </section>
 
   <!-- ───────── дисплей ───────── -->
   <section class="card c-clock" data-group="display" aria-labelledby="h-clock">
@@ -2403,10 +2533,12 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     alarmStation: null,
     alarmSounds: [],
     alarmSound: null,
+    alarms: [],
     lyricsInline: false,
     lyricsActive: null,
     lyricsLines: [],
     audioProgress: 0,
+    homeVolumeDragging: false,
     seeking: false,
     volumeDragging: false,
     updateInfo: null,
@@ -4244,8 +4376,10 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 
   function loadAlarms(silent) {
     return cgi('alarm.py', {}, { timeout: 15000, silent: !!silent }).then(function (data) {
+      State.alarms = data.alarms || [];
       renderAlarmList(data.alarms || []);
       renderAlarmRinging(data.state || {});
+      syncHomeAlarm();
       var browserTz = browserTimezone();
       var savedTz = data.timezone || '';
       if (el.alarmTz) {
@@ -4699,6 +4833,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       if (el.npGlow) el.npGlow.style.backgroundImage = '';
       el.mediaArtIcon.style.display = '';
     }
+    syncHomePlayer();
   }
 
   function applyState(data) {
@@ -4765,12 +4900,12 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 
   function startPlayerPoll() {
     stopPlayerPoll();
-    if (State.tab !== 'sound') return;
+    if (State.tab !== 'sound' && State.tab !== 'home') return;
     lastPlayerPoll = Date.now();
     refreshPlayer();
     loadLiked();
     playerTimer = setInterval(function () {
-      if (State.tab !== 'sound') return;
+      if (State.tab !== 'sound' && State.tab !== 'home') return;
       // Полоска и текст песни двигаются локально между опросами (как в
       // yapanel): сервер отдаёт progress + age, а здесь добавляем прошедшее.
       updateMediaProgress();
@@ -4861,7 +4996,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       cgi('volume.py', { level: level }, { timeout: 9000 }).then(function (data) {
         if (data && typeof data.level === 'number') setVolumeUI(data.level);
         if (data && data.method) log('volume', 'method', data.method);
-        if (State.tab === 'sound') refreshPlayer(true);
+        if (State.tab === 'sound' || State.tab === 'home') refreshPlayer(true);
       }).catch(function (err) {
         toast('Громкость: ' + err.message, 'bad');
       });
@@ -5003,7 +5138,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     stopVolumePoll();
     syncVolumeFromDevice();
     volumePollTimer = setInterval(function () {
-      if (!document.hidden && State.tab === 'sound') syncVolumeFromDevice();
+      if (!document.hidden && (State.tab === 'sound' || State.tab === 'home')) syncVolumeFromDevice();
     }, 5000);
   }
 
@@ -5931,7 +6066,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   }
 
   function refreshSystem() {
-    if (document.hidden || State.tab !== 'system') return Promise.resolve();
+    if (document.hidden || (State.tab !== 'system' && State.tab !== 'home')) {
+      return Promise.resolve();
+    }
     return fetch('/state?full=1', { cache: 'no-store', credentials: 'same-origin' })
       .then(function (res) {
         if (!res.ok) throw new Error('state ' + res.status);
@@ -5999,16 +6136,23 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       }
       el.sysUptime.textContent = fmtUptime(data.uptime_s);
       el.sysBoard.textContent = data.board || '';
+      syncHomeStats(data);
     }).catch(function () { /* тихо */ });
   }
 
   /* ─────────── разделы ─────────── */
-  var TABS = ['display', 'sound', 'ai', 'network', 'scenarios', 'system'];
+  var TABS = ['home', 'display', 'sound', 'ai', 'network', 'scenarios', 'system'];
   var TAB_KEY = 'mypult.tab';
   var START_KEY = 'mypult.start-system';
 
   function loadTabData(name) {
-    if (name === 'display') {
+    if (name === 'home') {
+      refreshSystem();
+      loadAlarms(true);
+      refreshPlayer(true);
+      syncHomePlayer();
+      syncHomeAlarm();
+    } else if (name === 'display') {
       loadRingBrightness();
       loadDisplayState();
     } else if (name === 'sound') {
@@ -6043,10 +6187,23 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     });
     State.tab = name;
     loadTabData(name);
+    var activeTab = el.tabs.querySelector('.tab[aria-pressed="true"]');
+    var mobileLabel = document.getElementById('mobileTabLabel');
+    if (mobileLabel && activeTab) {
+      mobileLabel.textContent = activeTab.textContent.trim().replace(/^[^A-Za-zА-Яа-я]+/, '');
+    }
+    Array.prototype.forEach.call(
+      document.querySelectorAll('#mobileTabsMenu [data-tab]'), function (item) {
+        item.setAttribute('aria-pressed', String(item.dataset.tab === name));
+      });
+    var mobileMenu = document.getElementById('mobileTabsMenu');
+    var mobileButton = document.getElementById('btnMobileTabs');
+    if (mobileMenu) mobileMenu.hidden = true;
+    if (mobileButton) mobileButton.setAttribute('aria-expanded', 'false');
     setTimeout(refreshDropdowns, 80);
-    if (name === 'sound') startVolumePoll();
+    if (name === 'sound' || name === 'home') startVolumePoll();
     else stopVolumePoll();
-    if (name === 'sound') startPlayerPoll();
+    if (name === 'sound' || name === 'home') startPlayerPoll();
     else stopPlayerPoll();
     scheduleStateRefresh();
     if (save !== false) {
@@ -9230,6 +9387,239 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     markActiveChip();
   }
 
+  /* ─────────── главная: 3D-станция ─────────── */
+  var homeRingDots = [];
+  var homeRingAngle = 0;
+
+  function drawHomeScreen() {
+    var canvas = document.getElementById('homeScreen');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    var now = new Date();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    var grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    grad.addColorStop(0, '#06110d');
+    grad.addColorStop(1, '#020604');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    var text = (now.getHours() < 10 ? '0' : '') + now.getHours() + ':' +
+      (now.getMinutes() < 10 ? '0' : '') + now.getMinutes();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '700 82px "Segoe UI", system-ui, sans-serif';
+    ctx.fillStyle = '#c9ffe8';
+    ctx.shadowColor = 'rgba(52,211,153,.9)';
+    ctx.shadowBlur = 18;
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2 + 2);
+    ctx.shadowBlur = 0;
+    ctx.font = '500 13px "Segoe UI", system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(126,243,199,.65)';
+    ctx.fillText(now.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' }),
+      canvas.width / 2, canvas.height - 18);
+  }
+
+  function syncHomeRing() {
+    if (!homeRingDots.length) return;
+    var off = State.ledMode === 'off' && !State.ringPreview;
+    for (var i = 0; i < homeRingDots.length; i++) {
+      var source = ringDots[i];
+      if (off) {
+        var base = State.color || '#00E676';
+        homeRingDots[i].style.background = base;
+        homeRingDots[i].style.opacity = '.32';
+        homeRingDots[i].style.boxShadow = '0 0 6px ' + base;
+        continue;
+      }
+      var color = source ? source.style.background : '';
+      if (!color || color === 'transparent') color = '#16352a';
+      homeRingDots[i].style.background = color;
+      homeRingDots[i].style.opacity = '1';
+      homeRingDots[i].style.boxShadow = source ? source.style.boxShadow : 'none';
+    }
+  }
+
+  function initStation3D() {
+    var body = document.getElementById('stationBody');
+    var stage = document.getElementById('stationStage');
+    var scene = document.getElementById('stationScene');
+    var ring = document.getElementById('homeRing');
+    if (!body || !stage || !scene || !ring) return;
+    body.innerHTML = '';
+    var facets = 24;
+    var radius = 112;
+    for (var i = 0; i < facets; i++) {
+      var facet = document.createElement('div');
+      facet.className = 'station-facet';
+      facet.style.width = '32px';
+      facet.style.transform = 'rotateY(' + (i * (360 / facets)) + 'deg) translateZ(' + radius + 'px)';
+      body.appendChild(facet);
+    }
+    ring.innerHTML = '';
+    homeRingDots = [];
+    for (var d = 0; d < 24; d++) {
+      var dot = document.createElement('i');
+      var angle = (d / 24) * Math.PI * 2;
+      dot.style.left = (50 + Math.cos(angle) * 46) + '%';
+      dot.style.top = (50 + Math.sin(angle) * 17) + '%';
+      ring.appendChild(dot);
+      homeRingDots.push(dot);
+    }
+    var ry = -18, rx = -6;
+    var drag = null;
+    scene.style.setProperty('--ry', ry + 'deg');
+    scene.style.setProperty('--rx', rx + 'deg');
+    stage.addEventListener('pointerdown', function (event) {
+      drag = { x: event.clientX, y: event.clientY, ry: ry, rx: rx };
+      try { stage.setPointerCapture(event.pointerId); } catch (e) {}
+    });
+    stage.addEventListener('pointermove', function (event) {
+      if (!drag) return;
+      ry = drag.ry + (event.clientX - drag.x) * 0.45;
+      rx = Math.max(-24, Math.min(18, drag.rx - (event.clientY - drag.y) * 0.22));
+      scene.style.setProperty('--ry', ry + 'deg');
+      scene.style.setProperty('--rx', rx + 'deg');
+    });
+    stage.addEventListener('pointerup', function () { drag = null; });
+    stage.addEventListener('pointercancel', function () { drag = null; });
+    stage.addEventListener('dblclick', function () {
+      ry = -18;
+      rx = -6;
+      scene.style.setProperty('--ry', ry + 'deg');
+      scene.style.setProperty('--rx', rx + 'deg');
+    });
+    drawHomeScreen();
+    syncHomeRing();
+    setInterval(drawHomeScreen, 1000);
+    setInterval(syncHomeRing, 130);
+  }
+
+  function syncHomePlayer() {
+    var title = document.getElementById('homeTitle');
+    if (!title) return;
+    title.textContent = State.mediaTitle || 'Ничего не играет';
+    document.getElementById('homeArtist').textContent =
+      State.mediaArtist || 'Яндекс Музыка и радио';
+    var cover = document.getElementById('homeCover');
+    var art = document.getElementById('homeArt');
+    if (State.mediaCover) {
+      cover.src = State.mediaCover;
+      cover.hidden = false;
+      if (art) art.style.display = 'none';
+    } else {
+      cover.hidden = true;
+      cover.removeAttribute('src');
+      if (art) art.style.display = '';
+    }
+    var play = document.getElementById('homePlay');
+    if (play) {
+      play.querySelector('use').setAttribute('href', State.playing ? '#i-pause' : '#i-play');
+    }
+    var volume = document.getElementById('homeVolume');
+    if (volume && !State.homeVolumeDragging) {
+      volume.value = String(State.volume || 0);
+      document.getElementById('homeVolumeVal').textContent = (State.volume || 0) + '%';
+    }
+  }
+
+  function syncHomeStats(data) {
+    var cpu = (data && data.cpu) || {};
+    var temp = (data && data.temperature) || {};
+    var hot = temp.hottest;
+    var cpuEl = document.getElementById('homeCpu');
+    var tempEl = document.getElementById('homeTemp');
+    if (cpuEl) cpuEl.textContent = cpu.percent == null ? '—' : cpu.percent + '%';
+    if (tempEl) tempEl.textContent = hot ? hot.c + '°C' : '—';
+  }
+
+  function syncHomeAlarm() {
+    var el = document.getElementById('homeAlarm');
+    if (!el) return;
+    var items = (State.alarms || []).filter(function (alarm) { return alarm.enabled; })
+      .sort(function (a, b) { return String(a.time).localeCompare(String(b.time)); });
+    el.textContent = items.length
+      ? items[0].time + (items[0].once ? ' · один раз' : ' · ' + alarmDaysText(items[0].days))
+      : 'нет';
+  }
+
+  function buildMobileTabs() {
+    var menu = document.getElementById('mobileTabsMenu');
+    var button = document.getElementById('btnMobileTabs');
+    var label = document.getElementById('mobileTabLabel');
+    if (!menu || !button || !el.tabs) return;
+    menu.innerHTML = '';
+    Array.prototype.forEach.call(el.tabs.children, function (tab) {
+      var item = document.createElement('button');
+      item.type = 'button';
+      item.dataset.tab = tab.dataset.tab;
+      item.textContent = tab.textContent;
+      item.addEventListener('click', function () {
+        showTab(tab.dataset.tab);
+        menu.hidden = true;
+        button.setAttribute('aria-expanded', 'false');
+      });
+      menu.appendChild(item);
+    });
+    button.addEventListener('click', function (event) {
+      event.stopPropagation();
+      menu.hidden = !menu.hidden;
+      button.setAttribute('aria-expanded', menu.hidden ? 'false' : 'true');
+    });
+    menu.addEventListener('click', function (event) { event.stopPropagation(); });
+    document.addEventListener('click', function (event) {
+      if (!event.target.closest('#btnMobileTabs') && !event.target.closest('#mobileTabsMenu')) {
+        menu.hidden = true;
+        button.setAttribute('aria-expanded', 'false');
+      }
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && !menu.hidden) {
+        menu.hidden = true;
+        button.setAttribute('aria-expanded', 'false');
+      }
+    });
+    var active = el.tabs.querySelector('.tab[aria-pressed="true"]');
+    if (active && label) label.textContent = active.textContent.replace(/^[^\wА-Яа-я]+/, '');
+  }
+
+  function initHome() {
+    initStation3D();
+    syncHomePlayer();
+    syncHomeAlarm();
+    var play = document.getElementById('homePlay');
+    if (play) play.addEventListener('click', function () {
+      mediaAction(State.playing ? 'pause' : 'play');
+    });
+    var volume = document.getElementById('homeVolume');
+    if (volume) {
+      volume.addEventListener('input', function () {
+        State.homeVolumeDragging = true;
+        document.getElementById('homeVolumeVal').textContent = volume.value + '%';
+      });
+      volume.addEventListener('change', function () {
+        State.homeVolumeDragging = false;
+        var value = parseInt(volume.value, 10) || 0;
+        cgi('volume.py', { level: value }, { timeout: 10000 }).then(function () {
+          setVolumeUI(value);
+        }).catch(function (err) { toast('Громкость: ' + err.message, 'bad'); });
+      });
+    }
+    ['homeVolDown', 'homeVolUp'].forEach(function (id) {
+      var button = document.getElementById(id);
+      if (!button) return;
+      button.addEventListener('click', function () {
+        var current = parseInt(volume && volume.value, 10) || State.volume || 40;
+        var next = Math.max(0, Math.min(100, current + (id === 'homeVolUp' ? 5 : -5)));
+        if (volume) volume.value = String(next);
+        cgi('volume.py', { level: next }, { timeout: 10000 }).then(function () {
+          setVolumeUI(next);
+        }).catch(function () {});
+      });
+    });
+    document.querySelectorAll('[data-goto]').forEach(function (button) {
+      button.addEventListener('click', function () { showTab(button.dataset.goto); });
+    });
+  }
+
   function init() {
     function syncScrollbarPad() {
       var sb = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
@@ -9337,16 +9727,21 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     buildSevenSeg();
     restore();
     bind();
+    buildMobileTabs();
+    initHome();
     renderAlarmDays();
     loadAlarms(true);
     clockAnimBind();
     renderClockAnimList();
     setInterval(function () {
-      if (State.tab === 'sound' && !document.hidden) loadAlarms(true);
+      if ((State.tab === 'sound' || State.tab === 'home') && !document.hidden) loadAlarms(true);
     }, 5000);
     tickClock();
     setInterval(tickClock, 1000);
     setInterval(tickRingAnims, 130);
+    setInterval(function () {
+      if (State.tab === 'home' && !document.hidden) refreshSystem();
+    }, 15000);
     renderStatus();
     loadVersion();
     loadUpdateInfo(false, false);
@@ -9366,12 +9761,11 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       if (!document.hidden && State.tab === 'system') refreshSystem();
     }, 10000);
     var startTab = (location.hash || '').replace('#', '') ||
-      store.get(TAB_KEY, 'system');
+      store.get(TAB_KEY, 'home');
     if (!(location.hash || '') && !store.get(START_KEY)) {
-      // Однократно переводим существующие профили на стартовые «Ресурсы».
+      // Новый стартовый экран — «Главная».
       store.set(START_KEY, 1);
-      store.set(TAB_KEY, 'system');
-      startTab = 'system';
+      startTab = 'home';
     }
     try { showTab(startTab, false); } finally { document.body.classList.remove('booting'); }
     syncScrollbarPad();

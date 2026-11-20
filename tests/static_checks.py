@@ -564,6 +564,11 @@ def test_yapanel_features():
           "history.jsonl" in daemon_py and "record_history" in daemon_py
           and "history.jsonl" in history_py and 'id="sparkCpu"' in html
           and 'class="sys-spark"' in html)
+    check("главная: 3D-станция и мобильное меню",
+          'data-tab="home"' in html and 'id="stationScene"' in html
+          and 'id="homeScreen"' in html and 'id="homeRing"' in html
+          and 'id="btnMobileTabs"' in html and "initStation3D" in html
+          and "buildMobileTabs" in html)
     check("UI: лайки и оверлей текста",
           all(token in html for token in (
               'id="btnLike"', 'id="btnDislike"', 'id="lyricsDlg"',
