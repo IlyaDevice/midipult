@@ -59,6 +59,7 @@ def snapshot(force=False):
         "playing": bool(state.get("playing")),
         "alice": state.get("aliceState"),
         "volume": state.get("volume"),
+        "id": player.get("id"),
         "title": player.get("title"),
         "artist": player.get("subtitle"),
         "cover": cover_url(extra),

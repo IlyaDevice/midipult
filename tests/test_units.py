@@ -1046,6 +1046,49 @@ def test_media_pause_via_cli():
           calls and calls[-1][1].get("via") == "cli", str(calls[-1:]))
 
 
+def test_musicapi():
+    """Токен станции для Яндекс Музыки и разбор лайков."""
+    import shutil
+    import tempfile
+
+    import musicapi
+
+    folder = tempfile.mkdtemp(prefix="mypult-music-")
+    account = os.path.join(folder, "account_storage.dat")
+    with open(account, "wb") as fh:
+        fh.write(b'\x00\x01"y0__R0FakeTokenABCDEFGHIJKLMNOP1234567890"rest')
+    old_account = musicapi.ACCOUNT
+    try:
+        musicapi.ACCOUNT = account
+        tokens = musicapi._tokens()
+    finally:
+        musicapi.ACCOUNT = old_account
+    check("музыка: OAuth-токен найден в account_storage",
+          tokens and tokens[0].startswith("y0_"), str(tokens))
+    check("музыка: токен без кавычек", tokens and '"' not in tokens[0],
+          str(tokens))
+
+    cache = os.path.join(folder, "likes.json")
+    old = (musicapi.account, musicapi._request, musicapi.LIKES_CACHE)
+    try:
+        musicapi.account = lambda force=False: ("tok", "42")
+        musicapi.LIKES_CACHE = cache
+
+        def fake_request(token, path, form=None, timeout=15):
+            check("музыка: путь лайков", path == "/users/42/likes/tracks", path)
+            return {"result": {"library": {"tracks": [
+                {"id": "111", "track": {"id": "111"}},
+                {"id": "222", "track": {"id": "222"}},
+            ]}}}
+
+        musicapi._request = fake_request
+        ids = musicapi.likes(force=True)
+    finally:
+        musicapi.account, musicapi._request, musicapi.LIKES_CACHE = old
+        shutil.rmtree(folder, ignore_errors=True)
+    check("музыка: лайки разобраны", ids == {"111", "222"}, str(ids))
+
+
 def test_discovery_payload():
     import json
 
@@ -1376,6 +1419,7 @@ def main():
         test_ring_forward,
         test_ring_reset_and_stop,
         test_media_pause_via_cli,
+        test_musicapi,
         test_media_config_override,
         test_speak_frames,
         test_display_auto,

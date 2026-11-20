@@ -532,6 +532,15 @@ def test_yapanel_features():
           all(token in html for token in (
               'id="llmFollowUp"', 'id="ringAnim"', 'id="ringAnimChips"',
               'id="btnLyrics"', 'id="lyricsBox"', "currentProgress")))
+    check("UI: лайки и оверлей текста",
+          all(token in html for token in (
+              'id="btnLike"', 'id="btnDislike"', 'id="lyricsDlg"',
+              'id="lyrStage"', "function openLyrics(", "function loadLiked(",
+              "function toggleLike(")))
+    musicapi_py = read(os.path.join(ROOT, "cgi-bin", "musicapi.py"))
+    check("музыка: лайки через API станции",
+          "add-multiple" in musicapi_py and "likes/tracks" in musicapi_py
+          and "account_storage.dat" in musicapi_py)
     check("поиск: без скрейпинга выдачи",
           "_bing" not in search_py and "duckduckgo" not in search_py.lower())
 

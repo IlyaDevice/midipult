@@ -827,12 +827,26 @@ body.light .reboot-bar{background:rgba(76,62,48,.1)}
 .llm-source{font-size:var(--fs-12);line-height:1.4;color:#8fc7ff;text-decoration:none;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .llm-sources .seg-note{color:#8f9bb3}
-.lyrics{margin-top:10px;max-height:220px;overflow:auto;display:flex;flex-direction:column;
-  gap:2px;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:8px 10px;
-  font-size:var(--fs-12);line-height:1.5}
-.lyrics .line{opacity:.55;transition:opacity .2s}
-.lyrics .line.active{opacity:1;font-weight:600}
-.lyrics .plain{white-space:pre-wrap}
+.lyrics-dlg{width:min(760px,96vw);max-height:88vh;border:0;border-radius:24px;padding:0;
+  background:#0b0e16;color:#eef2ff;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.lyrics-dlg::backdrop{background:rgba(4,6,12,.72);backdrop-filter:blur(8px)}
+.lyr-bg{position:absolute;inset:-60px;background-size:cover;background-position:center;
+  filter:blur(64px) saturate(1.3) brightness(.32);transform:scale(1.1);z-index:0}
+.lyr-head{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;
+  gap:14px;padding:18px 22px 6px}
+.lyr-title{font-size:17px;font-weight:650;line-height:1.25}
+.lyr-artist{font-size:13px;opacity:.6;margin-top:2px}
+.lyr-stage{position:relative;z-index:1;height:min(64vh,540px);overflow:hidden;
+  -webkit-mask-image:linear-gradient(180deg,transparent,#000 14%,#000 86%,transparent);
+  mask-image:linear-gradient(180deg,transparent,#000 14%,#000 86%,transparent)}
+.lyr-lines{position:relative;display:flex;flex-direction:column;gap:16px;padding:46% 26px;
+  transition:transform .5s cubic-bezier(.22,.61,.36,1);will-change:transform}
+.lyr-lines .line{font-size:21px;line-height:1.34;font-weight:650;opacity:.32;cursor:pointer;
+  transform-origin:left center;transition:opacity .3s, transform .3s, color .3s}
+.lyr-lines .line:hover{opacity:.6}
+.lyr-lines .line.active{opacity:1;transform:scale(1.05);color:#fff;
+  text-shadow:0 0 26px rgba(124,92,255,.45)}
+.lyr-lines .plain{white-space:pre-wrap;font-size:15px;font-weight:500;opacity:.8;line-height:1.6}
 .anim-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;margin-top:8px}
 .anim-tile{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 4px;
   border:1px solid rgba(255,255,255,.09);border-radius:12px;background:transparent;color:inherit;
@@ -1034,10 +1048,11 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       <span id="mediaDur">0:00</span>
     </div>
     <div class="row" style="margin-top:10px">
+      <button class="btn sm ghost" id="btnLike" aria-pressed="false">♥ Нравится</button>
+      <button class="btn sm ghost" id="btnDislike" title="Не нравится">👎</button>
       <button class="btn sm ghost" id="btnLyrics">Текст песни</button>
       <span class="seg-note" id="lyricsStatus"></span>
     </div>
-    <div class="lyrics" id="lyricsBox" hidden></div>
     <div class="field">
       <div class="field-top"><label for="volume">Громкость</label><output id="volumeVal">40%</output></div>
       <div class="vol-row">
@@ -1670,6 +1685,20 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   </div>
 </dialog>
 
+<dialog id="lyricsDlg" class="lyrics-dlg" aria-labelledby="lyrTitle">
+  <div class="lyr-bg" id="lyrBg"></div>
+  <div class="lyr-head">
+    <div>
+      <div class="lyr-title" id="lyrTitle">Текст песни</div>
+      <div class="lyr-artist" id="lyrArtist"></div>
+    </div>
+    <button class="btn sm ghost" id="btnLyricsClose">Закрыть</button>
+  </div>
+  <div class="lyr-stage" id="lyrStage">
+    <div class="lyr-lines" id="lyricsBox"></div>
+  </div>
+</dialog>
+
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
   <symbol id="i-play" viewBox="0 0 24 24"><path d="M9 6.4v11.2L18.6 12z" fill="currentColor" stroke="none"/></symbol>
   <symbol id="i-pause" viewBox="0 0 24 24"><path d="M7.5 5.5h3.2v13H7.5zM13.3 5.5h3.2v13h-3.2z" fill="currentColor" stroke="none"/></symbol>
@@ -1822,6 +1851,10 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     cmdUntil: 0,
     mediaTitle: '',
     mediaArtist: '',
+    mediaId: '',
+    mediaCover: '',
+    liked: false,
+    lyricsActive: null,
     lyricsLines: [],
     seeking: false,
     volumeDragging: false,
@@ -2916,24 +2949,30 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 
   function clearLyrics() {
     State.lyricsLines = [];
+    State.lyricsActive = null;
     if (el.lyricsBox) {
       el.lyricsBox.innerHTML = '';
-      el.lyricsBox.hidden = true;
+      el.lyricsBox.style.transform = '';
     }
     if (el.lyricsStatus) el.lyricsStatus.textContent = '';
+    if (el.lyricsDlg && el.lyricsDlg.open) el.lyricsDlg.close();
   }
 
   function renderLyrics(data) {
     if (!el.lyricsBox) return;
     el.lyricsBox.innerHTML = '';
+    el.lyricsBox.style.transform = '';
     State.lyricsLines = [];
+    State.lyricsActive = null;
     if (!data || !data.found) {
       el.lyricsStatus.textContent = 'не найдено';
-      el.lyricsBox.hidden = true;
+      var empty = document.createElement('div');
+      empty.className = 'plain';
+      empty.textContent = 'Текст не найден';
+      el.lyricsBox.appendChild(empty);
       return;
     }
     el.lyricsStatus.textContent = data.source || 'LRCLIB';
-    el.lyricsBox.hidden = false;
     if (data.synced && data.synced.length) {
       data.synced.forEach(function (item) {
         var line = document.createElement('div');
@@ -2961,9 +3000,84 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       var moment = parseFloat(line.dataset.t);
       if (!isNaN(moment) && moment <= now + 0.3) active = line;
     });
+    if (State.lyricsActive === active) return;
+    State.lyricsActive = active;
     lines.forEach(function (line) {
       line.classList.toggle('active', line === active);
     });
+    // Плавная прокрутка активной строки к центру (как в Яндекс Музыке).
+    if (active && el.lyricsDlg && el.lyricsDlg.open && el.lyrStage) {
+      var shift = active.offsetTop - el.lyrStage.clientHeight / 2
+        + active.offsetHeight / 2;
+      el.lyricsBox.style.transform = 'translateY(' + (-shift) + 'px)';
+    }
+  }
+
+  function openLyrics() {
+    if (!State.mediaTitle) {
+      toast('Сейчас ничего не играет', 'warn');
+      return;
+    }
+    if (el.lyrTitle) el.lyrTitle.textContent = State.mediaTitle;
+    if (el.lyrArtist) el.lyrArtist.textContent = State.mediaArtist || '';
+    if (el.lyrBg) {
+      el.lyrBg.style.backgroundImage = State.mediaCover
+        ? 'url("' + State.mediaCover + '")' : 'none';
+    }
+    State.lyricsActive = null;
+    if (el.lyricsBox) el.lyricsBox.style.transform = '';
+    if (el.lyricsDlg && !el.lyricsDlg.open) el.lyricsDlg.showModal();
+    if (State.lyricsLines.length) highlightLyrics();
+    else loadLyrics();
+  }
+
+  function setLikeUI(liked) {
+    State.liked = !!liked;
+    if (!el.btnLike) return;
+    el.btnLike.setAttribute('aria-pressed', State.liked ? 'true' : 'false');
+    el.btnLike.textContent = State.liked ? '♥ В избранном' : '♥ Нравится';
+  }
+
+  function loadLiked() {
+    if (!State.mediaTitle) {
+      setLikeUI(false);
+      return Promise.resolve();
+    }
+    return cgi('musicapi.py', {}, { timeout: 20000, silent: true }).then(function (data) {
+      if (data && data.track && State.mediaId && data.track.id !== State.mediaId) return;
+      setLikeUI(data && data.liked);
+    }).catch(function () { setLikeUI(false); });
+  }
+
+  function toggleLike() {
+    if (!State.mediaTitle) {
+      toast('Сейчас ничего не играет', 'warn');
+      return;
+    }
+    var next = !State.liked;
+    setLikeUI(next);
+    return cgi('musicapi.py', { like: next ? 1 : 0 }, { timeout: 25000 })
+      .then(function (data) {
+        setLikeUI(data && data.liked);
+        toast(next ? 'Добавлено в «Мне нравится»' : 'Убрано из избранного', 'ok');
+      }).catch(function (err) {
+        setLikeUI(!next);
+        toast('Лайк: ' + err.message, 'bad');
+      });
+  }
+
+  function dislikeTrack() {
+    if (!State.mediaTitle) {
+      toast('Сейчас ничего не играет', 'warn');
+      return;
+    }
+    return cgi('musicapi.py', { dislike: 1 }, { timeout: 25000 })
+      .then(function () {
+        setLikeUI(false);
+        toast('Больше не буду предлагать этот трек', 'ok');
+      }).catch(function (err) {
+        toast('Дизлайк: ' + err.message, 'bad');
+      });
   }
 
   function loadLyrics() {
@@ -3061,7 +3175,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       if (data.title !== State.mediaTitle) {
         State.mediaTitle = data.title;
         State.mediaArtist = data.artist || '';
+        State.mediaId = data.id || '';
         clearLyrics();
+        loadLiked();
       }
       el.mediaTitle.textContent = data.title;
       el.mediaSub.textContent = data.artist || '';
@@ -3072,12 +3188,15 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       el.mediaSub.textContent = 'ws://127.0.0.1:1961';
     }
     if (data.cover) {
+      State.mediaCover = data.cover;
       el.mediaCover.src = data.cover;
       el.mediaCover.hidden = false;
       el.mediaArtIcon.style.display = 'none';
     } else {
       el.mediaCover.hidden = true;
       el.mediaCover.removeAttribute('src');
+      el.mediaCover.hidden = true;
+      State.mediaCover = '';
       el.mediaArtIcon.style.display = '';
     }
   }
@@ -3149,6 +3268,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     if (State.tab !== 'sound') return;
     lastPlayerPoll = Date.now();
     refreshPlayer();
+    loadLiked();
     playerTimer = setInterval(function () {
       if (State.tab !== 'sound') return;
       // Полоска и текст песни двигаются локально между опросами (как в
@@ -6314,7 +6434,28 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     el.btnPrev.addEventListener('click', function () { mediaAction('prev'); });
     el.btnNext.addEventListener('click', function () { mediaAction('next'); });
     el.btnMusic.addEventListener('click', function () { mediaAction('music'); });
-    el.btnLyrics.addEventListener('click', loadLyrics);
+    el.btnLyrics.addEventListener('click', openLyrics);
+    if (el.btnLyricsClose) el.btnLyricsClose.addEventListener('click', function () {
+      if (el.lyricsDlg) el.lyricsDlg.close();
+    });
+    if (el.btnLike) el.btnLike.addEventListener('click', toggleLike);
+    if (el.btnDislike) el.btnDislike.addEventListener('click', dislikeTrack);
+    if (el.lyricsBox) {
+      el.lyricsBox.addEventListener('click', function (event) {
+        var line = event.target.closest('.line');
+        if (!line) return;
+        var moment = parseFloat(line.dataset.t);
+        var duration = State.mediaDuration || 0;
+        if (isNaN(moment) || !duration) return;
+        seekMedia((moment / duration) * 1000);
+      });
+    }
+    if (el.lyricsDlg) {
+      el.lyricsDlg.addEventListener('close', function () {
+        State.lyricsActive = null;
+        if (el.lyricsBox) el.lyricsBox.style.transform = '';
+      });
+    }
     el.mediaSeek.addEventListener('input', function () {
       State.seeking = true;
       var duration = State.mediaDuration || 0;
@@ -6728,6 +6869,8 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'mediaTitle', 'mediaSub', 'btnPrev', 'btnPlay', 'btnNext', 'mediaCover', 'mediaArtIcon',
       'btnMusic', 'mediaKind', 'mediaSeek', 'mediaPos', 'mediaDur', 'mediaProgress',
       'btnLyrics', 'lyricsStatus', 'lyricsBox',
+      'btnLike', 'btnDislike', 'lyricsDlg', 'lyrBg', 'lyrTitle', 'lyrArtist',
+      'btnLyricsClose', 'lyrStage',
       'volume', 'volumeVal', 'btnVolDown', 'btnVolUp', 'btnMute',
       'btnMic', 'micHint', 'micTimer', 'transcript', 'btnRepeat', 'btnCancelListen',
       'command', 'btnSendCmd', 'ttsText', 'ttsCount', 'btnTtsClear', 'btnSay', 'ttsChips',
