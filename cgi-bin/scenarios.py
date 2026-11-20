@@ -15,6 +15,8 @@
     radio      {"name"}          включить радиостанцию
     volume     {"value"}         громкость 0…100
     clock_text {"text"}          бегущая строка на дисплее
+    clock_anim {"name","frames","duration"} — анимация дисплея
+    clock_anim_stop {}          остановить анимацию дисплея
     vpn        {"on": true}      включить/выключить VPN
     llm        {"on": true}      включить/выключить нейросеть
     pause      {}                пауза плеера
@@ -45,7 +47,8 @@ STORE = "/data/mypult/scenarios.json"
 LUNA = "http://127.0.0.1:8099"
 BASE = "http://127.0.0.1:8055"
 ACTION_TYPES = ("speak", "led", "led_off", "radio", "play_sound", "volume",
-                "clock_text", "vpn", "llm", "pause", "sleep", "http")
+                "clock_text", "clock_anim", "clock_anim_stop", "vpn", "llm",
+                "pause", "sleep", "http")
 
 BUILTIN = [
     {"phrase": "Алиса, включи впн", "what": "включает VPN"},
@@ -121,11 +124,28 @@ def run_action(action):
     elif kind == "volume":
         post_cgi("volume.py", {"level": common.to_int(action.get("value"), 30, 0, 100)}, timeout=15)
     elif kind == "clock_text":
+        try:
+            post_cgi("display.py", {"clock_anim_stop": 1}, timeout=5)
+        except Exception:
+            pass
         text = str(action.get("text") or "")[:32]
         duration = min(15000, max(3000, 1000 + len(text) * 200))
         post_json(LUNA + "/api/clock/text",
                   {"text": text, "duration_ms": duration},
                   timeout=5 + duration / 1000.0)
+    elif kind == "clock_anim":
+        frames = action.get("frames")
+        if not frames:
+            return
+        post_cgi("display.py", {
+            "clock_anim_play": {
+                "name": str(action.get("name") or "Анимация")[:40],
+                "frames": frames,
+                "duration": common.to_int(action.get("duration"), 300, 50, 5000),
+            }
+        }, timeout=15)
+    elif kind == "clock_anim_stop":
+        post_cgi("display.py", {"clock_anim_stop": 1}, timeout=8)
     elif kind == "vpn":
         if common.truthy(action.get("on")):
             post_cgi("vpn.py", {"start": 1}, timeout=120)
@@ -309,7 +329,8 @@ def validate(data, existing=None):
         if kind not in ACTION_TYPES:
             raise ValueError("неизвестный тип действия: %s" % kind)
         item = {"type": kind}
-        for key in ("text", "color", "name", "value", "seconds", "on", "url"):
+        for key in ("text", "color", "name", "value", "seconds", "on", "url",
+                    "anim_id", "frames", "duration"):
             if key in action:
                 item[key] = action[key]
         clean.append(item)

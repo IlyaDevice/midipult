@@ -37,6 +37,9 @@ ANIM_DIRS = (
 )
 ANIM_PID = "/tmp/mypult-ringanim.pid"
 ANIM_NAME = "/tmp/mypult-ringanim.name"
+CLOCK_ANIM_PID = "/tmp/mypult-clockanim.pid"
+CLOCK_ANIM_FILE = "/tmp/mypult-clockanim.json"
+CLOCK_ANIM_SCRIPT = "/data/mypult/clockanimd.py"
 RING_CURRENT = (
     "/sys/bus/i2c/devices/1-0034/current",
     "/sys/bus/i2c/devices/1-0035/current",
@@ -477,14 +480,71 @@ def animation_play(name):
     return proc.pid
 
 
+def clock_anim_stop():
+    try:
+        with open(CLOCK_ANIM_PID, "r", encoding="utf-8") as fh:
+            pid = int(fh.read().strip())
+    except (OSError, ValueError):
+        pid = None
+    if pid:
+        for sig in (signal.SIGTERM, signal.SIGKILL):
+            try:
+                os.kill(pid, sig)
+            except OSError:
+                break
+            time.sleep(0.1)
+    for path in (CLOCK_ANIM_PID, CLOCK_ANIM_FILE):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+    return True
+
+
+def clock_anim_play(frames, duration):
+    if not frames:
+        raise ValueError("нет кадров анимации")
+    if not os.path.isfile(CLOCK_ANIM_SCRIPT):
+        raise RuntimeError("нет %s" % CLOCK_ANIM_SCRIPT)
+    clock_anim_stop()
+    with open(CLOCK_ANIM_FILE, "w", encoding="utf-8") as fh:
+        json.dump({"frames": frames, "duration": duration}, fh)
+    proc = subprocess.Popen(
+        [sys.executable, CLOCK_ANIM_SCRIPT, CLOCK_ANIM_FILE],
+        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL, start_new_session=True, close_fds=True,
+    )
+    with open(CLOCK_ANIM_PID, "w", encoding="utf-8") as fh:
+        fh.write(str(proc.pid))
+    time.sleep(0.2)
+    if proc.poll() is not None:
+        clock_anim_stop()
+        raise RuntimeError("проигрыватель анимации завершился сразу")
+    return proc.pid
+
+
 def clock_anims():
     data = common.read_json(CLOCK_ANIMS, {"items": []}) or {}
     items = data.get("items")
     return items if isinstance(items, list) else []
 
 
+def hidden_clock_presets():
+    data = common.read_json(CLOCK_ANIMS, {"items": []}) or {}
+    hidden = data.get("hidden_presets")
+    return [str(item) for item in hidden] if isinstance(hidden, list) else []
+
+
 def save_clock_anims(items):
-    common.write_json(CLOCK_ANIMS, {"items": items})
+    data = common.read_json(CLOCK_ANIMS, {"items": []}) or {}
+    data["items"] = items
+    common.write_json(CLOCK_ANIMS, data)
+
+
+def save_hidden_clock_presets(items):
+    data = common.read_json(CLOCK_ANIMS, {"items": []}) or {}
+    data["hidden_presets"] = [str(item) for item in items]
+    common.write_json(CLOCK_ANIMS, data)
 
 
 def clean_clock_anim(raw):
@@ -571,6 +631,20 @@ def main():
             common.fail(400, str(exc))
         return
 
+    if data.get("clock_preset_hide") is not None:
+        target = str(data.get("clock_preset_hide") or "").strip()
+        hidden = hidden_clock_presets()
+        if target and target not in hidden:
+            hidden.append(target)
+        save_hidden_clock_presets(hidden)
+        common.ok(clock_anims=clock_anims(), hidden_presets=hidden)
+        return
+
+    if common.truthy(data.get("clock_preset_restore")):
+        save_hidden_clock_presets([])
+        common.ok(clock_anims=clock_anims(), hidden_presets=[])
+        return
+
     if data.get("clock_anim_save") is not None:
         try:
             item = clean_clock_anim(data.get("clock_anim_save"))
@@ -595,7 +669,23 @@ def main():
         common.ok(clock_anims=items)
         return
 
+    if data.get("clock_anim_play") is not None:
+        try:
+            item = clean_clock_anim(data.get("clock_anim_play"))
+            pid = clock_anim_play(item["frames"], item["duration"])
+        except (ValueError, RuntimeError) as exc:
+            common.fail(400, str(exc))
+            return
+        common.ok(playing=True, pid=pid)
+        return
+
+    if common.truthy(data.get("clock_anim_stop")):
+        clock_anim_stop()
+        common.ok(playing=False)
+        return
+
     if common.truthy(data.get("reset_display")):
+        clock_anim_stop()
         # Не восстанавливаем сохранённый рисунок/время: дисплей снова
         # отдаётся Алисе/Luna, панель только сбрасывает свои настройки.
         common.ok(**reset_display())
@@ -685,6 +775,7 @@ def main():
         return
 
     if common.truthy(data.get("on")):
+        clock_anim_stop()
         saved = load_state()
         if not saved:
             # Не зажигаем все 45 сегментов «на всякий случай»: если рисунка
@@ -715,6 +806,7 @@ def main():
         animation=animation_pid() if _pid_alive(animation_pid() or 0) else None,
         animation_name=animation_name(),
         clock_anims=clock_anims(),
+        hidden_presets=hidden_clock_presets(),
     )
 
 

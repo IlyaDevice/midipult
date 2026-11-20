@@ -545,6 +545,9 @@ def test_yapanel_features():
           and 'once: !State.alarmRepeat' in html)
     check("кольцо: превью играющей анимации",
           "State.ringPreview" in html and "animation_name" in display_py)
+    check("сценарии: анимация дисплея",
+          "clock_anim" in scenarios_py and "clock_anim_play" in display_py
+          and "clockanimd.py" in install_sh)
     check("UI: лайки и оверлей текста",
           all(token in html for token in (
               'id="btnLike"', 'id="btnDislike"', 'id="lyricsDlg"',
@@ -580,7 +583,7 @@ def test_yapanel_features():
     daemon_py = read(os.path.join(ROOT, "service", "state_daemon.py"))
     check("часы: редактор анимаций и прокси",
           "^/clock" in conf and "class ClockAnimator" in daemon_py
-          and 'data-cpreset="wink"' in html and "function playClockAnim(" in html
+          and 'id="clockAnimList"' in html and "function renderClockAnimList(" in html
           and "clock_anim_save" in read(os.path.join(ROOT, "cgi-bin", "display.py")))
     check("поиск: без скрейпинга выдачи",
           "_bing" not in search_py and "duckduckgo" not in search_py.lower())

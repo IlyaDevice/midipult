@@ -643,6 +643,17 @@ body.light .btn.danger:disabled{opacity:1;background:rgba(190,18,60,.10);border-
 .c-clock > .seg-note,.bt-list > .seg-note{flex:0 0 auto}
 .display-extra{margin-top:12px;flex-wrap:nowrap}
 .clock-anims{flex-wrap:wrap}
+.clock-anim-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+  gap:6px;margin-top:8px}
+.clock-anim-row{display:flex;align-items:center;gap:6px;min-width:0;
+  padding:8px 10px;border-radius:12px;border:1px solid var(--stroke);
+  background:rgba(255,255,255,.035)}
+.clock-anim-row .clock-anim-name{flex:1 1 auto;min-width:0}
+.clock-anim-row b{display:block;font-size:13px;font-weight:600;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.clock-anim-row small{display:block;font-size:10px;color:var(--muted);margin-top:2px}
+.clock-anim-row .btn{padding:4px 8px;height:28px;font-size:11px;flex:0 0 auto}
+.clock-anim-row .preset{color:#9d8cff;font-size:10px;margin-left:4px}
 .anim-editor{margin-top:10px;padding:12px;border:1px solid var(--stroke);border-radius:14px;
   background:rgba(255,255,255,.03)}
 .anim-bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
@@ -1195,10 +1206,8 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     <div class="field" style="margin-top:14px">
       <div class="field-top"><label>Анимации дисплея</label><output id="clockAnimStatus">—</output></div>
       <div class="row clock-anims">
-        <button class="chip" data-cpreset="wink">Подмигивание</button>
-        <button class="chip" data-cpreset="blink">Моргание</button>
-        <button class="chip" data-cpreset="snake">Змейка</button>
-        <button class="btn sm" id="btnAnimEditor">Редактор кадров</button>
+        <button class="btn sm" id="btnAnimEditor">Новая анимация</button>
+        <button class="chip" id="btnAnimRestorePresets" hidden>Вернуть пресеты</button>
       </div>
       <div class="anim-editor" id="animEditor" hidden>
         <div class="anim-bar">
@@ -1219,8 +1228,8 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
           <input type="text" id="animText" maxlength="5" placeholder="12:34" autocomplete="off">
           <button class="btn sm ghost" id="btnAnimText">В кадр</button>
         </div>
-        <div class="anim-saved" id="animSaved"></div>
       </div>
+      <div class="clock-anim-list" id="clockAnimList"></div>
     </div>
   </section>
 
@@ -2281,6 +2290,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     animAbort: null,
     editingAnimId: null,
     clockAnims: [],
+    hiddenPresets: [],
     displayOverride: false,
     displayOff: false,
     ringBrightness: 255,
@@ -3585,27 +3595,53 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     if (restore) returnClock();
   }
 
-  function renderSavedAnims() {
-    if (!el.animSaved) return;
-    el.animSaved.innerHTML = '';
-    var items = State.clockAnims || [];
-    if (!items.length) {
+  function clockPresetItems() {
+    return Object.keys(CLOCK_PRESETS).map(function (key) {
+      var preset = CLOCK_PRESETS[key];
+      return {
+        id: 'preset:' + key,
+        key: key,
+        preset: true,
+        name: preset.name,
+        frames: preset.frames,
+        duration: preset.duration
+      };
+    });
+  }
+
+  function renderClockAnimList() {
+    if (!el.clockAnimList) return;
+    var hidden = State.hiddenPresets || [];
+    var presets = clockPresetItems().filter(function (item) {
+      return hidden.indexOf(item.id) < 0;
+    });
+    var custom = State.clockAnims || [];
+    el.clockAnimList.innerHTML = '';
+    if (el.btnAnimRestorePresets) el.btnAnimRestorePresets.hidden = !hidden.length;
+    if (!presets.length && !custom.length) {
       var empty = document.createElement('div');
       empty.className = 'anim-saved-empty';
-      empty.textContent = 'Сохранённых анимаций пока нет.';
-      el.animSaved.appendChild(empty);
+      empty.textContent = 'Анимаций нет — создайте новую.';
+      el.clockAnimList.appendChild(empty);
       return;
     }
-    items.forEach(function (item) {
+    presets.concat(custom).forEach(function (item) {
       var row = document.createElement('div');
-      row.className = 'anim-saved-row';
-      if (item.id && item.id === State.editingAnimId) row.classList.add('editing');
+      row.className = 'clock-anim-row';
+      var nameWrap = document.createElement('div');
+      nameWrap.className = 'clock-anim-name';
       var name = document.createElement('b');
       name.textContent = item.name || 'Анимация';
-      name.title = item.name || '';
-      var note = document.createElement('span');
-      note.className = 'seg-note';
+      var note = document.createElement('small');
       note.textContent = (item.frames || []).length + ' кадров · ' + (item.duration || 300) + ' мс';
+      nameWrap.appendChild(name);
+      if (item.preset) {
+        var badge = document.createElement('span');
+        badge.className = 'preset';
+        badge.textContent = 'пресет';
+        nameWrap.appendChild(badge);
+      }
+      nameWrap.appendChild(note);
       var play = document.createElement('button');
       play.type = 'button';
       play.className = 'btn sm ghost';
@@ -3618,7 +3654,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       edit.className = 'btn sm ghost';
       edit.textContent = 'Изменить';
       edit.addEventListener('click', function () {
-        openAnimEditor(item.frames, item.name, item.duration, item.id);
+        openAnimEditor(item.frames, item.name, item.duration, item.preset ? null : item.id);
       });
       var remove = document.createElement('button');
       remove.type = 'button';
@@ -3626,25 +3662,42 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       remove.textContent = '×';
       remove.title = 'Удалить';
       remove.addEventListener('click', function () {
+        if (item.preset) { hideClockPreset(item.id); return; }
         askConfirm('Удалить анимацию «' + (item.name || 'Анимация') + '»?',
           { yes: 'Удалить' }).then(function (ok) {
           if (ok) deleteClockAnim(item.id);
         });
       });
-      row.appendChild(name);
-      row.appendChild(note);
+      row.appendChild(nameWrap);
       row.appendChild(play);
       row.appendChild(edit);
       row.appendChild(remove);
-      el.animSaved.appendChild(row);
+      el.clockAnimList.appendChild(row);
     });
   }
 
   function loadSavedAnims() {
     return cgi('display.py', {}, { timeout: 15000, silent: true }).then(function (data) {
       State.clockAnims = data.clock_anims || [];
-      renderSavedAnims();
+      State.hiddenPresets = data.hidden_presets || [];
+      renderClockAnimList();
     }).catch(function () {});
+  }
+
+  function hideClockPreset(id) {
+    cgi('display.py', { clock_preset_hide: id }, { timeout: 15000 }).then(function (data) {
+      State.hiddenPresets = data.hidden_presets || [];
+      renderClockAnimList();
+      toast('Пресет убран из списка', 'ok');
+    }).catch(function (err) { toast('Анимация: ' + err.message, 'bad'); });
+  }
+
+  function restoreClockPresets() {
+    cgi('display.py', { clock_preset_restore: 1 }, { timeout: 15000 }).then(function (data) {
+      State.hiddenPresets = data.hidden_presets || [];
+      renderClockAnimList();
+      toast('Пресеты возвращены', 'ok');
+    }).catch(function (err) { toast('Анимация: ' + err.message, 'bad'); });
   }
 
   function saveClockAnim() {
@@ -3663,7 +3716,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         }).pop();
         if (saved) State.editingAnimId = saved.id;
       }
-      renderSavedAnims();
+      renderClockAnimList();
       toast(wasEditing ? 'Анимация обновлена' : 'Анимация сохранена', 'ok');
     }).catch(function (err) { toast('Анимация: ' + err.message, 'bad'); });
   }
@@ -3672,7 +3725,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     cgi('display.py', { clock_anim_delete: id }, { timeout: 15000 }).then(function (data) {
       State.clockAnims = data.clock_anims || [];
       if (State.editingAnimId === id) State.editingAnimId = null;
-      renderSavedAnims();
+      renderClockAnimList();
       toast('Анимация удалена', 'ok');
     }).catch(function (err) { toast('Анимация: ' + err.message, 'bad'); });
   }
@@ -3689,6 +3742,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     if (el.btnAnimEditor) el.btnAnimEditor.addEventListener('click', function () {
       openAnimEditor(null, '', 300, null, true);
     });
+    if (el.btnAnimRestorePresets) el.btnAnimRestorePresets.addEventListener('click', restoreClockPresets);
     if (el.btnAnimPlay) el.btnAnimPlay.addEventListener('click', function () {
       playClockAnim(State.animFrames, parseInt(el.animDuration.value, 10) || 300,
         (el.animName.value || '').trim() || 'анимация');
@@ -6219,6 +6273,8 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     { id: 'play_sound', label: 'Свой звук', hint: '', key: 'name' },
     { id: 'volume', label: 'Громкость', hint: '0–100', key: 'value' },
     { id: 'clock_text', label: 'Текст на дисплей', hint: 'Доброе утро', key: 'text' },
+    { id: 'clock_anim', label: 'Анимация дисплея', hint: '', key: 'anim_id' },
+    { id: 'clock_anim_stop', label: 'Анимация: стоп', hint: '' },
     { id: 'vpn', label: 'VPN', hint: 'on / off', key: 'on' },
     { id: 'llm', label: 'Нейросеть', hint: 'on / off', key: 'on' },
     { id: 'pause', label: 'Пауза плеера', hint: '' },
@@ -6271,7 +6327,43 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       });
   }
 
-  function addScRow(typeId, value) {
+  function clockAnimById(id) {
+    var items = clockPresetItems().concat(State.clockAnims || []);
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].id === id) return items[i];
+    }
+    return null;
+  }
+
+  function populateClockAnimPicker(picker, selected) {
+    while (picker.options.length) picker.remove(0);
+    var hidden = State.hiddenPresets || [];
+    var items = clockPresetItems().filter(function (item) {
+      return hidden.indexOf(item.id) < 0;
+    }).concat(State.clockAnims || []);
+    items.forEach(function (item) {
+      var option = document.createElement('option');
+      option.value = item.id;
+      option.textContent = item.name + (item.preset ? ' · пресет' : '');
+      picker.appendChild(option);
+    });
+    if (!items.length) {
+      var none = document.createElement('option');
+      none.value = '';
+      none.textContent = 'Сначала создайте анимацию';
+      picker.appendChild(none);
+    }
+    if (selected && !Array.prototype.some.call(picker.options,
+        function (option) { return option.value === selected; })) {
+      var missing = document.createElement('option');
+      missing.value = selected;
+      missing.textContent = 'Не найдена: ' + selected;
+      picker.appendChild(missing);
+    }
+    if (selected) picker.value = selected;
+  }
+
+  function addScRow(typeId, value, action) {
     var type = scTypeById(typeId || el.scType.value);
     var row = document.createElement('div');
     row.className = 'bt-item';
@@ -6306,6 +6398,14 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     picker.hidden = type.id !== 'play_sound';
     populateSoundPicker(picker, type.id === 'play_sound' ? String(value || '') : '');
 
+    var animPicker = document.createElement('select');
+    animPicker.className = 'net-input';
+    animPicker.dataset.anim = '1';
+    animPicker.hidden = type.id !== 'clock_anim';
+    populateClockAnimPicker(animPicker,
+      type.id === 'clock_anim' ? String(value || '') : '');
+    row._clockAnim = action || null;
+
     var remove = document.createElement('button');
     remove.className = 'btn sm ghost';
     remove.textContent = '×';
@@ -6317,20 +6417,25 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       row.dataset.type = next.id;
       input.placeholder = next.hint || '';
       input.value = '';
-      input.hidden = next.id === 'play_sound' || !next.hint;
+      input.hidden = next.id === 'play_sound' || next.id === 'clock_anim' || !next.hint;
       picker.hidden = next.id !== 'play_sound';
+      animPicker.hidden = next.id !== 'clock_anim';
+      row._clockAnim = null;
       if (next.id === 'play_sound') populateSoundPicker(picker, '');
+      if (next.id === 'clock_anim') populateClockAnimPicker(animPicker, '');
       setTimeout(refreshDropdowns, 0);
     });
-    input.hidden = type.id === 'play_sound' || !type.hint;
+    input.hidden = type.id === 'play_sound' || type.id === 'clock_anim' || !type.hint;
 
     row.appendChild(select);
     row.appendChild(input);
     row.appendChild(picker);
+    row.appendChild(animPicker);
     row.appendChild(remove);
     el.scActions.appendChild(row);
     enhanceSelect(select);
     enhanceSelect(picker);
+    enhanceSelect(animPicker);
     setTimeout(refreshDropdowns, 0);
   }
 
@@ -6344,6 +6449,17 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         ? (picker ? picker.value : '')
         : (input ? input.value.trim() : '');
       var action = { type: type.id };
+      if (type.id === 'clock_anim') {
+        var animPicker = row.querySelector('select[data-anim]');
+        var chosen = clockAnimById(animPicker ? animPicker.value : '') || row._clockAnim;
+        if (!chosen || !chosen.frames || !chosen.frames.length) return;
+        action.anim_id = (animPicker && animPicker.value) || chosen.id || '';
+        action.name = chosen.name || 'Анимация';
+        action.frames = chosen.frames;
+        action.duration = chosen.duration || 300;
+        actions.push(action);
+        return;
+      }
       if (type.key === 'text') action.text = value;
       else if (type.key === 'color') action.color = value || '#00E676';
       else if (type.key === 'name') action.name = value;
@@ -6437,7 +6553,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       var type = scTypeById(action.type);
       var value = action[type.key || 'text'] != null ? action[type.key] : '';
       if (type.key === 'on') value = action.on ? 'on' : 'off';
-      addScRow(action.type, value);
+      addScRow(action.type, value, action);
     });
   }
 
@@ -6794,6 +6910,11 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         applyBrightness(data.display_brightness, false);
       }
       applyAutoConfig(data.auto || {}, data.mode || {});
+      if (data.clock_anims) {
+        State.clockAnims = data.clock_anims;
+        State.hiddenPresets = data.hidden_presets || [];
+        renderClockAnimList();
+      }
       if (el.ringAnimChips && data.animations) {
         var playingName = data.animation
           ? (State.ringAnimName || data.animation_name || null) : null;
@@ -8637,7 +8758,8 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'alarmStationList', 'alarmCustomStation', 'alarmMusicBox', 'alarmMusicText',
       'alarmVolume', 'alarmVolumeVal', 'alarmRamp', 'alarmStop', 'alarmSnooze',
       'btnAlarmAdd', 'clockAnimStatus', 'btnAlarmOpen', 'btnAlarmClose', 'alarmDlg',
-      'animEditor', 'animName', 'animFrames', 'animDuration', 'animText', 'animSaved',
+      'animEditor', 'animName', 'animFrames', 'animDuration', 'animText',
+      'clockAnimList', 'btnAnimRestorePresets',
       'btnAnimEditor', 'btnAnimPlay', 'btnAnimStop', 'btnAnimSave', 'btnAnimClose',
       'btnAnimAdd', 'btnAnimDup', 'btnAnimDel', 'btnAnimText',
       'volume', 'volumeVal', 'btnVolDown', 'btnVolUp', 'btnMute',
@@ -8695,6 +8817,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     renderAlarmDays();
     loadAlarms(true);
     clockAnimBind();
+    renderClockAnimList();
     setInterval(function () {
       if (State.tab === 'sound' && !document.hidden) loadAlarms(true);
     }, 5000);

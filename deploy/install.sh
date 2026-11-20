@@ -78,6 +78,9 @@ if [ -f "$SRC/service/voice_daemon.py" ]; then
     cp -f "$SRC/service/state_daemon.py" /data/mypult/state_daemon.py 2>/dev/null || true
     cp -f "$SRC/service/discovery.py" /data/mypult/discovery.py 2>/dev/null || true
     cp -f "$SRC/service/alarmd.py" /data/mypult/alarmd.py 2>/dev/null || true
+    cp -f "$SRC/service/clockanimd.py" /data/mypult/clockanimd.py 2>/dev/null || true
+    chmod 600 /data/mypult/clockanimd.py 2>/dev/null
+    sed -i 's/\r$//' /data/mypult/clockanimd.py 2>/dev/null
     chmod 600 /data/mypult/alarmd.py 2>/dev/null
     sed -i 's/\r$//' /data/mypult/alarmd.py 2>/dev/null
 cp -f "$SRC/service/voice_daemon.py" /data/mypult/voice_daemon.py \
