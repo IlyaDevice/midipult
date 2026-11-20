@@ -422,7 +422,8 @@ def test_p2_hardening():
     check("player: watcher, fresh-запрос и 2с/10с poll",
           "?player=1" in html and "active ? 2000 : 10000" in html
           and "refreshPlayer(true, true)" in html
-          and "fresh=1" in html and "seekUntil" in html
+          and "fresh=1" in html and "pendingSeek" in html
+          and "Перемотка не применилась" in html
           and "commandGuard(" in html and "cmdPlaying" in html
           and "currentProgress" in html and "progressAt" in html
           and "start_watcher" in read(os.path.join(ROOT, "service", "state_daemon.py"))

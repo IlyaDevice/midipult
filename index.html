@@ -1817,7 +1817,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     mediaProgress: 0,
     progressBase: 0,
     progressAt: 0,
-    seekUntil: 0,
+    pendingSeek: null,
     cmdPlaying: null,
     cmdUntil: 0,
     mediaTitle: '',
@@ -2891,6 +2891,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   }
 
   function currentProgress() {
+    if (State.pendingSeek) return State.pendingSeek.target;
     var base = Number(State.progressBase) || 0;
     var at = Number(State.progressAt) || 0;
     var extra = (State.playing && !State.seeking && at)
@@ -2986,15 +2987,18 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     if (!duration) return;
     var position = Math.round((value / 1000) * duration);
     State.seeking = false;
-    // Пока Glagol применяет перемотку, не даём старым снапшотам вернуть ползунок.
-    State.seekUntil = Date.now() + 3000;
+    // Держим цель до подтверждения: старые снапшоты не вернут ползунок.
+    State.pendingSeek = { target: position, until: Date.now() + 10000 };
     State.progressBase = position;
     State.progressAt = Date.now() / 1000;
     State.mediaProgress = position;
     updateMediaProgress();
     return cgi('media.py', { action: 'seek', position: position }, { timeout: 12000 })
       .then(function () { el.mediaKind.textContent = 'перематываю…'; return refreshPlayer(true, true); })
-      .catch(function (err) { toast('Перемотка: ' + err.message, 'bad'); });
+      .catch(function (err) {
+        State.pendingSeek = null;
+        toast('Перемотка: ' + err.message, 'bad');
+      });
   }
 
   function setPlaying(value) {    State.playing = !!value;
@@ -3008,7 +3012,6 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     var trackChanged = title !== (State.mediaTitle || '');
     var incoming = (Number(data.progress) || 0) + (Number(data.age) || 0);
     var local = currentProgress();
-    var seekWindow = State.seekUntil && Date.now() < State.seekUntil;
 
     // Ожидаемое состояние после нажатия важнее задержанного state станции.
     var expected = null;
@@ -3023,9 +3026,22 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     setPlaying(playing);
     State.playerKind = data.kind || null;
     State.mediaDuration = Number(data.duration) || 0;
-    if (trackChanged) {
-      State.seekUntil = 0;
-    } else if (!seekWindow && playing && local > 0 && incoming < local - 1.5) {
+
+    // Перемотка: держим целевую позицию, пока станция реально не переедет.
+    // Иначе старый снапшот возвращает ползунок назад.
+    var pending = State.pendingSeek;
+    if (pending) {
+      if (trackChanged) {
+        State.pendingSeek = null;
+      } else if (Math.abs(incoming - pending.target) <= 6) {
+        State.pendingSeek = null;
+      } else if (Date.now() > pending.until) {
+        State.pendingSeek = null;
+        toast('Перемотка не применилась', 'warn');
+      } else {
+        incoming = pending.target;
+      }
+    } else if (!trackChanged && playing && local > 0 && incoming < local - 1.5) {
       // Старый снапшот (watcher/демон) не должен откатывать ползунок назад.
       incoming = local;
     }
