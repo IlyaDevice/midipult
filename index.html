@@ -453,6 +453,22 @@ body.light .alarm-station-list{background:#fff}
 .chat-actions{display:flex;align-items:center;gap:var(--gap-xs);margin-left:auto;min-width:0;flex:0 0 auto}
 .chat-bar .btn.icon-sm{font-size:var(--fs-15);line-height:1}
 .chat-bar .btn{touch-action:manipulation}
+.chat-history{margin-top:10px;border:1px solid var(--stroke);border-radius:var(--r12);background:rgba(255,255,255,.035);padding:0 12px;min-width:0}
+.chat-history summary{cursor:pointer;padding:10px 0;font-size:var(--fs-13);font-weight:600;list-style:none;display:flex;gap:var(--gap-sm);align-items:center}
+.chat-history summary::-webkit-details-marker{display:none}
+.chat-history summary::before{content:"+";color:var(--accent2);font-size:var(--fs-16);line-height:1;width:12px;flex:0 0 auto}
+.chat-history[open] summary::before{content:"−"}
+.chat-history-count{font-weight:500;font-size:var(--fs-12);color:var(--muted)}
+.chat-log{display:flex;flex-direction:column;gap:var(--gap-sm);max-height:340px;overflow-y:auto;overscroll-behavior:contain;padding:2px 0 10px}
+.chat-msg{max-width:88%;padding:8px 11px;border-radius:var(--r12);font-size:var(--fs-13);line-height:1.45;color:var(--text);white-space:pre-wrap;overflow-wrap:anywhere}
+.chat-msg.user{align-self:flex-end;background:rgba(124,92,255,.2);border-bottom-right-radius:var(--r6)}
+.chat-msg.assistant{align-self:flex-start;background:rgba(255,255,255,.065);border-bottom-left-radius:var(--r6)}
+.chat-msg-who{display:block;margin-bottom:2px;font-size:var(--fs-11);font-weight:600;color:var(--muted)}
+.chat-log-empty{padding:2px 0 4px;font-size:var(--fs-13);font-style:italic;color:var(--muted)}
+.chat-history-foot{display:flex;align-items:center;gap:var(--gap-sm);padding-bottom:10px}
+body.light .chat-history{background:rgba(76,62,48,.035)}
+body.light .chat-msg.user{background:rgba(77,63,216,.12)}
+body.light .chat-msg.assistant{background:rgba(76,62,48,.065)}
 .btn.icon{padding:0;width:52px;height:52px;border-radius:50%;flex:0 0 auto}
 .btn.icon.big{width:64px;height:64px}
 .btn.icon.big svg{width:26px;height:26px}
@@ -1396,6 +1412,15 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       </div>
     </div>
 
+    <details class="chat-history" id="llmHistoryBox">
+      <summary>История чата <span class="chat-history-count" id="llmHistoryCount"></span></summary>
+      <div class="chat-log" id="llmHistory" aria-live="polite"></div>
+      <div class="chat-history-foot">
+        <span class="seg-note">Последние 20 сообщений: голосовые и текстовые вопросы</span>
+        <button class="btn sm ghost" id="btnChatHistoryRefresh">Обновить</button>
+      </div>
+    </details>
+
     <div class="row" style="margin-top:8px">
       <label class="llm-field" style="flex:1"><span>Длина ответа</span>
         <select id="llmLength">
@@ -1427,6 +1452,22 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     <div class="row between" style="margin-top:6px">
       <span class="seg-note" id="llmSystemStatus">Пусто — стандартный промпт</span>
       <button class="btn sm ghost" id="btnLlmSystem">Сохранить промпт</button>
+    </div>
+
+    <div class="llm-grid" style="margin-top:10px">
+      <label class="llm-field"><span>Местоположение</span>
+        <input type="text" id="llmLocation" maxlength="100" autocomplete="off"
+          placeholder="Город и страна, например «Москва, Россия»">
+      </label>
+      <label class="llm-field"><span>Часовой пояс</span>
+        <input type="text" id="llmTimezone" list="llmTimezoneList" autocomplete="off"
+          spellcheck="false" placeholder="например, Europe/Moscow">
+        <datalist id="llmTimezoneList"></datalist>
+      </label>
+    </div>
+    <div class="row between" style="margin-top:6px">
+      <span class="seg-note" id="llmContextStatus">Дата, время и место передаются модели в каждом запросе</span>
+      <button class="btn sm ghost" id="btnLlmContext">Сохранить место</button>
     </div>
 
     <div class="llm-grid">
@@ -4421,6 +4462,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       el.llmChat.textContent = chatName;
       el.llmChat.title = chatName;
     }
+    var activeChatInfo = State.llm.chats.filter(function (c) { return c.id === State.llm.activeChat; })[0];
+    setChatHistoryCount(activeChatInfo ? activeChatInfo.messages : null);
+    loadChatHistory();
     if (el.llmSystem) {
       el.llmSystem.value = data.system_prompt || '';
       el.llmSystemStatus.textContent = data.system_prompt ? 'Свой промпт' : 'Стандартный промпт';
@@ -4432,8 +4476,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       el.llmSearch.title = mode ? '' : 'У активного провайдера нет встроенного поиска';
       var label = mode === 'openrouter' ? 'родной OpenRouter'
         : mode === 'openai' ? 'родной OpenAI'
-          : mode === 'searx' ? 'свой SearXNG'
-            : 'поиск недоступен';
+          : mode === 'anthropic' ? 'родной Anthropic'
+            : mode === 'searx' ? 'свой SearXNG'
+              : 'поиск недоступен';
       el.llmSearchStatus.textContent = data.web_search
         ? ('вкл · ' + label) : label;
     }
@@ -4443,11 +4488,82 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     if (el.llmSearchUrl && document.activeElement !== el.llmSearchUrl) {
       el.llmSearchUrl.value = data.search_url || '';
     }
+    applyLlmContext(data);
     applyProfile(findProfile(data.active));
     updateLlmStatus();
     // Кастомный dropdown мог отрисоваться до ответа llm.py — синхронизируем
     // подпись с только что установленными значениями (длина ответа и т.п.).
     refreshDropdowns();
+  }
+
+  /* История активного чата: блок раскрывается по клику, данные берутся из
+     llm.py?history=1. Пока блок открыт и виден, он обновляется раз в 15 с —
+     так появляются вопросы, заданные голосом. */
+  function pluralMessages(n) {
+    var m10 = n % 10, m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return 'сообщение';
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'сообщения';
+    return 'сообщений';
+  }
+
+  function setChatHistoryCount(n) {
+    if (!el.llmHistoryCount) return;
+    el.llmHistoryCount.textContent = typeof n === 'number' ? '· ' + n + ' ' + pluralMessages(n) : '';
+  }
+
+  function assistantLabel() {
+    var profile = State.llm && findProfile(State.llm.active);
+    return (profile && profile.name) || 'Нейросеть';
+  }
+
+  function renderChatHistory(data) {
+    var messages = data.messages || [];
+    var signature = (data.chat_id || '') + '|' + JSON.stringify(messages);
+    setChatHistoryCount(messages.length);
+    if (signature === State.chatHistorySig) return;
+    State.chatHistorySig = signature;
+    var box = el.llmHistory;
+    box.textContent = '';
+    if (!messages.length) {
+      var empty = document.createElement('div');
+      empty.className = 'chat-log-empty';
+      empty.textContent = 'В этом чате пока нет сообщений.';
+      box.appendChild(empty);
+      return;
+    }
+    var who = assistantLabel();
+    messages.forEach(function (msg) {
+      var item = document.createElement('div');
+      item.className = 'chat-msg ' + (msg.role === 'user' ? 'user' : 'assistant');
+      var label = document.createElement('span');
+      label.className = 'chat-msg-who';
+      label.textContent = msg.role === 'user' ? 'Вы' : who;
+      item.appendChild(label);
+      item.appendChild(document.createTextNode(msg.content));
+      box.appendChild(item);
+    });
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function loadChatHistory(force) {
+    if (!el.llmHistoryBox || !el.llmHistoryBox.open) return Promise.resolve();
+    if (force) State.chatHistorySig = null;
+    return cgi('llm.py', { history: 1 }, { timeout: 10000, silent: true })
+      .then(renderChatHistory)
+      .catch(function (err) {
+        State.chatHistorySig = null;
+        el.llmHistory.textContent = '';
+        var fail = document.createElement('div');
+        fail.className = 'chat-log-empty';
+        fail.textContent = 'Не удалось загрузить историю: ' + err.message;
+        el.llmHistory.appendChild(fail);
+      });
+  }
+
+  function pollChatHistory() {
+    var box = el.llmHistoryBox;
+    if (!box || !box.open || document.hidden || box.offsetParent === null) return;
+    loadChatHistory();
   }
 
   function switchChat(payload) {
@@ -4492,6 +4608,59 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       applyLlmInfo(data);
     }).catch(function (err) {
       el.llmStatus.textContent = 'LLM недоступна: ' + err.message;
+    });
+  }
+
+  /* Местоположение и часовой пояс: модель сама не знает ни даты, ни города,
+     llm.py дописывает их к system prompt. Пока пояс не сохранён, подставляем
+     пояс браузера — пользователь видит его и сохраняет одной кнопкой. */
+  function browserTimezone() {
+    try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { return ''; }
+  }
+
+  function fillTimezoneList() {
+    if (!el.llmTimezoneList || el.llmTimezoneList.childElementCount) return;
+    var zones = [];
+    try { if (Intl.supportedValuesOf) zones = Intl.supportedValuesOf('timeZone'); } catch (e) {}
+    var own = browserTimezone();
+    if (own && zones.indexOf(own) < 0) zones.unshift(own);
+    var frag = document.createDocumentFragment();
+    zones.forEach(function (name) {
+      var opt = document.createElement('option');
+      opt.value = name;
+      frag.appendChild(opt);
+    });
+    el.llmTimezoneList.appendChild(frag);
+  }
+
+  function applyLlmContext(data) {
+    if (!el.llmLocation) return;
+    fillTimezoneList();
+    var editing = document.activeElement === el.llmLocation || document.activeElement === el.llmTimezone;
+    if (!editing) {
+      el.llmLocation.value = data.location || '';
+      el.llmTimezone.value = data.timezone || browserTimezone();
+    }
+    var saved = !!data.timezone;
+    el.llmContextStatus.textContent = saved
+      ? (data.context || '')
+      : 'Часовой пояс не сохранён — модель видит время UTC. Проверьте поля и нажмите «Сохранить место».';
+  }
+
+  function saveLlmContext() {
+    var payload = {
+      location: el.llmLocation.value.trim(),
+      timezone: el.llmTimezone.value.trim()
+    };
+    return withBusy(el.btnLlmContext, function () {
+      return cgi('llm.py', payload, { timeout: 15000 }).then(function (data) {
+        el.llmLocation.blur();
+        el.llmTimezone.blur();
+        applyLlmInfo(data);
+        toast('Местоположение сохранено', 'ok');
+      }).catch(function (err) {
+        toast('Местоположение: ' + err.message, 'bad');
+      });
     });
   }
 
@@ -4620,6 +4789,8 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         var tokens = data.usage && data.usage.total_tokens
           ? ' · ' + data.usage.total_tokens + ' токенов' : '';
         el.llmMeta.textContent = [data.provider, data.model].filter(Boolean).join(' · ') + tokens;
+        if (el.llmHistoryBox && el.llmHistoryBox.open) loadChatHistory();
+        else loadLlm();
       }).catch(function (err) {
         el.llmAnswer.textContent = 'Ошибка: ' + err.message;
         el.llmAnswer.classList.remove('empty');
@@ -7422,6 +7593,15 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     el.btnChatPrev.addEventListener('click', function () { switchChat({ chat_prev: 1 }); });
     el.btnChatNext.addEventListener('click', function () { switchChat({ chat_next: 1 }); });
     el.btnChatNew.addEventListener('click', function () { switchChat({ chat_new: 1 }); });
+    if (el.llmHistoryBox) {
+      el.llmHistoryBox.addEventListener('toggle', function () {
+        if (el.llmHistoryBox.open) loadChatHistory(true);
+      });
+      el.btnChatHistoryRefresh.addEventListener('click', function () {
+        withBusy(el.btnChatHistoryRefresh, function () { return loadChatHistory(true); });
+      });
+      setInterval(pollChatHistory, 15000);
+    }
     el.btnChatRename.addEventListener('click', openChatRename);
     el.btnChatRenameYes.addEventListener('click', saveChatRename);
     el.btnChatRenameNo.addEventListener('click', closeChatRename);
@@ -7456,6 +7636,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     el.llmModel.addEventListener('change', toggleCustomModel);
     el.btnLlmSave.addEventListener('click', saveLlm);
     el.btnLlmSystem.addEventListener('click', saveLlmSystem);
+    if (el.btnLlmContext) el.btnLlmContext.addEventListener('click', saveLlmContext);
     el.btnLlmAsk.addEventListener('click', askLlm);
     el.btnLlmSay.addEventListener('click', sayLlmAnswer);
     el.llmSearch.addEventListener('change', toggleLlmSearch);
@@ -7763,11 +7944,13 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'llmProviderSelect', 'llmModel', 'llmModelCustomWrap', 'llmModelCustom', 'llmBase', 'llmKey',
       'llmProfiles', 'btnLlmNew', 'llmName', 'llmActive',
       'llmChat', 'btnChatPrev', 'btnChatNext', 'btnChatNew', 'btnChatRename', 'btnChatDel',
+      'llmHistoryBox', 'llmHistoryCount', 'llmHistory', 'btnChatHistoryRefresh',
       'chatRenameDlg', 'chatRenameInput', 'btnChatRenameNo', 'btnChatRenameYes', 'llmLength',
       'llmEnabled', 'llmStatus', 'btnLlmSave', 'llmPrompt', 'btnLlmAsk', 'btnLlmSay',
       'llmSystem', 'btnLlmSystem', 'llmSystemStatus',
       'llmSearch', 'llmSearchStatus', 'llmSearchUrl', 'btnLlmSearchUrl', 'llmSources',
       'llmFollowUp',
+      'llmLocation', 'llmTimezone', 'llmTimezoneList', 'llmContextStatus', 'btnLlmContext',
       'llmAnswer', 'llmMeta',
       'vpnUrl', 'btnVpnSave', 'btnVpnToggle', 'vpnStatus', 'vpnServer', 'vpnLog', 'vpnAutostart',
       'btnVoiceDaemon', 'voiceDaemonStatus',

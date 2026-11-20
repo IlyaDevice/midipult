@@ -1,6 +1,6 @@
 #!/opt/bin/python3
 # -*- coding: utf-8 -*-
-"""LLM через OpenAI-совместимый API: несколько профилей и переключение.
+"""LLM: OpenAI-совместимый API и родной Messages API Anthropic; несколько профилей.
 
     GET  /cgi-bin/llm.py?info=1           — провайдеры, профили, активный
     POST /cgi-bin/llm.py {"enabled":1}    — включить/выключить (без правки профиля)
@@ -8,18 +8,26 @@
     POST /cgi-bin/llm.py {"activate":"deepseek"} — сделать профиль активным
     POST /cgi-bin/llm.py {"delete":"deepseek"}   — удалить профиль
     POST /cgi-bin/llm.py {"prompt":"..."}       — вопрос к активному профилю
+    POST /cgi-bin/llm.py {"location","timezone"} — место и часовой пояс для модели
+    GET  /cgi-bin/llm.py?history=1[&chat=chat-2] — сообщения чата (по умолчанию активного)
 
 Ключи хранятся в /data/mypult/llm.json (600), наружу отдаётся только key_set.
 """
 
 from __future__ import annotations
 
+import datetime
 import json
 import os
 import re
 import sys
 import urllib.error
 import urllib.request
+
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:  # очень старый Python без zoneinfo
+    ZoneInfo = None
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
@@ -32,6 +40,11 @@ except Exception:  # noqa: BLE001
 CONFIG_DIR = "/data/mypult"
 CONFIG_PATH = os.path.join(CONFIG_DIR, "llm.json")
 CHATS_PATH = os.path.join(CONFIG_DIR, "chats.json")
+
+LOCATION_LIMIT = 100
+WEEKDAYS = ("понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье")
+MONTHS = ("января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа",
+          "сентября", "октября", "ноября", "декабря")
 
 PROVIDERS = {
     "openai": {
@@ -54,12 +67,40 @@ PROVIDERS = {
         "base_url": "https://api.deepseek.com",
         "models": ["deepseek-flash", "deepseek-v4-pro"],
     },
+    "anthropic": {
+        "title": "Anthropic (Claude)",
+        "base_url": "https://api.anthropic.com/v1",
+        "models": ["claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"],
+    },
     "custom": {
         "title": "Свой сервер (OpenAI-совместимый)",
         "base_url": "",
         "models": [],
     },
 }
+
+# Родной Messages API Anthropic (/v1/messages). Сэмплинг не передаётся:
+# в версии 2026-10-21 temperature/top_p/top_k дают 400 на любой модели.
+ANTHROPIC_VERSION = "2026-10-21"
+# Короткие голосовые ответы: низкое усилие заметно быстрее.
+ANTHROPIC_EFFORT = "low"
+# Думание и текст между вызовами поиска тоже расходуют max_tokens.
+ANTHROPIC_THINKING_ROOM = 1500
+# Базовая версия поиска: на Haiku 5.5 отвечает за ~4 с против ~10 с у
+# web_search_20260209 (с динамической фильтрацией) и тратит меньше токенов.
+ANTHROPIC_SEARCH_TOOL = "web_search_20250305"
+ANTHROPIC_SEARCH_MAX_USES = 3
+ANTHROPIC_TOOL_BLOCKS = frozenset({
+    "tool_use", "server_tool_use", "web_search_tool_result", "web_fetch_tool_result",
+    "code_execution_tool_result", "bash_code_execution_tool_result",
+})
+ANTHROPIC_SEARCH_NOTE = (
+    "У тебя есть поиск в интернете. Используй его для свежих сведений: погода, "
+    "новости, курсы валют, расписания, результаты, события. На остальные вопросы "
+    "отвечай сам, без поиска. Найденное перескажи коротко — одно-два предложения "
+    "с главным; источники, ссылки и расхождения между сайтами не перечисляй. "
+    "В истории диалога хранится только текст прошлых ответов, без результатов "
+    "поиска: не пересматривай и не исправляй прошлые ответы, если об этом не просят.")
 
 
 def slug(text):
@@ -106,7 +147,44 @@ def load_config():
         data["search_url"] = ""
     if not isinstance(data.get("follow_up"), bool):
         data["follow_up"] = False
+    if not isinstance(data.get("location"), str):
+        data["location"] = ""
+    if not isinstance(data.get("timezone"), str):
+        data["timezone"] = ""
     return data
+
+
+def zone(name):
+    """ZoneInfo по имени IANA или None, если имя пустое/неизвестное."""
+    if not name or ZoneInfo is None:
+        return None
+    try:
+        return ZoneInfo(name)
+    except Exception:  # noqa: BLE001 — ZoneInfoNotFoundError, ValueError и т.п.
+        return None
+
+
+def local_now(config, now=None):
+    """Текущее время в часовом поясе из настроек (по умолчанию — UTC станции)."""
+    tz = zone(config.get("timezone")) or datetime.timezone.utc
+    if now is None:
+        return datetime.datetime.now(tz)
+    return now.astimezone(tz)
+
+
+def context_note(config, now=None):
+    """Строка о дате, времени и месте — модель сама их не знает."""
+    moment = local_now(config, now)
+    offset = moment.strftime("%z")
+    offset = "UTC%s:%s" % (offset[:3], offset[3:]) if offset else "UTC"
+    tz_name = config.get("timezone") if zone(config.get("timezone")) else "UTC"
+    note = "Сейчас %s, %d %s %d года, %s (часовой пояс %s, %s)." % (
+        WEEKDAYS[moment.weekday()], moment.day, MONTHS[moment.month - 1], moment.year,
+        moment.strftime("%H:%M"), tz_name, offset)
+    location = str(config.get("location") or "").strip()
+    if location:
+        note += " Колонка находится здесь: %s." % location
+    return note
 
 
 def save_config(config):
@@ -164,6 +242,9 @@ def info(config=None):
         "search_mode": search_mode(active.get("provider") if active else "",
                                    config),
         "follow_up": bool(config.get("follow_up")),
+        "location": str(config.get("location") or ""),
+        "timezone": str(config.get("timezone") or ""),
+        "context": context_note(config),
         "config": public_profile(active),
         "max_tokens": int(config.get("max_tokens") or 260),
         "chats": [chat_public(item) for item in chats.get("chats") or []],
@@ -217,12 +298,13 @@ def voice_enabled(config):
     return bool(config.get("enabled"))
 
 
-NATIVE_SEARCH = ("openrouter", "openai")
+NATIVE_SEARCH = ("openrouter", "openai", "anthropic")
 
 
 def native_search(provider):
     """У провайдера есть встроенный поиск? OpenRouter — плагин web,
-    OpenAI — инструмент web_search в Responses API."""
+    OpenAI — инструмент web_search в Responses API, Anthropic — серверный
+    инструмент web_search в Messages API."""
     return (provider or "") in NATIVE_SEARCH
 
 
@@ -307,6 +389,119 @@ def _openai_web_answer(base_url, profile, messages, max_tokens, timeout=120):
     return text, websearch.annotations(annotations)
 
 
+class ApiError(Exception):
+    def __init__(self, status, message, **extra):
+        super().__init__(message)
+        self.status = status
+        self.message = message
+        self.extra = extra
+
+
+def post_json(url, payload, headers, timeout=90):
+    request = urllib.request.Request(
+        url, data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        headers=dict({"Content-Type": "application/json"}, **headers), method="POST")
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        raise ApiError(502, "API ответил HTTP %s" % exc.code, detail=_http_detail(exc)[:400])
+    except (urllib.error.URLError, OSError) as exc:
+        raise ApiError(502, "Нет связи с API: %s" % exc)
+    except ValueError:
+        raise ApiError(502, "API вернул не JSON")
+
+
+def anthropic_text(content):
+    """Текст ответа Messages API.
+
+    С поиском ответ состоит из нескольких блоков: рассуждения, вызовы поиска,
+    результаты и текст. Модель может сказать «сейчас посмотрю» до поиска —
+    колонке нужен только итог, поэтому берём текст после последнего блока
+    инструмента (без инструментов — весь текст).
+    """
+    blocks = [block for block in content or [] if isinstance(block, dict)]
+    start = 0
+    for index, block in enumerate(blocks):
+        if block.get("type") in ANTHROPIC_TOOL_BLOCKS:
+            start = index + 1
+    tail = "".join(block.get("text") or "" for block in blocks[start:] if block.get("type") == "text")
+    if tail.strip():
+        return tail
+    return "".join(block.get("text") or "" for block in blocks if block.get("type") == "text")
+
+
+def anthropic_sources(content):
+    """Источники поиска: сначала цитаты из текста ответа, потом выдача поиска."""
+    if websearch is None:
+        return []
+    cited = []
+    found = []
+    for block in content or []:
+        if not isinstance(block, dict):
+            continue
+        if block.get("type") == "text":
+            for citation in block.get("citations") or []:
+                if isinstance(citation, dict):
+                    cited.append({"url": citation.get("url"), "title": citation.get("title"),
+                                  "snippet": citation.get("cited_text")})
+        elif block.get("type") == "web_search_tool_result":
+            results = block.get("content")
+            # При ошибке поиска content — объект с error_code, а не список.
+            for result in results if isinstance(results, list) else []:
+                if isinstance(result, dict) and result.get("type") == "web_search_result":
+                    found.append({"url": result.get("url"), "title": result.get("title")})
+    return websearch.annotations(cited + found)
+
+
+def anthropic_messages(base_url, key, model, system, dialog, limit, search):
+    """Родной Messages API Anthropic (/v1/messages) с необязательным веб-поиском.
+
+    Возвращает (текст, usage, источники)."""
+    payload = {
+        "model": model,
+        "messages": list(dialog),
+        "max_tokens": limit + ANTHROPIC_THINKING_ROOM,
+        "output_config": {"effort": ANTHROPIC_EFFORT},
+    }
+    if system:
+        payload["system"] = system
+    if search:
+        payload["tools"] = [{"type": ANTHROPIC_SEARCH_TOOL, "name": "web_search",
+                             "max_uses": ANTHROPIC_SEARCH_MAX_USES}]
+    headers = {"x-api-key": key, "anthropic-version": ANTHROPIC_VERSION}
+    usage = {}
+    content = []
+    stop = None
+    body = {}
+    for _ in range(3):
+        body = post_json(base_url + "/messages", payload, headers)
+        content.extend(body.get("content") or [])
+        for name, value in (body.get("usage") or {}).items():
+            if isinstance(value, int):
+                usage[name] = usage.get(name, 0) + value
+            elif name == "server_tool_use" and isinstance(value, dict):
+                tools = usage.setdefault(name, {})
+                for tool, count in value.items():
+                    if isinstance(count, int):
+                        tools[tool] = tools.get(tool, 0) + count
+        stop = body.get("stop_reason")
+        if stop != "pause_turn":
+            break
+        # Серверный цикл поиска упёрся в лимит итераций: отправляем ответ
+        # обратно как есть, API продолжит с того же места.
+        payload["messages"] = list(dialog) + [{"role": "assistant", "content": content}]
+    if stop == "refusal":
+        details = body.get("stop_details") or {}
+        raise ApiError(502, "Модель отказалась отвечать на этот вопрос",
+                       detail=str(details.get("explanation") or details.get("category") or "")[:300])
+    answer = anthropic_text(content)
+    if not answer.strip():
+        raise ApiError(502, "Пустой ответ модели", detail="stop_reason=%s" % stop)
+    usage["total_tokens"] = usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
+    return answer, usage, anthropic_sources(content)
+
+
 def ask(prompt, system=None, search=None):
     config = load_config()
     profile = active_profile(config)
@@ -335,6 +530,8 @@ def ask(prompt, system=None, search=None):
     messages = []
     if not system:
         system = str(config.get("system_prompt") or "").strip()
+    # Дату, время и место добавляем к любому промпту — и голосовому, и текстовому.
+    system = (str(system or "").strip() + "\n\n" + context_note(config)).strip()
 
     # Веб-поиск: сначала родной у провайдера, потом свой SearXNG.
     # `search` из запроса важнее настройки (голосовые триггеры вроде «поищи»).
@@ -364,7 +561,7 @@ def ask(prompt, system=None, search=None):
                 search_note = "SearXNG ничего не нашёл"
         elif mode is None:
             search_note = ("У провайдера «%s» нет встроенного поиска: "
-                           "добавьте профиль OpenRouter/OpenAI или укажите SearXNG"
+                           "добавьте профиль OpenRouter/OpenAI/Anthropic или укажите SearXNG"
                            % provider)
 
     if system:
@@ -373,7 +570,8 @@ def ask(prompt, system=None, search=None):
     messages.append({"role": "user", "content": prompt})
 
     payload = {
-        "model": profile.get("model") or "gpt-4o-mini",
+        "model": profile.get("model") or (
+            PROVIDERS["anthropic"]["models"][0] if provider == "anthropic" else "gpt-4o-mini"),
         "messages": messages,
         "temperature": 0.7,
         # Длина ответа настраивается в панели (260 / 700 / 1400).
@@ -396,6 +594,24 @@ def ask(prompt, system=None, search=None):
         except Exception as exc:  # noqa: BLE001 - упадёт, ответим без поиска
             search_note = "Родной поиск OpenAI не сработал: %s" % str(exc)[:160]
             answer = None
+
+    if provider == "anthropic":
+        # Messages API: system отдельным полем, в диалоге только user/assistant.
+        dialog = [item for item in messages
+                  if isinstance(item, dict) and item.get("role") in ("user", "assistant")]
+        try:
+            answer, usage, found = anthropic_messages(
+                base_url, profile["key"], payload["model"],
+                (system + "\n\n" + ANTHROPIC_SEARCH_NOTE).strip() if use_search else system,
+                dialog, payload["max_tokens"], use_search)
+        except ApiError as exc:
+            common.fail(exc.status, exc.message, **exc.extra)
+            return
+        body = {"usage": usage}
+        if use_search:
+            # Модель ищет только когда нужно: без поиска источников нет, и это не ошибка.
+            sources = found
+            search_source = "anthropic"
 
     temperature_dropped = False
     if answer is None:
@@ -586,11 +802,35 @@ def chat_switch(data):
     return chats
 
 
+def chat_history(chat_id=None):
+    """Сообщения чата (по умолчанию активного) для просмотра в панели. Только чтение."""
+    chats = load_chats()
+    chat = None
+    if chat_id:
+        chat = next((item for item in chats.get("chats") or [] if item.get("id") == chat_id), None)
+        if chat is None:
+            common.fail(404, "Чат не найден: %s" % chat_id)
+            return
+    chat = chat or active_chat(chats)
+    messages = [
+        {"role": "user" if item.get("role") == "user" else "assistant",
+         "content": str(item.get("content") or "")}
+        for item in chat.get("messages") or []
+        if isinstance(item, dict)
+    ]
+    common.ok(chat_id=chat.get("id"), chat_name=chat.get("name"), messages=messages,
+              limit=20)
+
+
 def main():
     data = common.params()
+    if common.truthy(data.get("history")):
+        chat_history(str(data.get("chat") or "").strip() or None)
+        return
     action_keys = ("prompt", "enabled", "voice_enabled", "activate", "delete", "provider", "name", "profile_id",
                    "max_tokens", "system_prompt", "chat_next", "chat_prev", "chat_new", "chat_select",
-                   "chat_delete", "chat_rename", "web_search", "search_url", "follow_up")
+                   "chat_delete", "chat_rename", "web_search", "search_url", "follow_up",
+                   "location", "timezone")
     if common.truthy(data.get("info")) or not any(key in data for key in action_keys):
         common.respond(200, info())
         return
@@ -636,6 +876,27 @@ def main():
 
     if data.get("follow_up") is not None:
         config["follow_up"] = common.truthy(data.get("follow_up"))
+        save_config(config)
+        common.respond(200, info(config))
+        return
+
+    if data.get("location") is not None or data.get("timezone") is not None:
+        if (os.environ.get("REQUEST_METHOD") or "GET").upper() != "POST":
+            common.fail(405, "Действие требует POST")
+            return
+        if data.get("location") is not None:
+            location = " ".join(str(data.get("location") or "").split())
+            if len(location) > LOCATION_LIMIT:
+                common.fail(413, "Местоположение длиннее %d символов" % LOCATION_LIMIT)
+                return
+            config["location"] = location
+        if data.get("timezone") is not None:
+            tz_name = str(data.get("timezone") or "").strip()
+            if tz_name and zone(tz_name) is None:
+                common.fail(400, "Неизвестный часовой пояс: %s" % tz_name,
+                            hint="Формат IANA, например Europe/Moscow или Asia/Yekaterinburg")
+                return
+            config["timezone"] = tz_name
         save_config(config)
         common.respond(200, info(config))
         return
