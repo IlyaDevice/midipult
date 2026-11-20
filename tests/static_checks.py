@@ -552,6 +552,10 @@ def test_yapanel_features():
           and 'id="alarmSoundList"' in html and "loadAlarmSounds" in html)
     check("кольцо: превью играющей анимации",
           "State.ringPreview" in html and "animation_name" in display_py)
+    check("кольцо: режим и анимация не конфликтуют",
+          "stopFirmwareRingAnim" in html
+          and "ring_anim_stop: 1, keep: 1" in html
+          and 'data.get("keep")' in display_py)
     check("сценарии: анимация дисплея",
           "clock_anim" in scenarios_py and "clock_anim_play" in display_py
           and "clockanimd.py" in install_sh)

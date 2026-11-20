@@ -3087,7 +3087,21 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   function stopLedAnimation() {
     if (State.ledAnim && State.ledAnim.timer) clearInterval(State.ledAnim.timer);
     State.ledAnim = null;
+    if (ledTimer) {
+      clearTimeout(ledTimer);
+      ledTimer = null;
+    }
+    ledPending = false;
     stopRingBlink();
+  }
+
+  function stopFirmwareRingAnim() {
+    if (!State.ringAnimName && !State.ringPreview) return Promise.resolve();
+    State.ringAnimName = null;
+    State.ringPreview = null;
+    markRingAnim(null);
+    return cgi('display.py', { ring_anim_stop: 1, keep: 1 },
+      { timeout: 8000, silent: true }).catch(function () {});
   }
 
   function stopRingBlink() {
@@ -3160,6 +3174,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 
   function startLedAnimation(kind) {
     stopLedAnimation();
+    stopFirmwareRingAnim();
     State.selected = null;
     ringDots.forEach(function (dot) { dot.classList.remove('sel'); });
     el.ledHint.textContent = kind === 'wave'
@@ -3192,6 +3207,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 
   function applyColor(hex, mode) {
     stopLedAnimation();
+    stopFirmwareRingAnim();
     State.color = hex.toUpperCase();
     State.ledMode = mode || 'solid';
     if (State.ledMode === 'solid') {
@@ -7797,7 +7813,12 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   function playRingAnim(name) {
     name = typeof name === 'string' ? name : (State.ringAnimName || '');
     if (!name) { toast('Выберите анимацию кольца', 'warn'); return; }
-    return cgi('display.py', { ring_anim: name }, { timeout: 10000 }).then(function () {
+    stopLedAnimation();
+    State.ledMode = 'anim';
+    markActiveChip();
+    return stopFirmwareRingAnim().then(function () {
+      return cgi('display.py', { ring_anim: name }, { timeout: 10000 });
+    }).then(function () {
       State.ringAnimName = name;
       markRingAnim(name);
       loadRingFrames(name).then(function () { startRingPreview(name); });

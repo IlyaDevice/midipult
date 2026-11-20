@@ -720,9 +720,12 @@ def main():
 
     if common.truthy(data.get("ring_anim_stop")):
         animation_stop()
-        # «Стоп» должен гасить кольцо, а не оставлять последний кадр.
-        luna_ring_off()
-        common.ok(playing=False, off=True)
+        # keep=1 — только остановить проигрыватель, не гася кольцо:
+        # так переключение на «Волну»/свой цвет не мигает.
+        keep = common.truthy(data.get("keep"))
+        if not keep:
+            luna_ring_off()
+        common.ok(playing=False, off=not keep)
         return
 
     if data.get("anim_preview") is not None:
