@@ -81,11 +81,32 @@ class AlarmScheduler(threading.Thread):
         return "%s|%s|%s" % (alarm.get("id"), now.strftime("%Y-%m-%d"),
                              alarm.get("time"))
 
+    def _is_once(self, alarm):
+        if "once" in alarm:
+            return bool(alarm.get("once"))
+        # Старые записи без флага: пустые дни означали «один раз».
+        return not (alarm.get("days") or [])
+
     def _due(self, alarm, now):
         if not alarm.get("enabled") or alarm.get("time") != now.strftime("%H:%M"):
             return False
+        if self._is_once(alarm):
+            return True
         days = alarm.get("days") or []
-        return not days or now.isoweekday() in days
+        return now.isoweekday() in days
+
+    def _disable_once(self, alarm_id):
+        """Одноразовый будильник выключаем до звонка, чтобы не повторился."""
+        data = common.read_json(DATA, {"alarms": []}) or {}
+        alarms = data.get("alarms") if isinstance(data.get("alarms"), list) else []
+        changed = False
+        for alarm in alarms:
+            if alarm.get("id") == alarm_id and alarm.get("enabled", True):
+                alarm["enabled"] = False
+                changed = True
+        if changed:
+            common.write_json(DATA, data)
+            log("одноразовый будильник выключен: %s" % alarm_id)
 
     # -- цикл -------------------------------------------------------------- #
 
@@ -129,6 +150,8 @@ class AlarmScheduler(threading.Thread):
                 continue
             self.fired.add(key)
             self._save_fired()
+            if self._is_once(alarm):
+                self._disable_once(alarm.get("id"))
             self.fire(alarm)
             return
 

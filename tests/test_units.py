@@ -1178,6 +1178,19 @@ def test_alarm_rules():
     check("будильник: Яндекс Музыка по умолчанию",
           music["mode"] == "music" and music["text"] == "мою волну", str(music))
 
+    once = alarm.build({"time": "09:00", "once": True, "days": [1, 2, 3]})
+    check("будильник: одноразовый без дней",
+          once["once"] is True and once["days"] == [], str(once))
+    repeat = alarm.build({"time": "09:00", "once": False, "days": [6, 7]})
+    check("будильник: повторяемый с днями",
+          repeat["once"] is False and repeat["days"] == [6, 7], str(repeat))
+    try:
+        alarm.build({"time": "09:00", "once": False, "days": []})
+        no_days = False
+    except ValueError:
+        no_days = True
+    check("будильник: повтор без дней отклонён", no_days)
+
     check("будильник: пояс браузера принимается",
           alarm.timezone_name("Asia/Yekaterinburg") == "Asia/Yekaterinburg")
     try:
@@ -1215,6 +1228,25 @@ def test_alarm_rules():
           scheduler._due(rule, friday) is True)
     check("будильник: не срабатывает в другую минуту",
           scheduler._due(rule, friday.replace(minute=31)) is False)
+    once_rule = {"enabled": True, "time": "07:30", "days": [],
+                 "once": True, "id": "a2"}
+    check("будильник: одноразовый срабатывает",
+          scheduler._due(once_rule, friday) is True)
+
+    fd2, path2 = tempfile.mkstemp(prefix="mypult-once-", suffix=".json")
+    os.close(fd2)
+    try:
+        with open(path2, "w", encoding="utf-8") as fh:
+            json.dump({"alarms": [dict(once_rule)]}, fh)
+        alarmd.DATA = path2
+        scheduler._disable_once("a2")
+        with open(path2, "r", encoding="utf-8") as fh:
+            saved = json.load(fh)
+        check("будильник: одноразовый выключается",
+              saved["alarms"][0]["enabled"] is False, str(saved))
+    finally:
+        alarmd.DATA = old_data
+        os.remove(path2)
     check("будильник: выключенный не срабатывает",
           scheduler._due(dict(rule, enabled=False), friday) is False)
     check("будильник: без дней — каждый день",

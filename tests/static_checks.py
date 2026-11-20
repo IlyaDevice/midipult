@@ -540,6 +540,9 @@ def test_yapanel_features():
               'id="btnRadioPick"', 'id="radioPop"', 'id="radioSearch"')))
     check("часы: редактор обновляет сохранённое",
           "editingAnimId" in html and "animRun" in html and "AbortController" in html)
+    check("будильник: один раз или повторять",
+          'data-repeat="0"' in html and "alarmRepeat" in html
+          and 'once: !State.alarmRepeat' in html)
     check("UI: лайки и оверлей текста",
           all(token in html for token in (
               'id="btnLike"', 'id="btnDislike"', 'id="lyricsDlg"',

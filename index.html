@@ -439,6 +439,9 @@ body.light .alarm-station-list{background:#fff}
 .alarm-num output{color:var(--text);font-weight:650;font-size:12px}
 .alarm-num input[type="number"]{height:42px;font-size:14px}
 .alarm-days{display:flex;gap:4px;flex-wrap:wrap}
+.alarm-repeat{display:flex;gap:6px;margin:2px 0 6px}
+.alarm-repeat .chip{height:30px;padding:0 12px;font-size:12px}
+.alarm-repeat-hint{margin:0 0 4px;font-size:11px}
 .alarm-days .chip{height:30px;padding:0 9px;font-size:11px;flex:0 0 auto}
 .alarm-ringing{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:12px;padding:14px 16px;
   border-radius:16px;border:1px solid rgba(124,92,255,.5);
@@ -1489,7 +1492,12 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       </div>
       <input type="text" id="alarmText" placeholder="Что сказать Алисе" maxlength="200"
              aria-label="Фраза для Алисы" hidden>
+      <div class="alarm-repeat" id="alarmRepeatModes">
+        <button type="button" class="chip" data-repeat="0" aria-pressed="false">Один раз</button>
+        <button type="button" class="chip" data-repeat="1" aria-pressed="true">Повторять</button>
+      </div>
       <div class="alarm-days" id="alarmDays"></div>
+      <div class="seg-note alarm-repeat-hint" id="alarmRepeatHint">Повторять: выберите дни недели</div>
       <div class="alarm-row">
         <label class="alarm-num">Громкость <output id="alarmVolumeVal">40%</output>
           <input type="range" id="alarmVolume" min="0" max="100" step="5" value="40">
@@ -2305,6 +2313,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     queueTab: 'queue',
     llmTzAutosaved: false,
     alarmMode: 'radio',
+    alarmRepeat: true,
     alarmTzSynced: false,
     alarmHour: 7,
     alarmMinute: 0,
@@ -3930,6 +3939,20 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     }).catch(function () {});
   }
 
+  function setAlarmRepeat(repeat) {
+    State.alarmRepeat = !!repeat;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-repeat]'), function (button) {
+      button.setAttribute('aria-pressed',
+        button.dataset.repeat === (State.alarmRepeat ? '1' : '0') ? 'true' : 'false');
+    });
+    if (el.alarmDays) el.alarmDays.hidden = !State.alarmRepeat;
+    if (el.alarmRepeatHint) {
+      el.alarmRepeatHint.textContent = State.alarmRepeat
+        ? 'Повторять: выберите дни недели'
+        : 'Сработает один раз и выключится';
+    }
+  }
+
   function setAlarmMode(mode) {
     State.alarmMode = mode === 'query' || mode === 'music' ? mode : 'radio';
     Array.prototype.forEach.call(document.querySelectorAll('[data-amode]'), function (button) {
@@ -4006,7 +4029,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       what.textContent = prefix + (alarm.text || '');
       var when = document.createElement('div');
       when.className = 'alarm-when';
-      when.textContent = alarmDaysText(alarm.days) +
+      when.textContent = (alarm.once ? 'Один раз' : alarmDaysText(alarm.days)) +
         (alarm.enabled ? '' : ' · выключен');
       meta.appendChild(what);
       meta.appendChild(when);
@@ -4103,12 +4126,17 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       time: alarmPad(State.alarmHour) + ':' + alarmPad(State.alarmMinute),
       mode: State.alarmMode,
       text: text,
-      days: Array.from(alarmDays),
+      days: State.alarmRepeat ? Array.from(alarmDays) : [],
+      once: !State.alarmRepeat,
       volume: parseInt(el.alarmVolume.value, 10) || 40,
       ramp: parseInt(el.alarmRamp.value, 10) || 0,
       stop_after: parseInt(el.alarmStop.value, 10) || 0,
       snooze: parseInt(el.alarmSnooze.value, 10) || 5
     };
+    if (State.alarmRepeat && !alarmDays.size) {
+      toast('Выберите дни недели или режим «Один раз»', 'warn');
+      return;
+    }
     return cgi('alarm.py', { add: payload }, { timeout: 15000 }).then(function (data) {
       renderAlarmList(data.alarms || []);
       if (el.alarmCustomStation) el.alarmCustomStation.value = '';
@@ -8018,6 +8046,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     });
     if (el.btnAlarmOpen) el.btnAlarmOpen.addEventListener('click', function () {
       setAlarmMode(State.alarmMode || 'radio');
+      setAlarmRepeat(State.alarmRepeat);
       if (el.alarmDlg) el.alarmDlg.showModal();
       buildAlarmTimeLists();
       renderAlarmTime();
@@ -8039,6 +8068,11 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     });
     Array.prototype.forEach.call(document.querySelectorAll('[data-amode]'), function (button) {
       button.addEventListener('click', function () { setAlarmMode(button.dataset.amode); });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-repeat]'), function (button) {
+      button.addEventListener('click', function () {
+        setAlarmRepeat(button.dataset.repeat === '1');
+      });
     });
     if (el.btnAlarmClose) el.btnAlarmClose.addEventListener('click', function () {
       if (el.alarmDlg) el.alarmDlg.close();
@@ -8545,6 +8579,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'alarmTimeField', 'btnAlarmTime', 'alarmTimeValue', 'alarmTimePop',
       'alarmHours', 'alarmMinutes', 'btnAlarmTimeDone',
       'alarmRadioBox', 'alarmModes', 'btnAlarmStation', 'alarmStationName',
+      'alarmRepeatModes', 'alarmRepeatHint',
       'alarmStationList', 'alarmCustomStation', 'alarmMusicBox', 'alarmMusicText',
       'alarmVolume', 'alarmVolumeVal', 'alarmRamp', 'alarmStop', 'alarmSnooze',
       'btnAlarmAdd', 'clockAnimStatus', 'btnAlarmOpen', 'btnAlarmClose', 'alarmDlg',

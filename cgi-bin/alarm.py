@@ -109,12 +109,22 @@ def build(data, current=None):
     if mode not in MODES:
         mode = "radio"
     volume, ramp, stop_after, snooze = _bounds(data, current)
+    days = _days(data.get("days", current.get("days", [])))
+    if data.get("once") is None and current.get("once") is None:
+        once = not bool(days)
+    else:
+        once = common.truthy(data.get("once", current.get("once", False)))
+    if once:
+        days = []
+    elif not days:
+        raise ValueError("выберите дни недели или «Один раз»")
     item = {
         "id": current.get("id") or uuid.uuid4().hex[:8],
         "enabled": bool(current.get("enabled", True))
         if data.get("enabled") is None else common.truthy(data.get("enabled")),
         "time": _time(data.get("time", current.get("time", "07:00"))),
-        "days": _days(data.get("days", current.get("days", []))),
+        "days": days,
+        "once": once,
         "mode": mode,
         "text": str(data.get("text", current.get("text", "")) or "").strip()[:200],
         "label": str(data.get("label", current.get("label", "")) or "").strip()[:60],
