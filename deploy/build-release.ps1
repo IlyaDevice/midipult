@@ -34,7 +34,7 @@ if ($actual -ne $Version) {
 Push-Location $root
 try {
     if (Test-Path $archive) { Remove-Item -LiteralPath $archive -Force }
-    $args = @('-czf', $archive) + $items
+    $args = @('-czf', $archive, '--exclude', 'deploy/push-to-station.ps1') + $items
     & tar.exe @args
     if ($LASTEXITCODE -ne 0) { throw 'tar failed' }
 } finally {
