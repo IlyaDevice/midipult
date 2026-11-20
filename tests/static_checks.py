@@ -543,6 +543,8 @@ def test_yapanel_features():
     check("будильник: один раз или повторять",
           'data-repeat="0"' in html and "alarmRepeat" in html
           and 'once: !State.alarmRepeat' in html)
+    check("кольцо: превью играющей анимации",
+          "State.ringPreview" in html and "animation_name" in display_py)
     check("UI: лайки и оверлей текста",
           all(token in html for token in (
               'id="btnLike"', 'id="btnDislike"', 'id="lyricsDlg"',

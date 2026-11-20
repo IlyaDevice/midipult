@@ -36,6 +36,7 @@ ANIM_DIRS = (
     "/system/vendor/quasar/ledpatterns/oknix",
 )
 ANIM_PID = "/tmp/mypult-ringanim.pid"
+ANIM_NAME = "/tmp/mypult-ringanim.name"
 RING_CURRENT = (
     "/sys/bus/i2c/devices/1-0034/current",
     "/sys/bus/i2c/devices/1-0035/current",
@@ -397,6 +398,17 @@ def animation_pid():
         return None
 
 
+def animation_name():
+    pid = animation_pid()
+    if not pid or not _pid_alive(pid):
+        return None
+    try:
+        with open(ANIM_NAME, "r", encoding="utf-8") as fh:
+            return fh.read().strip() or None
+    except OSError:
+        return None
+
+
 def animation_stop():
     pid = animation_pid()
     if pid:
@@ -418,6 +430,10 @@ def animation_stop():
                 pass
     try:
         os.remove(ANIM_PID)
+    except OSError:
+        pass
+    try:
+        os.remove(ANIM_NAME)
     except OSError:
         pass
     return True
@@ -452,6 +468,8 @@ def animation_play(name):
         raise RuntimeError("led_util не запустился: %s" % exc) from exc
     with open(ANIM_PID, "w", encoding="utf-8") as fh:
         fh.write(str(proc.pid))
+    with open(ANIM_NAME, "w", encoding="utf-8") as fh:
+        fh.write(name)
     time.sleep(0.4)
     if proc.poll() is not None:
         animation_stop()
@@ -695,6 +713,7 @@ def main():
         mode=load_mode(),
         animations=ring_animations(),
         animation=animation_pid() if _pid_alive(animation_pid() or 0) else None,
+        animation_name=animation_name(),
         clock_anims=clock_anims(),
     )
 

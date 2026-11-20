@@ -2286,6 +2286,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     ringBrightness: 255,
     ringSpeed: 0,
     ringAnimName: null,
+    ringPreview: null,
     blinkTimer: null,
     muted: false,
     llmAnswer: '',
@@ -2748,6 +2749,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   }
 
   function paintRing(colors, label) {
+    State.ringPreview = null;
     if (!ringDots.length) return;
     for (var i = 0; i < ringDots.length; i++) {
       var c = colors[i % colors.length];
@@ -2759,6 +2761,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   }
 
   function paintOff() {
+    State.ringPreview = null;
     ringDots.forEach(function (dot) {
       dot.style.background = '#171b26';
       dot.style.color = 'transparent';
@@ -6792,9 +6795,19 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       }
       applyAutoConfig(data.auto || {}, data.mode || {});
       if (el.ringAnimChips && data.animations) {
-        renderRingAnims(data.animations, data.animation ? State.ringAnimName : null);
+        var playingName = data.animation
+          ? (State.ringAnimName || data.animation_name || null) : null;
+        renderRingAnims(data.animations, playingName);
         if (el.ringAnimStatus) {
           el.ringAnimStatus.textContent = data.animation ? 'играет' : '—';
+        }
+        if (data.animation && playingName) startRingPreview(playingName);
+        else if (!data.animation) {
+          if (State.ringPreview) {
+            State.ringPreview = null;
+            paintOff();
+            el.ledHint.textContent = 'Кольцо выключено';
+          }
         }
       }
     }).catch(function () { /* тихо */ });
@@ -6839,6 +6852,38 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       tile.dots[i].style.background = 'rgb(' + r + ',' + g + ',' + b + ')';
       tile.dots[i].style.opacity = (r + g + b) > 12 ? '1' : '.2';
     }
+  }
+
+  function paintMainRingFrame(frame) {
+    if (!ringDots.length || !frame) return;
+    for (var i = 0; i < ringDots.length; i++) {
+      var hex = frame[i] || '000000';
+      var r = parseInt(hex.substr(0, 2), 16);
+      var g = parseInt(hex.substr(2, 2), 16);
+      var b = parseInt(hex.substr(4, 2), 16);
+      if (isNaN(r) || isNaN(g) || isNaN(b)) {
+        r = g = b = 0;
+      }
+      var color = 'rgb(' + r + ',' + g + ',' + b + ')';
+      ringDots[i].style.background = color;
+      ringDots[i].style.color = color;
+      ringDots[i].style.boxShadow = (r + g + b) > 12
+        ? '0 0 10px ' + color : 'none';
+    }
+  }
+
+  function startRingPreview(name) {
+    var playback = ringAnimFrames[name];
+    if (!playback || !playback.frames.length) {
+      return loadRingFrames(name).then(function (loaded) {
+        if (loaded && loaded.frames.length) startRingPreview(name);
+      });
+    }
+    if (State.ringPreview && State.ringPreview.name === name) return;
+    State.ringPreview = { name: name, index: playback.index || 0 };
+    el.ledHint.textContent = 'Анимация: ' + (RING_ANIM_LABELS[name] || name);
+    if (el.ringHex) el.ringHex.textContent = RING_ANIM_LABELS[name] || 'Анимация';
+    paintMainRingFrame(playback.frames[State.ringPreview.index]);
   }
 
   function loadRingFrames(name) {
@@ -6984,6 +7029,14 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   }
 
   function tickRingAnims() {
+    if (State.ringPreview) {
+      var preview = State.ringPreview;
+      var playback = ringAnimFrames[preview.name];
+      if (playback && playback.frames.length) {
+        preview.index = (preview.index + 1) % playback.frames.length;
+        paintMainRingFrame(playback.frames[preview.index]);
+      }
+    }
     Object.keys(ringAnimTiles).forEach(function (name) {
       var tile = ringAnimTiles[name];
       var playback = ringAnimFrames[name];
@@ -6999,7 +7052,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     return cgi('display.py', { ring_anim: name }, { timeout: 10000 }).then(function () {
       State.ringAnimName = name;
       markRingAnim(name);
-      loadRingFrames(name);
+      loadRingFrames(name).then(function () { startRingPreview(name); });
       toast('Анимация: ' + (RING_ANIM_LABELS[name] || name), 'ok');
     }).catch(function (err) {
       toast('Анимация: ' + err.message, 'bad');
@@ -7007,6 +7060,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   }
 
   function stopRingAnim() {
+    State.ringPreview = null;
     return cgi('display.py', { ring_anim_stop: 1 }, { timeout: 8000 }).then(function () {
       State.ringAnimName = null;
       markRingAnim(null);
