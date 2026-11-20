@@ -579,9 +579,9 @@ body.light .btn.danger:disabled{opacity:1;background:rgba(190,18,60,.10);border-
 .c-clock{display:flex;flex-direction:column}
 
 .display-preview{
-  position:relative;margin-top:16px;min-height:150px;
+  position:relative;margin-top:12px;min-height:0;
   display:flex;flex-direction:column;justify-content:center;
-  flex:1 1 auto;
+  flex:0 0 auto;padding:2px 0 4px;
   border-radius:var(--r16);overflow:hidden;
   background:radial-gradient(120% 130% at 50% -10%,#101d18,#060a09 72%);
   border:1px solid rgba(120,255,200,.12);
@@ -592,7 +592,8 @@ body.light .btn.danger:disabled{opacity:1;background:rgba(190,18,60,.10);border-
   content:"";position:absolute;inset:0;pointer-events:none;opacity:.55;
   background:repeating-linear-gradient(90deg,rgba(255,255,255,.025) 0 1px,transparent 1px 4px);
 }
-.seg7{position:relative;display:block;width:100%;height:auto;padding:12px 24px 20px}
+.seg7{position:relative;display:block;width:100%;max-width:520px;height:auto;
+  margin:0 auto;padding:8px 12px 14px}
 .seg7 rect{fill:#0d1512;transition:fill .16s ease}
 .seg7 rect.on{fill:#c9ffe8;filter:drop-shadow(0 0 7px rgba(52,211,153,.85))}
 .seg7 circle{fill:#0d1512;transition:fill .16s ease}
@@ -3388,13 +3389,20 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     renderAnimFrames();
   }
 
+  function initialAnimFrame() {
+    if (State.drawing && State.pattern) return currentPattern();
+    var digits = String(el.clockTime.textContent || '').replace(/\D/g, '').slice(0, 4);
+    if (digits.length === 4) return digits.split('').map(segmentsForChar);
+    return currentPattern();
+  }
+
   function openAnimEditor(frames, name, duration) {
     if (frames && frames.length) {
       State.animFrames = frames.map(function (frame) { return frame.slice(); });
       State.animIndex = 0;
     }
     if (!State.animFrames.length) {
-      State.animFrames = [currentPattern()];
+      State.animFrames = [initialAnimFrame()];
       State.animIndex = 0;
     }
     if (name) el.animName.value = name;
