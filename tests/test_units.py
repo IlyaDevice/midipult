@@ -1250,6 +1250,21 @@ def test_clock_animation():
     check("часы: рассвет заполняет", any(value > 100 for value in sunrise)
           and any(value < 20 for value in sunrise))
 
+    anim = display.clean_clock_anim({
+        "name": "Подмигивание",
+        "frames": [["abcdefg", "", "", ""], ["", "abcdefg", "", ""]],
+        "duration": 120,
+    })
+    check("часы: кадры анимации сохранены",
+          anim["name"] == "Подмигивание" and len(anim["frames"]) == 2
+          and anim["frames"][0][0] == "abcdefg" and anim["duration"] == 120, str(anim))
+    try:
+        display.clean_clock_anim({"name": "x", "frames": [["abc"]], "duration": 100})
+        bad_frame = False
+    except ValueError:
+        bad_frame = True
+    check("часы: кривой кадр отклонён", bad_frame)
+
 
 def test_discovery_payload():
     import json

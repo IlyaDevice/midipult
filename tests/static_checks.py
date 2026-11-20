@@ -566,9 +566,10 @@ def test_yapanel_features():
           and "class AlarmScheduler" in alarmd_py)
     conf = read(os.path.join(ROOT, "lighttpd", "myweb.conf"))
     daemon_py = read(os.path.join(ROOT, "service", "state_daemon.py"))
-    check("часы: анимации в демоне и прокси",
+    check("часы: редактор анимаций и прокси",
           "^/clock" in conf and "class ClockAnimator" in daemon_py
-          and 'data-canim="wave"' in html and "function clockAnim(" in html)
+          and 'data-cpreset="wink"' in html and "function playClockAnim(" in html
+          and "clock_anim_save" in read(os.path.join(ROOT, "cgi-bin", "display.py")))
     check("поиск: без скрейпинга выдачи",
           "_bing" not in search_py and "duckduckgo" not in search_py.lower())
 

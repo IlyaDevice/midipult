@@ -41,6 +41,7 @@ RING_CURRENT = (
     "/sys/bus/i2c/devices/1-0035/current",
 )
 SAVE = "/tmp/mypult-clock.json"
+CLOCK_ANIMS = "/data/mypult/clock_anims.json"
 RING_STATE = "/data/mypult/ring.json"
 DISPLAY_STATE = "/data/mypult/display.json"
 MODE_PATH = "/data/mypult/display_mode.json"
@@ -458,6 +459,43 @@ def animation_play(name):
     return proc.pid
 
 
+def clock_anims():
+    data = common.read_json(CLOCK_ANIMS, {"items": []}) or {}
+    items = data.get("items")
+    return items if isinstance(items, list) else []
+
+
+def save_clock_anims(items):
+    common.write_json(CLOCK_ANIMS, {"items": items})
+
+
+def clean_clock_anim(raw):
+    if not isinstance(raw, dict):
+        raise ValueError("анимация должна быть объектом")
+    name = str(raw.get("name") or "").strip()[:40]
+    if not name:
+        raise ValueError("укажите название анимации")
+    frames = raw.get("frames")
+    if not isinstance(frames, list) or not 1 <= len(frames) <= 60:
+        raise ValueError("нужно от 1 до 60 кадров")
+    clean = []
+    for frame in frames:
+        if not isinstance(frame, list) or len(frame) != 4:
+            raise ValueError("в кадре должно быть 4 цифры")
+        digits = []
+        for part in frame:
+            segments = "".join(ch for ch in str(part or "") if ch in "abcdefg")
+            digits.append("".join(sorted(set(segments))))
+        clean.append(digits)
+    duration = max(50, min(5000, common.to_int(raw.get("duration"), 300, 50, 5000)))
+    return {
+        "id": str(raw.get("id") or "anim-%d" % int(time.time() * 1000)),
+        "name": name,
+        "frames": clean,
+        "duration": duration,
+    }
+
+
 def anim_preview(name, limit=24):
     """Кадры .led для превью в панели: текст «RRGGBB» по 24 штуки на кадр."""
     entries = [item for item in ring_animations() if item["name"] == name]
@@ -513,6 +551,30 @@ def main():
             common.ok(**anim_preview(str(data.get("anim_preview") or "").strip()))
         except (ValueError, RuntimeError) as exc:
             common.fail(400, str(exc))
+        return
+
+    if data.get("clock_anim_save") is not None:
+        try:
+            item = clean_clock_anim(data.get("clock_anim_save"))
+        except ValueError as exc:
+            common.fail(400, str(exc))
+            return
+        items = clock_anims()
+        for index, current in enumerate(items):
+            if current.get("id") == item["id"]:
+                items[index] = item
+                break
+        else:
+            items.append(item)
+        save_clock_anims(items)
+        common.ok(clock_anims=items)
+        return
+
+    if data.get("clock_anim_delete") is not None:
+        target = str(data.get("clock_anim_delete") or "")
+        items = [item for item in clock_anims() if item.get("id") != target]
+        save_clock_anims(items)
+        common.ok(clock_anims=items)
         return
 
     if common.truthy(data.get("reset_display")):
@@ -633,6 +695,7 @@ def main():
         mode=load_mode(),
         animations=ring_animations(),
         animation=animation_pid() if _pid_alive(animation_pid() or 0) else None,
+        clock_anims=clock_anims(),
     )
 
 

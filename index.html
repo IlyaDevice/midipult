@@ -615,6 +615,25 @@ body.light .btn.danger:disabled{opacity:1;background:rgba(190,18,60,.10);border-
 .c-clock > .seg-note,.bt-list > .seg-note{flex:0 0 auto}
 .display-extra{margin-top:12px;flex-wrap:nowrap}
 .clock-anims{flex-wrap:wrap}
+.anim-editor{margin-top:10px;padding:12px;border:1px solid var(--stroke);border-radius:14px;
+  background:rgba(255,255,255,.03)}
+.anim-bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.anim-bar input[type="text"]{flex:1 1 180px;height:36px}
+.anim-frames{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.anim-frame{width:40px;height:40px;border-radius:10px;border:1px solid var(--stroke);
+  background:#0e1420;color:var(--muted);font:inherit;font-weight:700;cursor:pointer}
+.anim-frame[aria-pressed="true"]{border-color:rgba(124,92,255,.7);color:#fff;
+  background:rgba(124,92,255,.25);box-shadow:0 0 0 2px rgba(124,92,255,.16)}
+.anim-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.anim-num{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.06em}
+.anim-num input{width:80px;height:34px}
+.anim-tools #animText{width:90px;height:34px}
+.anim-saved{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.anim-saved-row{display:flex;align-items:center;gap:8px;padding-top:6px;
+  border-top:1px solid var(--stroke);font-size:12px}
+.anim-saved-row b{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.anim-saved-row .seg-note{flex:1 1 auto}
 .display-extra input{height:var(--ctl-h);font-size:var(--fs-14);min-width:0}
 .bright-chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));max-width:744px;gap:var(--gap-sm);margin-top:12px}
 .bright-chips .chip{width:100%;justify-content:center;padding:0 8px;font-size:var(--fs-12)}
@@ -1135,14 +1154,31 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     <div class="field" style="margin-top:14px">
       <div class="field-top"><label>Анимации дисплея</label><output id="clockAnimStatus">—</output></div>
       <div class="row clock-anims">
-        <button class="chip" data-canim="wave">Волна</button>
-        <button class="chip" data-canim="pulse">Пульс</button>
-        <button class="chip" data-canim="rainbow">Радуга</button>
-        <button class="chip" data-canim="snake">Змейка</button>
-        <button class="chip" data-canim="scan">Скан</button>
-        <button class="chip" data-canim="sparkle">Искры</button>
-        <button class="chip" data-canim="sunrise">Рассвет</button>
-        <button class="chip" data-canim="off">Стоп</button>
+        <button class="chip" data-cpreset="wink">Подмигивание</button>
+        <button class="chip" data-cpreset="blink">Моргание</button>
+        <button class="chip" data-cpreset="snake">Змейка</button>
+        <button class="btn sm" id="btnAnimEditor">Редактор кадров</button>
+      </div>
+      <div class="anim-editor" id="animEditor" hidden>
+        <div class="anim-bar">
+          <input type="text" id="animName" maxlength="40" placeholder="Название анимации" autocomplete="off">
+          <button class="btn sm ghost" id="btnAnimPlay">Играть</button>
+          <button class="btn sm ghost" id="btnAnimStop">Стоп</button>
+          <button class="btn sm primary" id="btnAnimSave">Сохранить</button>
+          <button class="btn sm ghost" id="btnAnimClose">Закрыть</button>
+        </div>
+        <div class="anim-frames" id="animFrames"></div>
+        <div class="anim-tools">
+          <button class="btn sm ghost" id="btnAnimAdd">+ кадр</button>
+          <button class="btn sm ghost" id="btnAnimDup">Дублировать</button>
+          <button class="btn sm ghost" id="btnAnimDel">Удалить</button>
+          <label class="anim-num">Кадр, мс
+            <input type="number" id="animDuration" min="50" max="5000" step="50" value="300">
+          </label>
+          <input type="text" id="animText" maxlength="5" placeholder="12:34" autocomplete="off">
+          <button class="btn sm ghost" id="btnAnimText">В кадр</button>
+        </div>
+        <div class="anim-saved" id="animSaved"></div>
       </div>
     </div>
   </section>
@@ -2164,6 +2200,11 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     rebootPoll: null,
     drawing: false,
     pattern: null,
+    animFrames: [],
+    animIndex: 0,
+    animPlaying: false,
+    animTimer: null,
+    clockAnims: [],
     displayOverride: false,
     displayOff: false,
     ringBrightness: 255,
@@ -3034,6 +3075,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       : current + seg;
     renderPattern(State.pattern);
     validatePattern();
+    syncAnimFrame();
   }
 
   function patternTime() {
@@ -3113,11 +3155,12 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     sendBacklight(false).catch(function () { /* тихо */ });
   }
 
-  function patternSegments() {
+  function patternSegments(pattern) {
     // API: {"segments": {"A1": 255, ...}} — яркость каждого сегмента 0…255.
+    pattern = pattern || State.pattern || ['', '', '', ''];
     var segments = {};
     for (var digit = 0; digit < 4; digit++) {
-      var lit = State.pattern[digit] || '';
+      var lit = pattern[digit] || '';
       for (var i = 0; i < 'abcdefg'.length; i++) {
         var seg = 'abcdefg'[i];
         segments[seg.toUpperCase() + (digit + 1)] = lit.indexOf(seg) >= 0 ? 255 : 0;
@@ -3283,30 +3326,228 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     return Math.max(0, value);
   }
 
-  function clockAnim(mode) {
-    var labels = { wave: 'волна', pulse: 'пульс', rainbow: 'радуга',
-                   snake: 'змейка', scan: 'скан', sparkle: 'искры',
-                   sunrise: 'рассвет', off: 'стоп' };
-    return request('/clock', {
-      body: { mode: mode, brightness: 160, speed: 1 },
-      timeout: 6000
-    }).then(function () {
-      if (el.clockAnimStatus) {
-        el.clockAnimStatus.textContent = mode === 'off' ? '—' : (labels[mode] || mode);
-      }
-      Array.prototype.forEach.call(document.querySelectorAll('[data-canim]'), function (button) {
-        button.setAttribute('aria-pressed',
-          button.dataset.canim === mode && mode !== 'off' ? 'true' : 'false');
-      });
-    }).catch(function (err) {
-      toast('Дисплей: ' + err.message, 'bad');
+  var CLOCK_PRESETS = {
+    wink: {
+      name: 'Подмигивание', duration: 260, frames: [
+        ['abcdefg', 'abcdefg', 'abcdefg', 'abcdefg'],
+        ['', '', 'abcdefg', 'abcdefg'],
+        ['abcdefg', 'abcdefg', 'abcdefg', 'abcdefg'],
+        ['abcdefg', 'abcdefg', '', '']
+      ]
+    },
+    blink: {
+      name: 'Моргание', duration: 280, frames: [
+        ['abcdefg', 'abcdefg', 'abcdefg', 'abcdefg'],
+        ['', '', '', ''],
+        ['abcdefg', 'abcdefg', 'abcdefg', 'abcdefg'],
+        ['', '', '', '']
+      ]
+    },
+    snake: {
+      name: 'Змейка', duration: 220, frames: [
+        ['abcdefg', '', '', ''], ['', 'abcdefg', '', ''],
+        ['', '', 'abcdefg', ''], ['', '', '', 'abcdefg']
+      ]
+    }
+  };
+
+  function currentPattern() {
+    return (State.pattern || ['', '', '', '']).slice(0, 4).map(function (segments) {
+      return segments || '';
     });
   }
 
-  function clockAnimBind() {
-    Array.prototype.forEach.call(document.querySelectorAll('[data-canim]'), function (button) {
-      button.addEventListener('click', function () { clockAnim(button.dataset.canim); });
+  function renderAnimFrames() {
+    if (!el.animFrames) return;
+    el.animFrames.innerHTML = '';
+    State.animFrames.forEach(function (frame, index) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'anim-frame';
+      button.textContent = String(index + 1);
+      button.setAttribute('aria-pressed', index === State.animIndex ? 'true' : 'false');
+      button.addEventListener('click', function () { setAnimFrame(index); });
+      el.animFrames.appendChild(button);
     });
+  }
+
+  function setAnimFrame(index) {
+    if (!State.animFrames.length) return;
+    State.animIndex = Math.max(0, Math.min(State.animFrames.length - 1, index));
+    State.pattern = State.animFrames[State.animIndex].slice();
+    State.drawing = true;
+    el.displayPreview.classList.add('editing');
+    el.btnDraw.setAttribute('aria-pressed', 'true');
+    renderPattern(State.pattern);
+    renderAnimFrames();
+  }
+
+  function syncAnimFrame() {
+    if (!el.animEditor || el.animEditor.hidden) return;
+    State.animFrames[State.animIndex] = currentPattern();
+    renderAnimFrames();
+  }
+
+  function openAnimEditor(frames, name, duration) {
+    if (frames && frames.length) {
+      State.animFrames = frames.map(function (frame) { return frame.slice(); });
+      State.animIndex = 0;
+    }
+    if (!State.animFrames.length) {
+      State.animFrames = [currentPattern()];
+      State.animIndex = 0;
+    }
+    if (name) el.animName.value = name;
+    if (duration) el.animDuration.value = String(duration);
+    el.animEditor.hidden = false;
+    el.segToolbar.hidden = true;
+    setAnimFrame(State.animIndex || 0);
+    loadSavedAnims();
+  }
+
+  function closeAnimEditor() {
+    stopClockAnim(true);
+    el.animEditor.hidden = true;
+    State.drawing = false;
+    State.pattern = null;
+    el.displayPreview.classList.remove('editing');
+    el.btnDraw.setAttribute('aria-pressed', 'false');
+    renderTime(el.clockTime.textContent);
+  }
+
+  function playClockAnim(frames, duration, name) {
+    stopClockAnim(false);
+    frames = (frames && frames.length ? frames : State.animFrames);
+    if (!frames || !frames.length) return;
+    State.animPlaying = true;
+    setDisplayManual('anim');
+    if (el.clockAnimStatus) el.clockAnimStatus.textContent = name || 'анимация';
+    var index = 0;
+    var delay = Math.max(50, parseInt(duration, 10) || 300);
+    var step = function () {
+      if (!State.animPlaying) return;
+      var frame = frames[index % frames.length];
+      renderPattern(frame);
+      luna('/api/clock', { segments: patternSegments(frame) }).catch(function (err) {
+        stopClockAnim(true);
+        toast('Дисплей: ' + err.message, 'bad');
+      });
+      index += 1;
+      State.animTimer = setTimeout(step, delay);
+    };
+    step();
+  }
+
+  function stopClockAnim(restore) {
+    State.animPlaying = false;
+    if (State.animTimer) {
+      clearTimeout(State.animTimer);
+      State.animTimer = null;
+    }
+    if (el.clockAnimStatus) el.clockAnimStatus.textContent = '—';
+    if (restore) returnClock();
+  }
+
+  function renderSavedAnims() {
+    if (!el.animSaved) return;
+    el.animSaved.innerHTML = '';
+    (State.clockAnims || []).forEach(function (item) {
+      var row = document.createElement('div');
+      row.className = 'anim-saved-row';
+      var name = document.createElement('b');
+      name.textContent = item.name || 'Анимация';
+      var note = document.createElement('span');
+      note.className = 'seg-note';
+      note.textContent = (item.frames || []).length + ' кадров · ' + (item.duration || 300) + ' мс';
+      var play = document.createElement('button');
+      play.type = 'button';
+      play.className = 'btn sm ghost';
+      play.textContent = 'Играть';
+      play.addEventListener('click', function () {
+        openAnimEditor(item.frames, item.name, item.duration);
+        playClockAnim(item.frames, item.duration, item.name);
+      });
+      var remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'btn sm ghost';
+      remove.textContent = '×';
+      remove.title = 'Удалить';
+      remove.addEventListener('click', function () { deleteClockAnim(item.id); });
+      row.appendChild(name);
+      row.appendChild(note);
+      row.appendChild(play);
+      row.appendChild(remove);
+      el.animSaved.appendChild(row);
+    });
+  }
+
+  function loadSavedAnims() {
+    return cgi('display.py', {}, { timeout: 15000, silent: true }).then(function (data) {
+      State.clockAnims = data.clock_anims || [];
+      renderSavedAnims();
+    }).catch(function () {});
+  }
+
+  function saveClockAnim() {
+    var name = (el.animName.value || '').trim();
+    if (!name) { toast('Укажите название анимации', 'warn'); return; }
+    var frames = State.animFrames.map(function (frame) { return frame.slice(); });
+    var duration = parseInt(el.animDuration.value, 10) || 300;
+    cgi('display.py', {
+      clock_anim_save: { name: name, frames: frames, duration: duration }
+    }, { timeout: 15000 }).then(function (data) {
+      State.clockAnims = data.clock_anims || [];
+      renderSavedAnims();
+      toast('Анимация сохранена', 'ok');
+    }).catch(function (err) { toast('Анимация: ' + err.message, 'bad'); });
+  }
+
+  function deleteClockAnim(id) {
+    cgi('display.py', { clock_anim_delete: id }, { timeout: 15000 }).then(function (data) {
+      State.clockAnims = data.clock_anims || [];
+      renderSavedAnims();
+    }).catch(function (err) { toast('Анимация: ' + err.message, 'bad'); });
+  }
+
+  function clockAnimBind() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-cpreset]'), function (button) {
+      button.addEventListener('click', function () {
+        var preset = CLOCK_PRESETS[button.dataset.cpreset];
+        if (!preset) return;
+        openAnimEditor(preset.frames, preset.name, preset.duration);
+        playClockAnim(preset.frames, preset.duration, preset.name);
+      });
+    });
+    if (el.btnAnimEditor) el.btnAnimEditor.addEventListener('click', function () {
+      openAnimEditor();
+    });
+    if (el.btnAnimPlay) el.btnAnimPlay.addEventListener('click', function () {
+      playClockAnim(State.animFrames, parseInt(el.animDuration.value, 10) || 300,
+        (el.animName.value || '').trim() || 'анимация');
+    });
+    if (el.btnAnimStop) el.btnAnimStop.addEventListener('click', function () { stopClockAnim(true); });
+    if (el.btnAnimClose) el.btnAnimClose.addEventListener('click', closeAnimEditor);
+    if (el.btnAnimAdd) el.btnAnimAdd.addEventListener('click', function () {
+      State.animFrames.splice(State.animIndex + 1, 0, currentPattern());
+      setAnimFrame(State.animIndex + 1);
+    });
+    if (el.btnAnimDup) el.btnAnimDup.addEventListener('click', function () {
+      State.animFrames.splice(State.animIndex + 1, 0,
+        (State.animFrames[State.animIndex] || ['', '', '', '']).slice());
+      setAnimFrame(State.animIndex + 1);
+    });
+    if (el.btnAnimDel) el.btnAnimDel.addEventListener('click', function () {
+      if (State.animFrames.length <= 1) return;
+      State.animFrames.splice(State.animIndex, 1);
+      setAnimFrame(Math.max(0, State.animIndex - 1));
+    });
+    if (el.btnAnimText) el.btnAnimText.addEventListener('click', function () {
+      var digits = String(el.animText.value || '').replace(/\D/g, '').slice(0, 4);
+      if (digits.length !== 4) { toast('Введите 4 цифры, например 12:34', 'warn'); return; }
+      State.animFrames[State.animIndex] = digits.split('').map(segmentsForChar);
+      setAnimFrame(State.animIndex);
+    });
+    if (el.btnAnimSave) el.btnAnimSave.addEventListener('click', saveClockAnim);
   }
 
   function updateMediaProgress() {
@@ -8036,6 +8277,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'alarmStationList', 'alarmCustomStation', 'alarmMusicBox', 'alarmMusicText',
       'alarmVolume', 'alarmVolumeVal', 'alarmRamp', 'alarmStop', 'alarmSnooze',
       'btnAlarmAdd', 'clockAnimStatus', 'btnAlarmOpen', 'btnAlarmClose', 'alarmDlg',
+      'animEditor', 'animName', 'animFrames', 'animDuration', 'animText', 'animSaved',
+      'btnAnimEditor', 'btnAnimPlay', 'btnAnimStop', 'btnAnimSave', 'btnAnimClose',
+      'btnAnimAdd', 'btnAnimDup', 'btnAnimDel', 'btnAnimText',
       'volume', 'volumeVal', 'btnVolDown', 'btnVolUp', 'btnMute',
       'btnMic', 'micHint', 'micTimer', 'transcript', 'btnRepeat', 'btnCancelListen',
       'command', 'btnSendCmd', 'ttsText', 'ttsCount', 'btnTtsClear', 'btnSay', 'ttsChips',
