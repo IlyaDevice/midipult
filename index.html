@@ -356,11 +356,26 @@ main.grid{
 .alarm-what{font-size:13px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .alarm-actions{display:flex;gap:6px;align-items:center}
 .alarm-dlg{width:min(520px,94vw);border:0;border-radius:22px;padding:0;background:#0b0e16;color:var(--text);
-  box-shadow:0 30px 80px rgba(0,0,0,.55);overflow:hidden}
+  box-shadow:0 30px 80px rgba(0,0,0,.55);overflow:visible}
 .alarm-dlg::backdrop{background:rgba(4,6,12,.7);backdrop-filter:blur(8px)}
 .alarm-dlg-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px 6px}
 .alarm-dlg-head h3{margin:0;font-size:17px}
 .alarm-form{display:flex;flex-direction:column;gap:10px;padding:14px 20px 20px}
+.alarm-modes{display:flex;gap:6px;flex:1 1 auto;justify-content:flex-end}
+.alarm-modes .chip{height:42px;padding:0 14px;flex:0 0 auto}
+.alarm-station{position:relative}
+.alarm-select{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;height:40px;
+  padding:0 12px;border-radius:12px;border:1px solid var(--stroke);background:rgba(255,255,255,.045);
+  color:var(--text);font:inherit;font-size:14px;cursor:pointer}
+.alarm-select:hover{background:rgba(255,255,255,.07)}
+.alarm-caret{opacity:.6}
+.alarm-station-list{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:20;max-height:230px;
+  overflow:auto;border-radius:14px;border:1px solid var(--stroke);background:#121724;
+  box-shadow:0 18px 40px rgba(0,0,0,.5);padding:6px}
+.alarm-station-item{display:block;width:100%;text-align:left;padding:8px 10px;border:0;border-radius:9px;
+  background:transparent;color:var(--text);font:inherit;font-size:13px;cursor:pointer}
+.alarm-station-item:hover,.alarm-station-item[aria-selected="true"]{background:rgba(124,92,255,.22)}
+body.light .alarm-station-list{background:#fff}
 .alarm-row{display:flex;gap:10px;align-items:center}
 .alarm-row > *{flex:1 1 0;min-width:0}
 .alarm-form input[type="time"]{height:42px;font-size:20px;font-weight:650;text-align:center}
@@ -1258,12 +1273,24 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     <div class="alarm-form">
       <div class="alarm-row">
         <input type="time" id="alarmTime" value="07:00" aria-label="Время будильника">
-        <select id="alarmMode" aria-label="Что включать">
-          <option value="radio">Радио</option>
-          <option value="query">Фраза Алисе</option>
-        </select>
+        <div class="alarm-modes" id="alarmModes">
+          <button type="button" class="chip" data-amode="radio" aria-pressed="true">Радио</button>
+          <button type="button" class="chip" data-amode="query" aria-pressed="false">Фраза</button>
+        </div>
       </div>
-      <input type="text" id="alarmText" placeholder="Станция или фраза" maxlength="200" aria-label="Станция или фраза">
+      <div id="alarmRadioBox">
+        <div class="alarm-station" id="alarmStationBox">
+          <button type="button" class="alarm-select" id="btnAlarmStation">
+            <span id="alarmStationName">Выберите станцию</span>
+            <span class="alarm-caret">▾</span>
+          </button>
+          <div class="alarm-station-list" id="alarmStationList" hidden></div>
+        </div>
+        <input type="text" id="alarmCustomStation" maxlength="120"
+               placeholder="Своя станция или поток (если нет в списке)" autocomplete="off">
+      </div>
+      <input type="text" id="alarmText" placeholder="Что сказать Алисе" maxlength="200"
+             aria-label="Фраза для Алисы" hidden>
       <div class="alarm-days" id="alarmDays"></div>
       <div class="alarm-row">
         <label class="alarm-num">Громкость <output id="alarmVolumeVal">40%</output>
@@ -2045,6 +2072,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     mediaCover: '',
     liked: false,
     queueTab: 'queue',
+    alarmMode: 'radio',
+    alarmStations: [],
+    alarmStation: null,
     lyricsInline: false,
     lyricsActive: null,
     lyricsLines: [],
@@ -3246,6 +3276,66 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
                     [5, 'Пт'], [6, 'Сб'], [7, 'Вс']];
   var alarmDays = new Set([1, 2, 3, 4, 5]);
 
+  function updateAlarmStationName() {
+    if (!el.alarmStationName) return;
+    el.alarmStationName.textContent = State.alarmStation
+      ? (State.alarmStation.name || State.alarmStation.query || 'Станция')
+      : 'Выберите станцию';
+  }
+
+  function renderAlarmStationList() {
+    if (!el.alarmStationList) return;
+    el.alarmStationList.innerHTML = '';
+    (State.alarmStations || []).forEach(function (station) {
+      var row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'alarm-station-item';
+      row.textContent = station.name + (station.custom ? ' · своя' : '');
+      row.setAttribute('aria-selected',
+        State.alarmStation && State.alarmStation.name === station.name ? 'true' : 'false');
+      row.addEventListener('click', function () {
+        State.alarmStation = station;
+        updateAlarmStationName();
+        el.alarmStationList.hidden = true;
+      });
+      el.alarmStationList.appendChild(row);
+    });
+    if (!State.alarmStations.length) {
+      var note = document.createElement('div');
+      note.className = 'alarm-station-item';
+      note.textContent = 'Станции не загрузились — введите вручную';
+      el.alarmStationList.appendChild(note);
+    }
+  }
+
+  function loadAlarmStations() {
+    if (State.alarmStations.length) {
+      renderAlarmStationList();
+      updateAlarmStationName();
+      return Promise.resolve();
+    }
+    return cgi('radio.py', {}, { timeout: 15000, silent: true }).then(function (data) {
+      State.alarmStations = data.stations || [];
+      if (!State.alarmStation) {
+        var preferred = State.alarmStations.filter(function (station) {
+          return /европа/i.test(station.name || '');
+        })[0];
+        State.alarmStation = preferred || State.alarmStations[0] || null;
+      }
+      renderAlarmStationList();
+      updateAlarmStationName();
+    }).catch(function () {});
+  }
+
+  function setAlarmMode(mode) {
+    State.alarmMode = mode === 'query' ? 'query' : 'radio';
+    Array.prototype.forEach.call(document.querySelectorAll('[data-amode]'), function (button) {
+      button.setAttribute('aria-pressed', button.dataset.amode === State.alarmMode ? 'true' : 'false');
+    });
+    if (el.alarmRadioBox) el.alarmRadioBox.hidden = State.alarmMode !== 'radio';
+    if (el.alarmText) el.alarmText.hidden = State.alarmMode !== 'query';
+  }
+
   function alarmDaysText(days) {
     if (!days || !days.length) return 'Один раз';
     var sorted = days.slice().sort();
@@ -3378,10 +3468,19 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   }
 
   function alarmAdd() {
+    var custom = (el.alarmCustomStation && el.alarmCustomStation.value || '').trim();
+    var phrase = (el.alarmText && el.alarmText.value || '').trim();
+    var text = State.alarmMode === 'query'
+      ? phrase
+      : (custom || (State.alarmStation && (State.alarmStation.query || State.alarmStation.name)) || '');
+    if (!text) {
+      toast(State.alarmMode === 'query' ? 'Введите фразу для Алисы' : 'Выберите станцию или введите свою', 'warn');
+      return;
+    }
     var payload = {
       time: el.alarmTime.value || '07:00',
-      mode: el.alarmMode.value || 'radio',
-      text: (el.alarmText.value || '').trim(),
+      mode: State.alarmMode,
+      text: text,
       days: Array.from(alarmDays),
       volume: parseInt(el.alarmVolume.value, 10) || 40,
       ramp: parseInt(el.alarmRamp.value, 10) || 0,
@@ -3390,7 +3489,8 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     };
     return cgi('alarm.py', { add: payload }, { timeout: 15000 }).then(function (data) {
       renderAlarmList(data.alarms || []);
-      el.alarmText.value = '';
+      if (el.alarmCustomStation) el.alarmCustomStation.value = '';
+      if (el.alarmText) el.alarmText.value = '';
       if (el.alarmDlg && el.alarmDlg.open) el.alarmDlg.close();
       toast('Будильник добавлен', 'ok');
     }).catch(function (err) { toast('Будильник: ' + err.message, 'bad'); });
@@ -7035,7 +7135,16 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       alarmAdd();
     });
     if (el.btnAlarmOpen) el.btnAlarmOpen.addEventListener('click', function () {
+      setAlarmMode(State.alarmMode || 'radio');
       if (el.alarmDlg) el.alarmDlg.showModal();
+      loadAlarmStations();
+    });
+    if (el.btnAlarmStation) el.btnAlarmStation.addEventListener('click', function (event) {
+      event.stopPropagation();
+      if (el.alarmStationList) el.alarmStationList.hidden = !el.alarmStationList.hidden;
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-amode]'), function (button) {
+      button.addEventListener('click', function () { setAlarmMode(button.dataset.amode); });
     });
     if (el.btnAlarmClose) el.btnAlarmClose.addEventListener('click', function () {
       if (el.alarmDlg) el.alarmDlg.close();
@@ -7043,6 +7152,10 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     if (el.alarmDlg) {
       el.alarmDlg.addEventListener('click', function (event) {
         if (event.target === el.alarmDlg) el.alarmDlg.close();
+        if (el.alarmStationList) el.alarmStationList.hidden = true;
+      });
+      el.alarmDlg.addEventListener('close', function () {
+        if (el.alarmStationList) el.alarmStationList.hidden = true;
       });
     }
     if (el.btnAlarmDismiss) el.btnAlarmDismiss.addEventListener('click', alarmDismiss);
@@ -7504,7 +7617,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'btnQueue', 'queueDlg', 'queueName', 'queueList', 'btnQueueClose', 'queueKicker',
       'lyricsNow', 'lyricsInline',
       'alarmList', 'alarmRinging', 'alarmRingLabel', 'btnAlarmDismiss',
-      'btnAlarmSnooze', 'alarmTime', 'alarmMode', 'alarmText', 'alarmDays',
+      'btnAlarmSnooze', 'alarmTime', 'alarmText', 'alarmDays',
+      'alarmRadioBox', 'alarmModes', 'btnAlarmStation', 'alarmStationName',
+      'alarmStationList', 'alarmCustomStation',
       'alarmVolume', 'alarmVolumeVal', 'alarmRamp', 'alarmStop', 'alarmSnooze',
       'btnAlarmAdd', 'clockAnimStatus', 'btnAlarmOpen', 'btnAlarmClose', 'alarmDlg',
       'volume', 'volumeVal', 'btnVolDown', 'btnVolUp', 'btnMute',
