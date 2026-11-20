@@ -535,6 +535,9 @@ def test_yapanel_features():
               'id="btnLyrics"', 'id="lyricsBox"', "currentProgress")))
     check("текст: без караоке-заливки",
           "np-lyric-text::before" not in html and "State.audioProgress" in html)
+    check("радио: компактный список",
+          all(token in html for token in (
+              'id="btnRadioPick"', 'id="radioPop"', 'id="radioSearch"')))
     check("UI: лайки и оверлей текста",
           all(token in html for token in (
               'id="btnLike"', 'id="btnDislike"', 'id="lyricsDlg"',

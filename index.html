@@ -181,7 +181,21 @@ main.grid{
   }
   .radio-grid .chip{width:100%;min-width:0;justify-content:flex-start;gap:6px;padding:0 12px;overflow:hidden}
   .radio-grid .radio-label{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
-  .radio-controls{max-width:100%;margin-top:10px}
+  .radio-picker{position:relative;margin-top:12px;z-index:2}
+.c-radio{overflow:hidden}
+.radio-pick-count{font-size:11px;color:var(--muted);margin-left:auto;margin-right:2px}
+.radio-picker .radio-list{position:static;left:auto;right:auto;top:auto;max-height:260px;
+  margin-top:8px;padding:6px;background:#0f1420;border-radius:12px;overscroll-behavior:contain}
+.radio-list .radio-option{font-size:13.5px;padding:9px 10px;border-radius:8px}
+.radio-list .radio-option + .radio-option{margin-top:2px}
+.radio-list .radio-option:hover{background:rgba(124,92,255,.20)}
+.radio-list .net-input{height:34px;margin-bottom:6px;position:sticky;top:-8px;z-index:1}
+.radio-option{display:flex;align-items:center;gap:8px;width:100%}
+.radio-option .radio-label{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;text-align:left}
+.radio-option .chip-x{margin-left:auto;flex:0 0 auto}
+.radio-option[hidden]{display:none}
+.radio-controls{max-width:100%;margin-top:10px}
   .radio-add{display:flex;gap:var(--gap-sm);align-items:center}
   .radio-add .net-input{flex:1 1 auto;min-width:0}
   .radio-add .btn{flex:0 0 160px}
@@ -1328,7 +1342,19 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   <!-- ───────── радио ───────── -->
   <section class="card c-radio" data-group="sound" aria-labelledby="h-radio">
     <h2 id="h-radio"><span class="dot"></span>Радио</h2>
-    <div class="radio-grid" id="radioChips"></div>
+    <div class="radio-picker">
+      <button type="button" class="alarm-select" id="btnRadioPick"
+              aria-haspopup="listbox" aria-expanded="false">
+        <span id="radioPickName">Выберите станцию</span>
+        <span class="radio-pick-count" id="radioPickCount"></span>
+        <span class="alarm-caret">▾</span>
+      </button>
+      <div class="alarm-station-list radio-list" id="radioPop" hidden>
+        <input type="text" id="radioSearch" class="net-input" placeholder="Поиск станции"
+               autocomplete="off" aria-label="Поиск радиостанции">
+        <div id="radioChips" role="listbox" aria-label="Радиостанции"></div>
+      </div>
+    </div>
     <div class="radio-controls">
       <div class="radio-add">
         <input id="radioName" class="net-input" placeholder="Свой канал: например, Радио Шансон" autocomplete="off">
@@ -5304,10 +5330,46 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   }
 
   /* ─────────── радио ─────────── */
+  function filterRadio() {
+    if (!el.radioChips || !el.radioSearch) return;
+    var query = (el.radioSearch.value || '').trim().toLowerCase();
+    Array.prototype.forEach.call(el.radioChips.children, function (option) {
+      var label = option.querySelector('.radio-label');
+      var name = label ? (label.textContent || '').toLowerCase() : '';
+      option.hidden = !!query && name.indexOf(query) < 0;
+    });
+  }
+
+  function toggleRadioPop(show) {
+    if (!el.radioPop || !el.btnRadioPick) return;
+    el.radioPop.hidden = !show;
+    el.btnRadioPick.setAttribute('aria-expanded', show ? 'true' : 'false');
+    if (show) {
+      el.radioSearch.value = '';
+      filterRadio();
+      setTimeout(function () { el.radioSearch.focus(); }, 30);
+    }
+  }
+
   function markRadioChip() {
     var current = State.radio ? State.radio.index : null;
-    Array.prototype.forEach.call(el.radioChips.children, function (chip) {
-      chip.setAttribute('aria-pressed', String(parseInt(chip.dataset.index, 10) === current));
+    var station = null;
+    if (State.radio && State.radio.stations) {
+      State.radio.stations.some(function (item) {
+        if (item.index === current) { station = item; return true; }
+        return false;
+      });
+    }
+    if (el.radioPickName) {
+      el.radioPickName.textContent = station ? station.name : 'Выберите станцию';
+    }
+    if (el.radioPickCount) {
+      el.radioPickCount.textContent = String((State.radio && State.radio.stations || []).length);
+    }
+    Array.prototype.forEach.call(el.radioChips.children, function (option) {
+      var active = parseInt(option.dataset.index, 10) === current;
+      option.setAttribute('aria-pressed', String(active));
+      option.setAttribute('aria-selected', String(active));
     });
   }
 
@@ -5316,19 +5378,20 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     State.radio.stations = stations || [];
     el.radioChips.innerHTML = '';
     State.radio.stations.forEach(function (station) {
-      var chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'chip';
-      chip.dataset.index = station.index;
+      var option = document.createElement('button');
+      option.type = 'button';
+      option.className = 'alarm-station-item radio-option';
+      option.dataset.index = station.index;
+      option.setAttribute('role', 'option');
       var label = document.createElement('span');
       label.className = 'radio-label';
       label.textContent = station.name;
-      chip.appendChild(label);
+      option.appendChild(label);
       if (station.url) {
-        chip.classList.add('radio-url');
-        chip.title = 'Поток: ' + station.url;
+        option.classList.add('radio-url');
+        option.title = 'Поток: ' + station.url;
       } else {
-        chip.title = 'Алиса: ' + (station.query || station.name);
+        option.title = 'Алиса: ' + (station.query || station.name);
       }
       if (station.custom) {
         var del = document.createElement('span');
@@ -5339,11 +5402,12 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
           ev.stopPropagation();
           removeRadio(station.name);
         });
-        chip.appendChild(del);
+        option.appendChild(del);
       }
-      el.radioChips.appendChild(chip);
+      el.radioChips.appendChild(option);
     });
     markRadioChip();
+    filterRadio();
   }
 
   function loadRadio() {
@@ -8025,10 +8089,26 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     el.btnVoiceDaemon.addEventListener('click', toggleVoiceDaemon);
 
     /* радио */
+    el.btnRadioPick.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      toggleRadioPop(el.radioPop.hidden);
+    });
+    el.radioSearch.addEventListener('input', filterRadio);
+    el.radioPop.addEventListener('click', function (ev) { ev.stopPropagation(); });
+    document.addEventListener('click', function (ev) {
+      if (!ev.target.closest('.radio-picker')) toggleRadioPop(false);
+    });
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape' && el.radioPop && !el.radioPop.hidden) {
+        toggleRadioPop(false);
+        el.btnRadioPick.focus();
+      }
+    });
     el.radioChips.addEventListener('click', function (ev) {
-      var chip = ev.target.closest('.chip');
-      if (!chip || chip.dataset.index === undefined) return;
-      playRadio(parseInt(chip.dataset.index, 10));
+      var option = ev.target.closest('.radio-option');
+      if (!option || option.dataset.index === undefined) return;
+      toggleRadioPop(false);
+      playRadio(parseInt(option.dataset.index, 10));
     });
     el.btnRadioPrev.addEventListener('click', function () { stepRadio(-1); });
     el.btnRadioNext.addEventListener('click', function () { stepRadio(1); });
@@ -8306,6 +8386,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'btnVoiceDaemon', 'voiceDaemonStatus',
       'radioChips', 'btnRadioPrev', 'btnRadioStop', 'btnRadioNext', 'radioStatus',
       'radioName', 'btnRadioAdd', 'radioUrl', 'btnRadioStream',
+      'btnRadioPick', 'radioPickName', 'radioPickCount', 'radioPop', 'radioSearch',
       'btnBtPairMode', 'btnBtScan', 'btStatus', 'btDevices', 'btnBtPower',
       'netPsk', 'btnNetScan', 'netStatus', 'netList', 'netDetails',
       'netDns', 'btnNetDns', 'btnNetDnsReset', 'netIpv6', 'ipv6Status',
