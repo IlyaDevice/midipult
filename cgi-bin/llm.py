@@ -24,6 +24,11 @@ import urllib.request
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
 
+try:
+    import websearch  # noqa: E402
+except Exception:  # noqa: BLE001
+    websearch = None
+
 CONFIG_DIR = "/data/mypult"
 CONFIG_PATH = os.path.join(CONFIG_DIR, "llm.json")
 CHATS_PATH = os.path.join(CONFIG_DIR, "chats.json")
@@ -95,6 +100,10 @@ def load_config():
         data["max_tokens"] = 260
     if not isinstance(data.get("system_prompt"), str):
         data["system_prompt"] = ""
+    if not isinstance(data.get("web_search"), bool):
+        data["web_search"] = False
+    if not isinstance(data.get("search_url"), str):
+        data["search_url"] = ""
     return data
 
 
@@ -148,6 +157,8 @@ def info(config=None):
         # Совместимость со старым API: enabled теперь означает голосовой тумблер.
         "enabled": voice_enabled(config),
         "system_prompt": str(config.get("system_prompt") or ""),
+        "web_search": bool(config.get("web_search")),
+        "search_url": str(config.get("search_url") or ""),
         "config": public_profile(active),
         "max_tokens": int(config.get("max_tokens") or 260),
         "chats": [chat_public(item) for item in chats.get("chats") or []],
@@ -224,7 +235,7 @@ def _http_detail(exc, limit=600):
         return ""
 
 
-def ask(prompt, system=None):
+def ask(prompt, system=None, search=None):
     config = load_config()
     profile = active_profile(config)
     if not profile:
@@ -252,6 +263,28 @@ def ask(prompt, system=None):
     messages = []
     if not system:
         system = str(config.get("system_prompt") or "").strip()
+
+    # Веб-поиск: короткая выжимка из интернета уходит в system-промпт.
+    # `search` из запроса важнее настройки (голосовые триггеры вроде «поищи»).
+    use_search = bool(config.get("web_search")) if search is None else bool(search)
+    sources = []
+    search_source = ""
+    search_note = ""
+    if use_search and websearch is not None:
+        query = websearch.query_from_prompt(prompt) or prompt
+        try:
+            found = websearch.search(
+                query, searx_url=str(config.get("search_url") or ""))
+        except Exception as exc:  # noqa: BLE001 - поиск не должен валить ответ
+            found = {"results": [], "error": str(exc)[:200], "source": None}
+        sources = found.get("results") or []
+        search_source = str(found.get("source") or "")
+        if sources:
+            extra = websearch.context(sources, query)
+            system = (system + "\n\n" + extra) if system else extra
+        else:
+            search_note = str(found.get("error") or "ничего не найдено")[:200]
+
     if system:
         messages.append({"role": "system", "content": system})
     messages.extend((chat.get("messages") or [])[-10:])
@@ -311,7 +344,9 @@ def ask(prompt, system=None):
     common.ok(answer=answer, model=payload["model"], provider=provider,
               profile=profile.get("name"), chat=chat.get("name"),
               chat_id=chat.get("id"), usage=body.get("usage"),
-              temperature_dropped=temperature_dropped)
+              temperature_dropped=temperature_dropped,
+              sources=sources, search_source=search_source,
+              search_note=search_note)
 
 
 def save_profile(config, data):
@@ -450,7 +485,7 @@ def main():
     data = common.params()
     action_keys = ("prompt", "enabled", "voice_enabled", "activate", "delete", "provider", "name", "profile_id",
                    "max_tokens", "system_prompt", "chat_next", "chat_prev", "chat_new", "chat_select",
-                   "chat_delete", "chat_rename")
+                   "chat_delete", "chat_rename", "web_search", "search_url")
     if common.truthy(data.get("info")) or not any(key in data for key in action_keys):
         common.respond(200, info())
         return
@@ -469,6 +504,27 @@ def main():
             common.fail(413, "Промпт длиннее 4000 символов")
             return
         config["system_prompt"] = prompt
+        save_config(config)
+        common.respond(200, info(config))
+        return
+
+    if data.get("web_search") is not None:
+        config["web_search"] = common.truthy(data.get("web_search"))
+        save_config(config)
+        common.respond(200, info(config))
+        return
+
+    if data.get("search_url") is not None:
+        url = str(data.get("search_url") or "").strip()
+        if url:
+            try:
+                common.url_guard(url, allow_http=True, allow_private=True,
+                                 allow_loopback=False)
+            except ValueError as exc:
+                common.fail(400, "Некорректный адрес SearXNG: %s" % exc)
+                return
+            url = url.rstrip("/")
+        config["search_url"] = url
         save_config(config)
         common.respond(200, info(config))
         return
@@ -511,7 +567,10 @@ def main():
         if len(prompt) > 4000:
             common.fail(413, "Запрос длиннее 4000 символов")
             return
-        ask(prompt, data.get("system"))
+        search = None
+        if data.get("search") is not None:
+            search = common.truthy(data.get("search"))
+        ask(prompt, data.get("system"), search)
         return
 
     # только тумблер голосовых вопросов, без правки профиля

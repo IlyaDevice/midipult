@@ -185,6 +185,8 @@ main.grid{
   .radio-add{display:flex;gap:var(--gap-sm);align-items:center}
   .radio-add .net-input{flex:1 1 auto;min-width:0}
   .radio-add .btn{flex:0 0 160px}
+  .radio-add + .radio-add{margin-top:8px}
+  .radio-grid .chip.radio-url .radio-label::after{content:' ↗';opacity:.6;font-size:11px}
   .radio-player{display:flex;gap:var(--gap-sm);align-items:center;flex-wrap:wrap;margin-top:12px}
   .radio-player .btn{flex:0 0 120px}
   .radio-player .seg-note{min-width:0}
@@ -821,6 +823,10 @@ body.light .reboot-bar{background:rgba(76,62,48,.1)}
   font-size:var(--fs-12);line-height:1.6;color:#9fb0c9;white-space:pre-wrap;word-break:break-word;
 }
 .log .err{color:#ffb3c0}
+.llm-sources{margin-top:8px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.llm-source{font-size:var(--fs-12);line-height:1.4;color:#8fc7ff;text-decoration:none;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.llm-sources .seg-note{color:#8f9bb3}
 
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important}
@@ -1056,6 +1062,10 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         <input id="radioName" class="net-input" placeholder="Свой канал: например, Радио Шансон" autocomplete="off">
         <button class="btn sm ghost" id="btnRadioAdd">Добавить</button>
       </div>
+      <div class="radio-add">
+        <input id="radioUrl" class="net-input" placeholder="Свой поток: http://…/stream.mp3" autocomplete="off">
+        <button class="btn sm ghost" id="btnRadioStream">Добавить поток</button>
+      </div>
       <div class="radio-player">
         <button class="btn sm ghost" id="btnRadioPrev" aria-label="Предыдущая станция">◀</button>
         <button class="btn sm" id="btnRadioStop">Стоп</button>
@@ -1122,6 +1132,15 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       </label>
     </div>
 
+    <div class="row between" style="margin-top:8px">
+      <label class="llm-toggle"><input type="checkbox" id="llmSearch"><span>Искать в интернете</span></label>
+      <span class="seg-note" id="llmSearchStatus">выкл</span>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <input id="llmSearchUrl" class="net-input" placeholder="Свой SearXNG: https://searx.example (необязательно)" autocomplete="off">
+      <button class="btn sm ghost" id="btnLlmSearchUrl">Сохранить</button>
+    </div>
+
     <label class="llm-field" style="margin-top:10px"><span>Характер ответов (system prompt)</span>
       <textarea id="llmSystem" rows="3" maxlength="4000"
         placeholder="Пусто — стандартный голосовой ассистент. Здесь можно задать стиль, имя и правила."></textarea>
@@ -1167,6 +1186,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       </div>
     </div>
     <div class="transcript empty" id="llmAnswer" aria-live="polite">Ответ появится здесь.</div>
+    <div class="llm-sources" id="llmSources" hidden></div>
   </section>
 
   <!-- ───────── VPN ───────── -->
@@ -3292,6 +3312,15 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       el.llmSystem.value = data.system_prompt || '';
       el.llmSystemStatus.textContent = data.system_prompt ? 'Свой промпт' : 'Стандартный промпт';
     }
+    if (el.llmSearch) {
+      el.llmSearch.checked = !!data.web_search;
+      el.llmSearchStatus.textContent = data.web_search
+        ? ('вкл · ' + (data.search_url ? 'свой SearXNG' : 'Bing'))
+        : 'выкл';
+    }
+    if (el.llmSearchUrl && document.activeElement !== el.llmSearchUrl) {
+      el.llmSearchUrl.value = data.search_url || '';
+    }
     applyProfile(findProfile(data.active));
     updateLlmStatus();
     // Кастомный dropdown мог отрисоваться до ответа llm.py — синхронизируем
@@ -3365,6 +3394,27 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     });
   }
 
+  function toggleLlmSearch() {
+    var on = el.llmSearch.checked ? 1 : 0;
+    return cgi('llm.py', { web_search: on }, { timeout: 15000 }).then(function (data) {
+      applyLlmInfo(data);
+      toast(on ? 'Поиск в интернете включён' : 'Поиск в интернете выключен', 'ok');
+    }).catch(function (err) {
+      el.llmSearch.checked = !el.llmSearch.checked;
+      toast('Поиск: ' + err.message, 'bad');
+    });
+  }
+
+  function saveLlmSearchUrl() {
+    var url = el.llmSearchUrl.value.trim();
+    return cgi('llm.py', { search_url: url }, { timeout: 15000 }).then(function (data) {
+      applyLlmInfo(data);
+      toast(url ? 'SearXNG сохранён' : 'По умолчанию — Bing', 'ok');
+    }).catch(function (err) {
+      toast('SearXNG: ' + err.message, 'bad');
+    });
+  }
+
   function saveLlm() {
     var model = el.llmModel.value === '__custom'
       ? el.llmModelCustom.value.trim()
@@ -3396,6 +3446,32 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     });
   }
 
+  function renderLlmSources(items, note) {
+    if (!el.llmSources) return;
+    el.llmSources.innerHTML = '';
+    if (!items || !items.length) {
+      var empty = !!note;
+      el.llmSources.hidden = !empty;
+      if (empty) el.llmSources.textContent = 'Поиск: ' + note;
+      return;
+    }
+    el.llmSources.hidden = false;
+    var head = document.createElement('div');
+    head.className = 'seg-note';
+    head.textContent = 'Источники:';
+    el.llmSources.appendChild(head);
+    items.forEach(function (item) {
+      var link = document.createElement('a');
+      link.className = 'llm-source';
+      link.href = item.url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = item.title || item.url;
+      link.title = item.url;
+      el.llmSources.appendChild(link);
+    });
+  }
+
   function askLlm() {
     var prompt = el.llmPrompt.value.trim();
     if (!prompt) { toast('Введите запрос', 'warn'); return; }
@@ -3407,6 +3483,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         el.llmAnswer.textContent = State.llmAnswer || '(пустой ответ)';
         el.llmAnswer.classList.toggle('empty', !State.llmAnswer);
         el.btnLlmSay.disabled = !State.llmAnswer;
+        renderLlmSources(data.sources, data.search_note);
         var tokens = data.usage && data.usage.total_tokens
           ? ' · ' + data.usage.total_tokens + ' токенов' : '';
         el.llmMeta.textContent = [data.provider, data.model].filter(Boolean).join(' · ') + tokens;
@@ -3597,6 +3674,12 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       label.className = 'radio-label';
       label.textContent = station.name;
       chip.appendChild(label);
+      if (station.url) {
+        chip.classList.add('radio-url');
+        chip.title = 'Поток: ' + station.url;
+      } else {
+        chip.title = 'Алиса: ' + (station.query || station.name);
+      }
       if (station.custom) {
         var del = document.createElement('span');
         del.className = 'chip-x';
@@ -3616,8 +3699,36 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   function loadRadio() {
     return cgi('radio.py', {}, { timeout: 8000, silent: true }).then(function (data) {
       renderRadio(data.stations || []);
+      if (data.stream && data.stream.playing) {
+        el.radioStatus.textContent = 'играет свой поток';
+      }
     }).catch(function (err) {
       el.radioStatus.textContent = 'радио: ' + err.message;
+    });
+  }
+
+  function addRadioStream() {
+    var name = el.radioName.value.trim();
+    var url = el.radioUrl.value.trim();
+    if (name.length < 2) {
+      toast('Название потока — минимум 2 символа', 'warn');
+      el.radioName.focus();
+      return;
+    }
+    if (!/^https?:\/\/[^\s]+$/.test(url)) {
+      toast('Ссылка должна начинаться с http:// или https://', 'warn');
+      el.radioUrl.focus();
+      return;
+    }
+    return withBusy(el.btnRadioStream, function () {
+      return cgi('radio.py', { add: name, url: url }, { timeout: 15000 }).then(function (data) {
+        renderRadio(data.stations || []);
+        el.radioName.value = '';
+        el.radioUrl.value = '';
+        toast('Поток добавлен: ' + name, 'ok');
+      }).catch(function (err) {
+        toast('Радио: ' + err.message, 'bad');
+      });
     });
   }
 
@@ -3650,14 +3761,20 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   function playRadio(index) {
     return withBusy(null, function () {
       el.radioStatus.textContent = 'включаю…';
-      return cgi('radio.py', { index: index }, { timeout: 45000 }).then(function (data) {
+      return cgi('radio.py', { index: index }, { timeout: 60000 }).then(function (data) {
         if (State.radio) State.radio.index = index;
         markRadioChip();
-        el.radioStatus.textContent = (data.playing ? 'играет: ' : 'загружено: ') +
-          (data.title || 'радио');
+        if (data.stream) {
+          el.radioStatus.textContent = 'поток: ' +
+            (((data.station || {}).name) || 'свой канал');
+        } else {
+          el.radioStatus.textContent = (data.playing ? 'играет: ' : 'загружено: ') +
+            (data.title || 'радио');
+        }
         refreshPlayer(true);
       }).catch(function (err) {
         el.radioStatus.textContent = 'не включилось';
+        if (err.data && err.data.log) log('radio', 'stream', err.data.log, true);
         toast('Радио: ' + err.message, 'bad');
       });
     });
@@ -5913,6 +6030,14 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     el.btnLlmSystem.addEventListener('click', saveLlmSystem);
     el.btnLlmAsk.addEventListener('click', askLlm);
     el.btnLlmSay.addEventListener('click', sayLlmAnswer);
+    el.llmSearch.addEventListener('change', toggleLlmSearch);
+    el.btnLlmSearchUrl.addEventListener('click', saveLlmSearchUrl);
+    el.llmSearchUrl.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        saveLlmSearchUrl();
+      }
+    });
     el.llmPrompt.addEventListener('keydown', function (ev) {
       if ((ev.ctrlKey || ev.metaKey) && ev.key === 'Enter') {
         ev.preventDefault();
@@ -5953,10 +6078,17 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     el.btnRadioNext.addEventListener('click', function () { stepRadio(1); });
     el.btnRadioStop.addEventListener('click', stopRadio);
     el.btnRadioAdd.addEventListener('click', addRadio);
+    el.btnRadioStream.addEventListener('click', addRadioStream);
     el.radioName.addEventListener('keydown', function (ev) {
       if (ev.key === 'Enter') {
         ev.preventDefault();
         addRadio();
+      }
+    });
+    el.radioUrl.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        addRadioStream();
       }
     });
 
@@ -6191,11 +6323,12 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'chatRenameDlg', 'chatRenameInput', 'btnChatRenameNo', 'btnChatRenameYes', 'llmLength',
       'llmEnabled', 'llmStatus', 'btnLlmSave', 'llmPrompt', 'btnLlmAsk', 'btnLlmSay',
       'llmSystem', 'btnLlmSystem', 'llmSystemStatus',
+      'llmSearch', 'llmSearchStatus', 'llmSearchUrl', 'btnLlmSearchUrl', 'llmSources',
       'llmAnswer', 'llmMeta',
       'vpnUrl', 'btnVpnSave', 'btnVpnToggle', 'vpnStatus', 'vpnServer', 'vpnLog', 'vpnAutostart',
       'btnVoiceDaemon', 'voiceDaemonStatus',
       'radioChips', 'btnRadioPrev', 'btnRadioStop', 'btnRadioNext', 'radioStatus',
-      'radioName', 'btnRadioAdd',
+      'radioName', 'btnRadioAdd', 'radioUrl', 'btnRadioStream',
       'btnBtPairMode', 'btnBtScan', 'btStatus', 'btDevices', 'btnBtPower',
       'netPsk', 'btnNetScan', 'netStatus', 'netList', 'netDetails',
       'netDns', 'btnNetDns', 'btnNetDnsReset', 'netIpv6', 'ipv6Status',

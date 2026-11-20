@@ -28,12 +28,14 @@ import display  # noqa: E402
 import glagol  # noqa: E402
 import llm  # noqa: E402
 import media  # noqa: E402
+import radio  # noqa: E402
 import speak  # noqa: E402
 import state_daemon  # noqa: E402
 import update  # noqa: E402
 import voice_daemon  # noqa: E402
 import volume  # noqa: E402
 import vpn  # noqa: E402
+import websearch  # noqa: E402
 
 RESULTS = []
 
@@ -591,6 +593,194 @@ def test_llm_temperature_retry():
 
 
 # --------------------------------------------------------------------------- #
+#  radio.py: свои потоки по ссылке и старый формат каналов
+# --------------------------------------------------------------------------- #
+
+def test_radio_custom_stations():
+    import tempfile
+
+    check("radio: старый формат (строки) читается",
+          radio.normalize_custom(["Радио X", {"name": "Поток", "url": "http://a/b"}])
+          == [{"name": "Радио X", "url": ""}, {"name": "Поток", "url": "http://a/b"}])
+    check("radio: пустые и мусорные записи отбрасываются",
+          radio.normalize_custom([None, "", {"url": "http://x"}]) == [])
+    check("radio: http-ссылка проходит", radio.check_url("http://example.org/stream.mp3"))
+    for bad in ("ftp://example.org/x", "http://exa mple.org", "http://x/!bad", "javascript:1"):
+        try:
+            radio.check_url(bad)
+            passed = True
+        except ValueError:
+            passed = False
+        check("radio: ссылка отклонена: %s" % bad[:24], not passed)
+
+    old_file = radio.CUSTOM_FILE
+    fd, path = tempfile.mkstemp(prefix="mypult-radio-", suffix=".json")
+    os.close(fd)
+    try:
+        radio.CUSTOM_FILE = path
+        radio.save_custom([{"name": "Старый", "url": ""},
+                           {"name": "Поток", "url": "http://example.org/a.mp3"}])
+        stations = radio.all_stations()
+        custom = [item for item in stations if item["custom"]]
+        check("radio: оба своих канала в списке", len(custom) == 2, str(custom))
+        check("radio: у потока есть url",
+              any(item["name"] == "Поток" and item["url"].endswith("a.mp3")
+                  for item in custom), str(custom))
+        check("radio: у канала без url пусто",
+              any(item["name"] == "Старый" and item["url"] == "" for item in custom))
+    finally:
+        radio.CUSTOM_FILE = old_file
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
+# --------------------------------------------------------------------------- #
+#  websearch.py и поиск в llm.py
+# --------------------------------------------------------------------------- #
+
+BING_FIXTURE = (
+    '<li class="b_algo"><h2><a href="https://www.bing.com/ck/a?!&&p=1'
+    '&amp;u=a1aHR0cHM6Ly9leGFtcGxlLmNvbS9wYWdl&amp;ntb=1">Пример страницы</a></h2>'
+    '<p>Короткое описание <b>результата</b>.</p></li>'
+    '<li class="b_algo"><h2><a href="https://example.org/direct">Второй</a></h2>'
+    '<div>Ещё сниппет</div></li>'
+)
+
+
+BING_RSS_FIXTURE = (
+    "<rss><channel>"
+    "<item><title>Погода в Екатеринбурге</title>"
+    "<link>https://yandex.ru/pogoda/yekaterinburg</link>"
+    "<description>Малооблачно, +1 °C</description></item>"
+    "<item><title>GISMETEO: Погода</title>"
+    "<link>https://www.gismeteo.ru/weather-yekaterinburg-4517/</link>"
+    "<description>Прогноз на сегодня</description></item>"
+    "</channel></rss>"
+)
+
+
+def test_websearch_parsing():
+    import websearch
+
+    check("websearch: bing-редирект раскодирован",
+          websearch._decode_bing(
+              "https://www.bing.com/ck/a?!&&u=a1aHR0cHM6Ly9leGFtcGxlLmNvbS9wYWdl")
+          == "https://example.com/page")
+    check("websearch: обычная ссылка не меняется",
+          websearch._decode_bing("https://example.org/x") == "https://example.org/x")
+
+    old_fetch = websearch._fetch
+    try:
+        websearch._fetch = lambda url, timeout=8: BING_RSS_FIXTURE
+        rss = websearch._bing_rss("погода", 5, 1)
+        websearch._fetch = lambda url, timeout=8: BING_FIXTURE
+        html_only = websearch._bing_html("тест", 5, 1)
+        websearch._fetch = lambda url, timeout=8: BING_RSS_FIXTURE
+        preferred = websearch._bing("тест", 5, 1)
+    finally:
+        websearch._fetch = old_fetch
+    check("websearch: RSS-выдача разобрана", len(rss) == 2, str(rss))
+    check("websearch: RSS отдаёт верный город",
+          rss[0]["url"].endswith("/yekaterinburg"), str(rss[0]))
+    check("websearch: HTML-выдача разобрана", len(html_only) == 2, str(html_only))
+    check("websearch: HTML сниппет без тегов",
+          html_only[0]["snippet"] == "Короткое описание результата.", str(html_only[0]))
+    check("websearch: _bing предпочитает RSS",
+          preferred and preferred[0]["url"].endswith("/yekaterinburg"), str(preferred[:1]))
+    check("websearch: запрос без инструкций и вопросительных слов",
+          websearch.query_from_prompt(
+              "Какая сегодня погода в Екатеринбурге? Ответь одной фразой.")
+          == "погода в Екатеринбурге",
+          repr(websearch.query_from_prompt(
+              "Какая сегодня погода в Екатеринбурге? Ответь одной фразой.")))
+    check("websearch: «что нового в X» → «X»",
+          websearch.query_from_prompt("Что нового в Python 3.13?") == "Python 3.13",
+          repr(websearch.query_from_prompt("Что нового в Python 3.13?")))
+    check("websearch: триггеры поиска убраны из запроса",
+          websearch.query_from_prompt("Алиса, поищи в интернете курс доллара")
+          == "курс доллара",
+          repr(websearch.query_from_prompt("Алиса, поищи в интернете курс доллара")))
+
+    old_bing, old_ddg = websearch._bing, websearch._ddg
+    try:
+        websearch._bing = lambda q, l, t: []
+        websearch._ddg = lambda q, l, t: [{"title": "DDG", "url": "https://d/x",
+                                           "snippet": "s"}]
+        found = websearch.search("вопрос")
+    finally:
+        websearch._bing, websearch._ddg = old_bing, old_ddg
+    check("websearch: fallback на ddg", found.get("source") == "ddg", str(found))
+
+    context = websearch.context([{"title": "T", "url": "https://u", "snippet": "S"}], "q")
+    check("websearch: контекст содержит источник и запрос",
+          "https://u" in context and "q" in context and "Свежие данные" in context, context)
+
+
+def test_llm_search_payload():
+    import json
+    import tempfile
+    import websearch
+
+    config = {
+        "enabled": False, "active": "p1", "web_search": True, "search_url": "",
+        "profiles": [{"id": "p1", "name": "Test", "provider": "custom",
+                      "model": "m", "base_url": "http://127.0.0.1:1", "key": "k"}],
+        "max_tokens": 260, "system_prompt": "",
+    }
+    fd, cfg_path = tempfile.mkstemp(prefix="mypult-llm-", suffix=".json")
+    chat_fd, chat_path = tempfile.mkstemp(prefix="mypult-chats-", suffix=".json")
+    os.close(fd)
+    os.close(chat_fd)
+    old = (llm.CONFIG_PATH, llm.CHATS_PATH, llm._post_chat,
+           common.respond, common.fail, websearch.search)
+    payloads, called = [], []
+    try:
+        with open(cfg_path, "w", encoding="utf-8") as fh:
+            json.dump(config, fh)
+        with open(chat_path, "w", encoding="utf-8") as fh:
+            json.dump({"active": "chat-1", "chats": [
+                {"id": "chat-1", "name": "Чат 1", "messages": []}]}, fh)
+        llm.CONFIG_PATH = cfg_path
+        llm.CHATS_PATH = chat_path
+        websearch.search = lambda query, limit=5, searx_url="", timeout=8: {
+            "results": [{"title": "Новость", "url": "https://news/x",
+                         "snippet": "Что-то случилось"}],
+            "source": "bing", "error": ""}
+
+        def fake_post(base_url, payload, key, timeout=90):
+            payloads.append(dict(payload))
+            return {"choices": [{"message": {"content": "ok"}}], "usage": {"total_tokens": 1}}
+
+        llm._post_chat = fake_post
+        common.respond = lambda status, payload, headers=None: called.append((status, payload))
+        common.fail = lambda status, message, **extra: called.append((status, {"error": message}))
+        llm.ask("что нового?")
+    finally:
+        (llm.CONFIG_PATH, llm.CHATS_PATH, llm._post_chat,
+         common.respond, common.fail, websearch.search) = old
+        for path in (cfg_path, chat_path):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+
+    system = ""
+    if payloads:
+        system = next((m["content"] for m in payloads[0]["messages"]
+                       if m.get("role") == "system"), "")
+    check("llm: поиск добавил данные в system", "Свежие данные" in system and "https://news/x" in system,
+          system[:200])
+    check("llm: в ответе есть источники",
+          bool(called) and called[-1][1].get("sources") == [
+              {"title": "Новость", "url": "https://news/x", "snippet": "Что-то случилось"}],
+          str(called[-1][1])[:200] if called else "нет ответа")
+    check("llm: источник поиска в ответе",
+          bool(called) and called[-1][1].get("search_source") == "bing")
+
+
+# --------------------------------------------------------------------------- #
 #  discovery.py: ответ UDP-discovery
 # --------------------------------------------------------------------------- #
 
@@ -913,6 +1103,9 @@ def main():
         test_glagol_device_selection,
         test_glagol_token_formats,
         test_llm_temperature_retry,
+        test_radio_custom_stations,
+        test_websearch_parsing,
+        test_llm_search_payload,
         test_media_config_override,
         test_speak_frames,
         test_display_auto,

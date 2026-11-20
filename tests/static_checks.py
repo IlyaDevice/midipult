@@ -477,6 +477,28 @@ def test_autostart_shim():
           "нет миграции старого шима")
 
 
+def test_radio_url_and_search():
+    """Своё радио по ссылке и веб-поиск для LLM."""
+    html = read(os.path.join(ROOT, "index.html"))
+    llm_py = read(os.path.join(ROOT, "cgi-bin", "llm.py"))
+    radio_py = read(os.path.join(ROOT, "cgi-bin", "radio.py"))
+    voice_py = read(os.path.join(ROOT, "service", "voice_daemon.py"))
+    check("радио: поле URL и кнопка потока",
+          'id="radioUrl"' in html and 'id="btnRadioStream"' in html
+          and "addRadioStream" in html)
+    check("радио: поток играется через GStreamer",
+          "souphttpsrc" in radio_py and "stream_play" in radio_py
+          and "STREAM_PID" in radio_py)
+    check("llm: галочка поиска и блок источников",
+          'id="llmSearch"' in html and 'id="llmSources"' in html
+          and "renderLlmSources" in html)
+    check("llm: модуль websearch подключён",
+          os.path.isfile(os.path.join(ROOT, "cgi-bin", "websearch.py"))
+          and "import websearch" in llm_py and "web_search" in llm_py)
+    check("голос: триггеры поиска в фразе",
+          "search_wanted" in voice_py and 'payload["search"] = 1' in voice_py)
+
+
 def main():
     for test in (
         test_encoding,
@@ -493,6 +515,7 @@ def main():
         test_p2_hardening,
         test_symlink_docroot_fix,
         test_autostart_shim,
+        test_radio_url_and_search,
         test_button_grids,
         test_lighttpd_config,
         test_init_script,

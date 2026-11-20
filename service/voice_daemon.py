@@ -174,6 +174,16 @@ RADIO_LIST = ("какие радио", "какие станции", "списо�
 ON_WORDS = ("включи", "включить", "вруби", "запусти", "подними", "активируй")
 OFF_WORDS = ("выключи", "выключить", "отключи", "отключить", "выруби", "останови", "опусти")
 
+# Фразы, после которых ответ стоит искать в интернете (llm.py сходит в поиск).
+SEARCH_WORDS = ("поищи", "найди в интернете", "посмотри в интернете", "погугли",
+                "что пишут", "последние новости", "какие новости", "что нового",
+                "найди в сети", "поиск в интернете", "что сейчас")
+
+
+def search_wanted(text):
+    low = normalize(text)
+    return any(word in low for word in SEARCH_WORDS)
+
 
 def has_any(text, words):
     return any(word in text for word in words)
@@ -602,9 +612,15 @@ def handle(text):
         box = {}
 
         def ask_model():
+            payload = {"prompt": text, "system": system}
+            # Явный запрос «поищи/что нового» включает поиск даже при
+            # выключенной галочке; без триггера поле не отправляем, чтобы
+            # работала общая настройка из панели.
+            if search_wanted(text):
+                payload["search"] = 1
             try:
                 box["answer"] = post(BASE + "/cgi-bin/llm.py",
-                                     {"prompt": text, "system": system}, timeout=90).get("answer")
+                                     payload, timeout=90).get("answer")
             except Exception as exc:  # noqa: BLE001
                 box["error"] = exc
 
