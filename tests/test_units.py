@@ -1211,6 +1211,18 @@ def test_clock_animation():
           != state_daemon.clock_frame("pulse", 0.25, 45, 200))
     check("часы: значения в 0..255",
           all(0 <= value <= 255 for value in state_daemon.clock_frame("rainbow", 0.3)))
+    snake = state_daemon.clock_frame("snake", 0.25, 45, 200)
+    check("часы: змейка — яркий хвост", max(snake) >= 150 and min(snake) <= 10,
+          str((max(snake), min(snake))))
+    scan = state_daemon.clock_frame("scan", 0.5, 45, 200)
+    check("часы: скан движется", max(scan) >= 150 and min(scan) <= 10,
+          str((max(scan), min(scan))))
+    sparkle = state_daemon.clock_frame("sparkle", 0.1, 45, 200)
+    check("часы: искры в пределах", any(value > 100 for value in sparkle)
+          and all(0 <= value <= 255 for value in sparkle))
+    sunrise = state_daemon.clock_frame("sunrise", 0.2, 45, 200)
+    check("часы: рассвет заполняет", any(value > 100 for value in sunrise)
+          and any(value < 20 for value in sunrise))
 
 
 def test_discovery_payload():

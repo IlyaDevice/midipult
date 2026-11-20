@@ -137,7 +137,7 @@ def sounds_loop():
         time.sleep(30)
 
 
-CLOCK_MODES = ("wave", "pulse", "rainbow", "off")
+CLOCK_MODES = ("wave", "pulse", "rainbow", "snake", "scan", "sparkle", "sunrise", "off")
 
 
 def clock_frame(mode, phase, count=45, brightness=160):
@@ -154,6 +154,20 @@ def clock_frame(mode, phase, count=45, brightness=160):
             wave = 0.5 + 0.5 * math.sin((index / float(count)) * 4 * math.pi
                                         + phase * 2 * math.pi)
             level = 0.08 + 0.92 * wave
+        elif mode == "snake":
+            head = phase * count
+            distance = abs((index - head + count / 2.0) % count - count / 2.0)
+            level = max(0.0, 1.0 - distance / 3.0) ** 2
+        elif mode == "scan":
+            head = phase * count
+            distance = abs((index - head + count / 2.0) % count - count / 2.0)
+            level = max(0.0, 1.0 - distance / 5.0) ** 2
+        elif mode == "sparkle":
+            noise = math.sin(index * 12.9898 + phase * 78.233) * 43758.5453
+            level = 1.0 if (noise - math.floor(noise)) > 0.82 else 0.04
+        elif mode == "sunrise":
+            fill = min(1.0, phase * 1.6)
+            level = 1.0 if index / float(count) <= fill else 0.03
         else:
             level = 0.0
         values.append(max(0, min(255, int(brightness * level))))

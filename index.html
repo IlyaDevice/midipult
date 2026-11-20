@@ -614,6 +614,7 @@ body.light .btn.danger:disabled{opacity:1;background:rgba(190,18,60,.10);border-
 .seg-note{font-size:var(--fs-12);color:var(--muted);flex:1 1 160px}
 .c-clock > .seg-note,.bt-list > .seg-note{flex:0 0 auto}
 .display-extra{margin-top:12px;flex-wrap:nowrap}
+.clock-anims{flex-wrap:wrap}
 .display-extra input{height:var(--ctl-h);font-size:var(--fs-14);min-width:0}
 .bright-chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));max-width:744px;gap:var(--gap-sm);margin-top:12px}
 .bright-chips .chip{width:100%;justify-content:center;padding:0 8px;font-size:var(--fs-12)}
@@ -1120,6 +1121,10 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         <button class="chip" data-canim="wave">Волна</button>
         <button class="chip" data-canim="pulse">Пульс</button>
         <button class="chip" data-canim="rainbow">Радуга</button>
+        <button class="chip" data-canim="snake">Змейка</button>
+        <button class="chip" data-canim="scan">Скан</button>
+        <button class="chip" data-canim="sparkle">Искры</button>
+        <button class="chip" data-canim="sunrise">Рассвет</button>
         <button class="chip" data-canim="off">Стоп</button>
       </div>
     </div>
@@ -3257,7 +3262,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   }
 
   function clockAnim(mode) {
-    var labels = { wave: 'волна', pulse: 'пульс', rainbow: 'радуга', off: 'стоп' };
+    var labels = { wave: 'волна', pulse: 'пульс', rainbow: 'радуга',
+                   snake: 'змейка', scan: 'скан', sparkle: 'искры',
+                   sunrise: 'рассвет', off: 'стоп' };
     return request('/clock', {
       body: { mode: mode, brightness: 160, speed: 1 },
       timeout: 6000
