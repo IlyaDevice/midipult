@@ -516,6 +516,8 @@ def test_yapanel_features():
     html = read(os.path.join(ROOT, "index.html"))
     search_py = read(os.path.join(ROOT, "cgi-bin", "websearch.py"))
     lyrics_py = read(os.path.join(ROOT, "cgi-bin", "lyrics.py"))
+    scenarios_py = read(os.path.join(ROOT, "cgi-bin", "scenarios.py"))
+    install_sh = read(os.path.join(ROOT, "deploy", "install.sh"))
     check("голос: отмена через maind --cli",
           "alice_cli" in voice and "alice_cli.cancel()" in voice)
     check("плеер: пауза через maind --cli",
