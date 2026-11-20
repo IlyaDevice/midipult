@@ -186,19 +186,20 @@ main.grid{
 .ring-anim-row{align-items:flex-start}
 .ring-picker{position:relative;flex:1 1 240px;min-width:0;z-index:2}
 .ring-picker .alarm-select{height:36px}
-.ring-picker .ring-list{position:static;left:auto;right:auto;top:auto;max-height:240px;
-  margin-top:6px;padding:6px;background:#0f1420;border-radius:12px;overscroll-behavior:contain}
+.ring-picker .ring-list{position:static;left:auto;right:auto;top:auto;max-height:none;
+  margin-top:6px;padding:6px;background:#0f1420;border-radius:12px;overflow:visible}
 .ring-option{display:flex;align-items:center;gap:8px;width:100%;font-size:13px}
 .ring-option .ring-raw{margin-left:auto;color:var(--muted);font-size:10px;opacity:.6}
 .ring-option[hidden]{display:none}
-.ring-list .net-input{height:34px;margin-bottom:6px;position:sticky;top:-6px;z-index:1}
+.picker-search{margin:0 0 6px}
+.picker-search .net-input{height:34px}
+.picker-options{max-height:240px;overflow:auto;overscroll-behavior:contain;padding:0 2px}
 .radio-pick-count{font-size:11px;color:var(--muted);margin-left:auto;margin-right:2px}
-.radio-picker .radio-list{position:static;left:auto;right:auto;top:auto;max-height:260px;
-  margin-top:8px;padding:6px;background:#0f1420;border-radius:12px;overscroll-behavior:contain}
+.radio-picker .radio-list{position:static;left:auto;right:auto;top:auto;max-height:none;
+  margin-top:8px;padding:6px;background:#0f1420;border-radius:12px;overflow:visible}
 .radio-list .radio-option{font-size:13.5px;padding:9px 10px;border-radius:8px}
 .radio-list .radio-option + .radio-option{margin-top:2px}
 .radio-list .radio-option:hover{background:rgba(124,92,255,.20)}
-.radio-list .net-input{height:34px;margin-bottom:6px;position:sticky;top:-8px;z-index:1}
 .radio-option{display:flex;align-items:center;gap:8px;width:100%}
 .radio-option .radio-label{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;
   white-space:nowrap;text-align:left}
@@ -1266,9 +1267,11 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
             <span class="alarm-caret">▾</span>
           </button>
           <div class="alarm-station-list ring-list" id="ringPickPop" hidden>
-            <input type="text" id="ringSearch" class="net-input" placeholder="Поиск анимации"
-                   autocomplete="off" aria-label="Поиск анимации кольца">
-            <div id="ringAnimList" role="listbox" aria-label="Анимации кольца"></div>
+            <div class="picker-search">
+              <input type="text" id="ringSearch" class="net-input" placeholder="Поиск анимации"
+                     autocomplete="off" aria-label="Поиск анимации кольца">
+            </div>
+            <div class="picker-options" id="ringAnimList" role="listbox" aria-label="Анимации кольца"></div>
           </div>
         </div>
         <button class="btn ghost sm" id="btnRingAnimPlay">Проиграть</button>
@@ -1390,9 +1393,11 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         <span class="alarm-caret">▾</span>
       </button>
       <div class="alarm-station-list radio-list" id="radioPop" hidden>
-        <input type="text" id="radioSearch" class="net-input" placeholder="Поиск станции"
-               autocomplete="off" aria-label="Поиск радиостанции">
-        <div id="radioChips" role="listbox" aria-label="Радиостанции"></div>
+        <div class="picker-search">
+          <input type="text" id="radioSearch" class="net-input" placeholder="Поиск станции"
+                 autocomplete="off" aria-label="Поиск радиостанции">
+        </div>
+        <div class="picker-options" id="radioChips" role="listbox" aria-label="Радиостанции"></div>
       </div>
     </div>
     <div class="radio-controls">
