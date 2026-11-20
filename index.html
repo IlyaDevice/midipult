@@ -1136,6 +1136,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   cursor:grab}
 .station-stage:active{cursor:grabbing}
 .station-gl{position:absolute;inset:0;width:100%;height:100%;display:none;z-index:2;touch-action:none}
+.station-stage::after{content:'';position:absolute;left:50%;bottom:26px;width:54%;height:38px;
+  transform:translateX(-50%);border-radius:50%;z-index:1;pointer-events:none;
+  background:radial-gradient(ellipse,rgba(0,0,0,.58),transparent 70%);filter:blur(10px)}
 .station-stage.gl-on .station-gl{display:block}
 .station-stage.gl-on .station-cube{display:none}
 .station-scene{position:relative;width:280px;height:460px;transform-style:preserve-3d;
@@ -9558,6 +9561,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     if (!state || !state.gl || !state.texture) return;
     var gl = state.gl;
     var canvas = document.getElementById('homeScreen');
+    gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, state.texture);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
@@ -9580,8 +9584,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'attribute vec2 a; void main(){ gl_Position = vec4(a, 0.0, 1.0); }');
     var fs = compile(gl.FRAGMENT_SHADER, [
       'precision highp float;',
-      'uniform vec2 u_res; uniform vec2 u_rot; uniform vec3 u_ring; uniform sampler2D u_screen;',
+      'uniform vec2 u_res; uniform vec2 u_rot; uniform vec3 u_ring; uniform sampler2D u_screen; uniform sampler2D u_fabric;',
       'const vec3 B = vec3(0.48, 0.55, 0.48);',
+      'vec3 fabricAt(vec2 uv){ vec3 c = texture2D(u_fabric, uv + 0.5).rgb; return c; }',
       'float sdRound(vec3 p){ vec3 q = abs(p) - B + 0.14;',
       '  return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - 0.14; }',
       'vec3 calcNormal(vec3 p){ vec2 e = vec2(0.0015, 0.0);',
@@ -9590,12 +9595,12 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'void main(){',
       '  vec2 uv = (gl_FragCoord.xy / u_res) * 2.0 - 1.0;',
       '  uv.x *= u_res.x / u_res.y;',
-      '  vec3 ro = vec3(sin(u_rot.x) * 2.2, 0.62 + u_rot.y, cos(u_rot.x) * 2.2);',
+      '  vec3 ro = vec3(sin(u_rot.x) * 1.55, 0.60 + u_rot.y, cos(u_rot.x) * 1.55);',
       '  vec3 ta = vec3(0.0);',
       '  vec3 ww = normalize(ta - ro);',
       '  vec3 uu = normalize(cross(ww, vec3(0.0, 1.0, 0.0)));',
       '  vec3 vv = cross(uu, ww);',
-      '  vec3 rd = normalize(uv.x * uu + uv.y * vv + 1.45 * ww);',
+      '  vec3 rd = normalize(uv.x * uu + uv.y * vv + 1.20 * ww);',
       '  float t = 0.05; bool hit = false;',
       '  for (int i = 0; i < 96; i++) {',
       '    float d = sdRound(ro + rd * t);',
@@ -9612,33 +9617,34 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       '    float m = max(abs(p.x), abs(p.z));',
       '    float ring = smoothstep(0.355, 0.37, m) * (1.0 - smoothstep(0.415, 0.44, m));',
       '    float glow = exp(-pow((m - 0.395) / 0.035, 2.0));',
-      '    col += u_ring * (ring * 1.6 + glow * 0.22);',
+      '    col += u_ring * (ring * 1.05 + glow * 0.14);',
       '    float cm = length(vec2(p.x / 0.065, p.z / 0.036));',
-      '    col += u_ring * smoothstep(1.0, 0.75, cm) * 0.85;',
+      '    col += u_ring * smoothstep(1.0, 0.75, cm) * 0.55;',
       '    float spec = pow(max(dot(reflect(-L, n), -rd), 0.0), 36.0);',
       '    col += vec3(spec * 0.35);',
+      '  } else if (n.z < -0.55) {',
+      '    col = fabricAt(p.xy) * vec3(0.62, 0.64, 0.68);',
+      '    float mute = length(vec2(p.x / 0.115, (p.y - 0.34) / 0.038));',
+      '    if (mute < 1.0) col = vec3(0.008, 0.009, 0.012);',
+      '    if (mute < 0.55 && abs(p.x) < 0.008 && abs(p.y - 0.34) < 0.012) col = vec3(0.55);',
+      '    float usb = length(vec2(p.x / 0.07, (p.y + 0.44) / 0.018));',
+      '    if (usb < 1.0) col = vec3(0.003);',
       '  } else if (n.z > 0.55) {',
-      '    float f = 0.5 + 0.5 * sin(p.x * 280.0) * sin(p.y * 280.0);',
-      '    col = vec3(0.095, 0.100, 0.115) * (0.80 + 0.20 * f);',
-      '    vec2 suv = vec2((p.x + 0.31) / 0.62, (p.y - 0.02) / 0.22);',
+      '    col = fabricAt(p.xy) * vec3(0.65, 0.67, 0.70);',
+      '    vec2 suv = vec2((p.x + 0.32) / 0.64, (p.y - 0.02) / 0.22);',
       '    if (suv.x > 0.0 && suv.x < 1.0 && suv.y > 0.0 && suv.y < 1.0) {',
-      '      vec4 sc = texture2D(u_screen, vec2(suv.x, 1.0 - suv.y));',
+      '      vec4 sc = texture2D(u_screen, suv);',
       '      col = mix(col, sc.rgb, sc.a);',
       '    }',
-      '    float btn = length(vec2(p.x / 0.115, (p.y - 0.36) / 0.036));',
-      '    if (btn < 1.0) col = vec3(0.008, 0.009, 0.012);',
-      '    if (btn < 0.55 && abs(p.x) < 0.008 && abs(p.y - 0.36) < 0.012) col = vec3(0.55);',
-      '    float usb = length(vec2(p.x / 0.07, (p.y + 0.46) / 0.018));',
-      '    if (usb < 1.0) col = vec3(0.003);',
       '  } else {',
-      '    float f = 0.5 + 0.5 * sin(p.x * 280.0) * sin(p.y * 280.0);',
-      '    col = vec3(0.085, 0.090, 0.100) * (0.82 + 0.18 * f);',
+      '    vec2 q = abs(n.x) > 0.5 ? p.zy : p.xy;',
+      '    col = fabricAt(q) * vec3(0.58, 0.60, 0.64);',
       '  }',
       '  float spec = pow(max(dot(reflect(-L, n), -rd), 0.0), 24.0);',
-      '  col *= 0.45 + 0.65 * diff;',
+      '  col *= 0.52 + 0.62 * diff;',
       '  col += spec * 0.15;',
       '  float rim = pow(1.0 - max(dot(n, -rd), 0.0), 2.0);',
-      '  col += u_ring * rim * 0.06;',
+      '  col += u_ring * rim * 0.035;',
       '  col *= mix(0.55, 1.0, smoothstep(-0.55, 0.0, p.y));',
       '  gl_FragColor = vec4(pow(col, vec3(0.92)), 1.0);',
       '}'
@@ -9662,17 +9668,55 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    var fabricCanvas = document.createElement('canvas');
+    fabricCanvas.width = 512;
+    fabricCanvas.height = 512;
+    var fctx = fabricCanvas.getContext('2d');
+    fctx.fillStyle = '#34373e';
+    fctx.fillRect(0, 0, 512, 512);
+    for (var fy = 0; fy < 512; fy += 3) {
+      fctx.fillStyle = fy % 8 === 0 ? 'rgba(255,255,255,.09)' : 'rgba(0,0,0,.20)';
+      fctx.fillRect(0, fy, 512, 1);
+    }
+    for (var fx = 0; fx < 512; fx += 3) {
+      fctx.fillStyle = fx % 8 === 0 ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.15)';
+      fctx.fillRect(fx, 0, 1, 512);
+    }
+    fctx.strokeStyle = 'rgba(255,255,255,.035)';
+    fctx.lineWidth = 1;
+    for (var fd = -512; fd < 512; fd += 11) {
+      fctx.beginPath();
+      fctx.moveTo(fd, 0);
+      fctx.lineTo(fd + 512, 512);
+      fctx.stroke();
+    }
+    for (var fn = 0; fn < 24000; fn++) {
+      fctx.fillStyle = Math.random() > 0.5
+        ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.12)';
+      fctx.fillRect(Math.floor(Math.random() * 512), Math.floor(Math.random() * 512), 1, 1);
+    }
+    var fabric = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, fabric);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, fabricCanvas);
     var state = {
-      gl: gl, program: program, texture: texture,
+      gl: gl, program: program, texture: texture, fabric: fabric,
       uRes: gl.getUniformLocation(program, 'u_res'),
       uRot: gl.getUniformLocation(program, 'u_rot'),
       uRing: gl.getUniformLocation(program, 'u_ring'),
       uScreen: gl.getUniformLocation(program, 'u_screen'),
-      ring: [0.55, 0.36, 0.96], yaw: -0.34, pitch: 0.18
+      uFabric: gl.getUniformLocation(program, 'u_fabric'),
+      ring: [0.55, 0.36, 0.96], yaw: -0.42, pitch: 0.24
     };
     window.__stationGL = state;
     gl.clearColor(0, 0, 0, 0);
     gl.uniform1i(state.uScreen, 0);
+    gl.uniform1i(state.uFabric, 1);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, fabric);
     gl.activeTexture(gl.TEXTURE0);
     drawHomeScreen();
     stage.classList.add('gl-on');
@@ -9688,7 +9732,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     });
     stage.addEventListener('pointerup', function () { drag = null; });
     stage.addEventListener('pointercancel', function () { drag = null; });
-    stage.addEventListener('dblclick', function () { state.yaw = -0.34; state.pitch = 0.18; });
+    stage.addEventListener('dblclick', function () { state.yaw = -0.42; state.pitch = 0.24; });
     function resize() {
       var rect = stage.getBoundingClientRect();
       var dpr = Math.min(window.devicePixelRatio || 1, 1.75);
@@ -9709,6 +9753,10 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       gl.viewport(0, 0, canvas.width, canvas.height);
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.useProgram(program);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, fabric);
       gl.uniform2f(state.uRes, canvas.width, canvas.height);
       gl.uniform2f(state.uRot, state.yaw, state.pitch);
       gl.uniform3f(state.uRing, state.ring[0], state.ring[1], state.ring[2]);
