@@ -548,6 +548,13 @@ def test_yapanel_features():
     check("UI: диалог очереди",
           'id="queueDlg"' in html and 'id="queueList"' in html
           and "function loadQueueTab(" in html and "function openQueue(" in html)
+    check("UI: кнопки трека скрыты на радио",
+          "musicTrack" in html and "button.hidden = !musicTrack" in html)
+    check("UI: строка текста в плеере и закрытие по фону",
+          'id="lyricsNow"' in html and 'id="lyricsInline"' in html
+          and "function setLyricsInline(" in html
+          and "event.target === dialog" in html
+          and "[el.lyricsDlg, el.queueDlg]" in html)
     check("поиск: без скрейпинга выдачи",
           "_bing" not in search_py and "duckduckgo" not in search_py.lower())
 

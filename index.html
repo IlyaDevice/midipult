@@ -857,6 +857,12 @@ body.light .reboot-bar{background:rgba(76,62,48,.1)}
 .lyrics-dlg::backdrop{background:rgba(4,6,12,.74);backdrop-filter:blur(10px)}
 .lyr-bg{position:absolute;inset:-80px;background-size:cover;background-position:center;
   filter:blur(90px) saturate(1.2) brightness(.34);opacity:.42;z-index:0}
+.np-lyric{margin:-6px 0 10px;padding:8px 12px;border-radius:12px;font-size:14px;font-style:italic;
+  line-height:1.35;color:#cfd6ea;background:rgba(124,92,255,.10);border:1px solid rgba(124,92,255,.18);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.lyr-head-actions{display:flex;align-items:center;gap:14px;flex:0 0 auto}
+.lyr-inline{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer}
+.lyr-inline input{accent-color:#7c5cff;width:15px;height:15px}
 .lyr-head{position:relative;z-index:1;flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;
   gap:14px;padding:22px 26px 14px;
   background:linear-gradient(180deg,rgba(11,14,22,.96),rgba(11,14,22,.6) 72%,transparent)}
@@ -910,6 +916,85 @@ body.light .reboot-bar{background:rgba(76,62,48,.1)}
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important}
 }
+/* ================= v2 visual refresh ================= */
+:root{
+  --radius:24px;--r16:16px;--r12:14px;
+  --stroke:rgba(255,255,255,.085);
+  --card-a:rgba(25,30,46,.78);--card-b:rgba(11,14,22,.92);
+  --shadow:0 24px 60px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.045);
+}
+body.light{--stroke:rgba(76,62,48,.12);--card-a:rgba(255,253,249,.94);
+  --card-b:rgba(248,242,234,.98);
+  --shadow:0 24px 60px rgba(80,60,30,.14), inset 0 1px 0 rgba(255,255,255,.7)}
+body{background:
+  radial-gradient(1100px 700px at 12% -10%,rgba(124,92,255,.16),transparent 60%),
+  radial-gradient(900px 700px at 100% 0%,rgba(34,211,238,.10),transparent 55%),
+  var(--bg)}
+body.light{background:
+  radial-gradient(1000px 650px at 8% -10%,rgba(124,92,255,.10),transparent 60%),
+  radial-gradient(800px 600px at 100% 0%,rgba(34,211,238,.10),transparent 55%),var(--bg)}
+.aurora{display:none}
+.topbar{position:sticky;top:0;z-index:65;backdrop-filter:blur(18px);
+  background:linear-gradient(180deg,rgba(7,9,15,.9),rgba(7,9,15,.55) 70%,transparent);
+  padding:14px var(--page-x) 10px;max-width:1240px}
+body.light .topbar{background:linear-gradient(180deg,rgba(244,239,231,.94),rgba(244,239,231,.6) 70%,transparent)}
+.logo{width:42px;height:42px;box-shadow:0 8px 26px rgba(124,92,255,.35),0 0 0 1px rgba(255,255,255,.14)}
+.brand h1{font-size:15px;font-weight:750;letter-spacing:.3px}
+.brand p{font-size:11px;opacity:.75;margin-top:2px}
+.pill{height:32px;background:rgba(255,255,255,.045);border-color:rgba(255,255,255,.09);backdrop-filter:blur(10px)}
+.tabs{top:86px;margin:0 auto 18px;padding:5px;gap:4px;background:rgba(10,13,22,.7);
+  border-color:rgba(255,255,255,.10);
+  box-shadow:0 18px 44px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.06)}
+body.light .tabs{background:rgba(255,252,247,.8);border-color:rgba(76,62,48,.12)}
+.tab{height:36px;width:auto;padding:0 15px;border-radius:11px;font-size:13px;letter-spacing:.1px}
+.tab[aria-pressed="true"]{background:linear-gradient(135deg,#7c5cff,#4f7cff);
+  box-shadow:0 10px 26px rgba(92,110,255,.38),inset 0 1px 0 rgba(255,255,255,.22)}
+main.grid{max-width:1240px;gap:18px;margin-top:6px;padding-bottom:40px;align-items:start}
+.card{padding:20px 22px;border-radius:24px;
+  background:linear-gradient(168deg,var(--card-a),var(--card-b));
+  border:1px solid var(--stroke);box-shadow:var(--shadow);backdrop-filter:blur(16px);
+  transition:border-color .2s,box-shadow .2s}
+.card:hover{border-color:rgba(124,92,255,.26)}
+body.light .card:hover{border-color:rgba(124,92,255,.30)}
+.card::after{background:radial-gradient(460px 200px at 10% -12%,rgba(124,92,255,.14),transparent 70%)}
+.card h2{font-size:11px;font-weight:750;letter-spacing:.14em;text-transform:uppercase;
+  color:rgba(232,238,255,.72);display:flex;align-items:center;gap:8px;margin:0 0 6px;line-height:1.2}
+body.light .card h2{color:rgba(60,52,40,.65)}
+.card h2 .dot{width:6px;height:6px;box-shadow:0 0 10px rgba(124,92,255,.9)}
+.card-move button{width:26px;height:26px;border-radius:8px;background:rgba(255,255,255,.04);
+  border-color:rgba(255,255,255,.09)}
+.btn{height:38px;padding:0 15px;border-radius:12px;background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.10);font-size:13px;font-weight:600;
+  transition:background .16s,border-color .16s,transform .16s,box-shadow .16s}
+.btn:hover{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.18);transform:translateY(-1px)}
+.btn.primary{background:linear-gradient(135deg,#7c5cff,#4f7cff);border-color:transparent;
+  box-shadow:0 12px 28px rgba(92,110,255,.35)}
+.btn.ghost{background:rgba(255,255,255,.025);border-color:rgba(255,255,255,.12)}
+.btn.sm{height:32px;padding:0 12px;font-size:12px;border-radius:10px}
+.btn.danger{background:rgba(251,113,133,.12);border-color:rgba(251,113,133,.35);color:#ffd7de}
+.chip{height:34px;border-radius:10px;background:rgba(255,255,255,.045);
+  border:1px solid rgba(255,255,255,.10);font-size:12px;font-weight:600;
+  transition:background .16s,border-color .16s,transform .16s}
+.chip:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18);transform:translateY(-1px)}
+.chip[aria-pressed="true"]{background:linear-gradient(135deg,rgba(124,92,255,.38),rgba(79,124,255,.26));
+  border-color:rgba(124,92,255,.55);color:#fff;box-shadow:0 6px 18px rgba(92,110,255,.22)}
+.field-top label{font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+select,.net-input,input[type="text"],input[type="password"],input[type="number"],textarea{
+  border-radius:12px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.045);
+  transition:border-color .16s,box-shadow .16s}
+select:focus,.net-input:focus,input[type="text"]:focus,input[type="password"]:focus,textarea:focus{
+  outline:none;border-color:rgba(124,92,255,.55);box-shadow:0 0 0 3px rgba(124,92,255,.16)}
+input[type="range"]::-webkit-slider-runnable-track{height:4px}
+input[type="range"]::-webkit-slider-thumb{width:16px;height:16px;
+  box-shadow:0 0 0 4px rgba(124,92,255,.18),0 2px 8px rgba(0,0,0,.4)}
+.radio-grid .chip{height:auto;min-height:38px;border-radius:11px;justify-content:flex-start;padding:8px 12px}
+.seg-note{font-size:11px;color:var(--muted)}
+footer{max-width:1240px;margin:0 auto;padding:10px var(--page-x) 26px;font-size:11px;color:var(--muted)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:99px;
+  border:3px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.24);background-clip:content-box}
+@media (max-width:760px){.topbar{position:static;padding-top:12px}.tabs{top:8px}}
 body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 </style>
 </head>
@@ -1078,6 +1163,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         <div class="np-sub" id="mediaSub">ws://127.0.0.1:1961</div>
       </div>
     </div>
+    <div class="np-lyric" id="lyricsNow" hidden></div>
     <div class="media-progress" id="mediaProgress">
       <span id="mediaPos">0:00</span>
       <input type="range" id="mediaSeek" min="0" max="1000" step="1" value="0" aria-label="Перемотка">
@@ -1750,7 +1836,13 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       <div class="lyr-title" id="lyrTitle">Текст песни</div>
       <div class="lyr-artist" id="lyrArtist"></div>
     </div>
-    <button class="btn sm ghost" id="btnLyricsClose">Закрыть</button>
+    <div class="lyr-head-actions">
+      <label class="lyr-inline">
+        <input type="checkbox" id="lyricsInline">
+        <span>Строка в плеере</span>
+      </label>
+      <button class="btn sm ghost" id="btnLyricsClose">Закрыть</button>
+    </div>
   </div>
   <div class="lyr-stage" id="lyrStage">
     <div class="lyr-lines" id="lyricsBox"></div>
@@ -1933,6 +2025,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     mediaCover: '',
     liked: false,
     queueTab: 'queue',
+    lyricsInline: false,
     lyricsActive: null,
     lyricsLines: [],
     seeking: false,
@@ -3039,6 +3132,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     }
     if (el.lyricsStatus) el.lyricsStatus.textContent = '';
     if (el.lyricsDlg && el.lyricsDlg.open) el.lyricsDlg.close();
+    updateInlineLine();
   }
 
   function renderLyrics(data) {
@@ -3076,14 +3170,20 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 
   function highlightLyrics() {
     var lines = State.lyricsLines;
-    if (!lines || !lines.length) return;
+    if (!lines || !lines.length) {
+      updateInlineLine();
+      return;
+    }
     var now = State.mediaProgress || 0;
     var active = null;
     lines.forEach(function (line) {
       var moment = parseFloat(line.dataset.t);
       if (!isNaN(moment) && moment <= now + 0.3) active = line;
     });
-    if (State.lyricsActive === active) return;
+    if (State.lyricsActive === active) {
+      updateInlineLine();
+      return;
+    }
     State.lyricsActive = active;
     lines.forEach(function (line) {
       line.classList.toggle('active', line === active);
@@ -3095,6 +3195,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       var top = active.offsetTop - stage.clientHeight / 2 + active.offsetHeight / 2;
       stage.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
     }
+    updateInlineLine();
   }
 
   function playQueueItem(track) {
@@ -3251,20 +3352,41 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       });
   }
 
-  function loadLyrics() {
+  function updateInlineLine() {
+    if (!el.lyricsNow) return;
+    var active = State.lyricsActive;
+    var first = State.lyricsLines && State.lyricsLines.length ? State.lyricsLines[0] : null;
+    var text = active ? (active.textContent || '')
+      : (first ? (first.textContent || '') : '');
+    var show = State.lyricsInline && !!text && State.playerKind === 'Track';
+    el.lyricsNow.textContent = show ? text : '';
+    el.lyricsNow.hidden = !show;
+  }
+
+  function loadLyrics(silent) {
     if (!State.mediaTitle) {
-      toast('Сейчас ничего не играет', 'warn');
+      if (!silent) toast('Сейчас ничего не играет', 'warn');
       return;
     }
-    el.lyricsStatus.textContent = 'ищу…';
+    if (el.lyricsStatus && el.lyricsDlg && el.lyricsDlg.open) {
+      el.lyricsStatus.textContent = 'ищу…';
+    }
     return cgi('lyrics.py', {
       title: State.mediaTitle,
       artist: State.mediaArtist,
       duration: Math.round(State.mediaDuration || 0)
     }, { timeout: 20000 }).then(renderLyrics).catch(function (err) {
-      el.lyricsStatus.textContent = '';
-      toast('Текст песни: ' + err.message, 'bad');
+      if (el.lyricsStatus) el.lyricsStatus.textContent = '';
+      if (!silent) toast('Текст песни: ' + err.message, 'bad');
     });
+  }
+
+  function setLyricsInline(on) {
+    State.lyricsInline = !!on;
+    store.set('lyricsInline', State.lyricsInline ? 1 : 0);
+    if (el.lyricsInline) el.lyricsInline.checked = State.lyricsInline;
+    if (State.lyricsInline && !State.lyricsLines.length) loadLyrics(true);
+    updateInlineLine();
   }
 
   function seekMedia(value) {
@@ -3339,6 +3461,16 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     setPlaying(playing);
     State.playerKind = data.kind || null;
     State.mediaDuration = Number(data.duration) || 0;
+    // Лайки, текст и очередь имеют смысл только для трека Яндекс Музыки.
+    // На радио (и любом потоке) эти кнопки убираем.
+    var musicTrack = State.playerKind === 'Track' && !!data.id && !!data.title;
+    [el.btnLike, el.btnDislike, el.btnLyrics].forEach(function (button) {
+      if (button) button.hidden = !musicTrack;
+    });
+    if (!musicTrack) {
+      updateInlineLine();
+      if (el.lyricsDlg && el.lyricsDlg.open) el.lyricsDlg.close();
+    }
 
     // Перемотка: держим целевую позицию, пока станция реально не переедет.
     // Иначе старый снапшот возвращает ползунок назад.
@@ -3377,6 +3509,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         State.mediaId = data.id || '';
         clearLyrics();
         loadLiked();
+        if (State.lyricsInline) {
+          setTimeout(function () { loadLyrics(true); }, 600);
+        }
       }
       el.mediaTitle.textContent = data.title;
       el.mediaSub.textContent = data.artist || '';
@@ -5547,11 +5682,29 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   }
 
   function loadRingFrames(name) {
-    if (ringAnimFrames[name]) return Promise.resolve(ringAnimFrames[name]);
+    if (ringAnimFrames[name]) {
+      var playback = ringAnimFrames[name];
+      if (playback.frames.length) {
+        paintRingFrame(name, playback.frames[playback.index] || playback.frames[0]);
+      }
+      return Promise.resolve(playback);
+    }
     return cgi('display.py', { anim_preview: name }, { timeout: 12000, silent: true })
       .then(function (data) {
-        ringAnimFrames[name] = { frames: data.frames || [], loop: !!data.loop, index: 0 };
-        if (ringAnimFrames[name].frames.length) paintRingFrame(name, 0);
+        var frames = data.frames || [];
+        var best = 0;
+        var bestSum = -1;
+        frames.forEach(function (frame, index) {
+          var sum = 0;
+          frame.forEach(function (hex) {
+            sum += parseInt(hex.substr(0, 2), 16)
+              + parseInt(hex.substr(2, 2), 16)
+              + parseInt(hex.substr(4, 2), 16);
+          });
+          if (sum > bestSum) { bestSum = sum; best = index; }
+        });
+        ringAnimFrames[name] = { frames: frames, loop: !!data.loop, index: best };
+        if (frames.length) paintRingFrame(name, frames[best]);
         return ringAnimFrames[name];
       }).catch(function () {
         ringAnimFrames[name] = { frames: [], loop: false, index: 0 };
@@ -5606,7 +5759,12 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       });
       tile.addEventListener('click', function () { playRingAnim(name); });
       el.ringAnimChips.appendChild(tile);
-      loadRingFrames(name);
+      var cached = ringAnimFrames[name];
+      if (cached && cached.frames.length) {
+        paintRingFrame(name, cached.frames[cached.index] || cached.frames[0]);
+      } else {
+        loadRingFrames(name);
+      }
     });
     var current = el.ringAnim.value;
     el.ringAnim.innerHTML = '';
@@ -6359,6 +6517,17 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     }
   }
 
+  function versionCmp(a, b) {
+    var left = String(a || '').split('.');
+    var right = String(b || '').split('.');
+    for (var i = 0; i < 3; i++) {
+      var x = parseInt(left[i], 10) || 0;
+      var y = parseInt(right[i], 10) || 0;
+      if (x !== y) return x - y;
+    }
+    return 0;
+  }
+
   function renderUpdateInfo(data) {
     State.updateInfo = data || null;
     var current = (data && data.current) || State.version || '—';
@@ -6375,7 +6544,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       if (data && data.error) {
         el.updState.textContent = data.error;
       } else if (data && data.latest) {
-        el.updState.textContent = 'Установлена последняя версия: v' + data.latest;
+        el.updState.textContent = versionCmp(current, data.latest) > 0
+          ? 'Локально v' + current + ' — новее последнего релиза v' + data.latest
+          : 'Установлена последняя версия: v' + data.latest;
       } else {
         el.updState.textContent = 'Проверка недоступна';
       }
@@ -6641,6 +6812,19 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     });
     if (el.btnLike) el.btnLike.addEventListener('click', toggleLike);
     if (el.btnDislike) el.btnDislike.addEventListener('click', dislikeTrack);
+    if (el.lyricsInline) {
+      State.lyricsInline = !!store.get('lyricsInline');
+      el.lyricsInline.checked = State.lyricsInline;
+      el.lyricsInline.addEventListener('change', function () {
+        setLyricsInline(el.lyricsInline.checked);
+      });
+    }
+    [el.lyricsDlg, el.queueDlg].forEach(function (dialog) {
+      if (!dialog) return;
+      dialog.addEventListener('click', function (event) {
+        if (event.target === dialog) dialog.close();
+      });
+    });
     if (el.btnQueue) el.btnQueue.addEventListener('click', openQueue);
     if (el.btnQueueClose) el.btnQueueClose.addEventListener('click', function () {
       if (el.queueDlg) el.queueDlg.close();
@@ -6660,8 +6844,8 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     }
     if (el.lyricsDlg) {
       el.lyricsDlg.addEventListener('close', function () {
-        State.lyricsActive = null;
         if (el.lyricsBox) el.lyricsBox.style.transform = '';
+        updateInlineLine();
       });
     }
     el.mediaSeek.addEventListener('input', function () {
@@ -7087,6 +7271,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'btnLike', 'btnDislike', 'lyricsDlg', 'lyrBg', 'lyrTitle', 'lyrArtist',
       'btnLyricsClose', 'lyrStage', 'npGlow',
       'btnQueue', 'queueDlg', 'queueName', 'queueList', 'btnQueueClose', 'queueKicker',
+      'lyricsNow', 'lyricsInline',
       'volume', 'volumeVal', 'btnVolDown', 'btnVolUp', 'btnMute',
       'btnMic', 'micHint', 'micTimer', 'transcript', 'btnRepeat', 'btnCancelListen',
       'command', 'btnSendCmd', 'ttsText', 'ttsCount', 'btnTtsClear', 'btnSay', 'ttsChips',
