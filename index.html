@@ -398,12 +398,22 @@ body.light .alarm-time-pop{background:#fff}
 body.light .alarm-station-list{background:#fff}
 .alarm-row{display:flex;gap:10px;align-items:center}
 .alarm-row > *{flex:1 1 0;min-width:0}
-.alarm-form input[type="time"]{height:42px;font-size:20px;font-weight:650;text-align:center}
-.alarm-form select{height:42px}
-.alarm-form input[type="text"]{height:40px}
+.alarm-form input[type="text"],.alarm-form input[type="number"],.alarm-form select{
+  width:100%;height:42px;padding:0 12px;border-radius:12px;border:1px solid var(--stroke);
+  background:rgba(255,255,255,.045);color:var(--text);font:inherit;font-size:14px;
+  transition:background .16s,border-color .16s,box-shadow .16s}
+.alarm-form input[type="text"]:hover,.alarm-form input[type="number"]:hover,
+.alarm-form select:hover{background:rgba(255,255,255,.065)}
+.alarm-form input[type="text"]:focus,.alarm-form input[type="number"]:focus,
+.alarm-form select:focus{outline:none;border-color:rgba(124,92,255,.6);
+  box-shadow:0 0 0 3px rgba(124,92,255,.16)}
+.alarm-form input[type="number"]{appearance:textfield;-moz-appearance:textfield}
+.alarm-form input[type="number"]::-webkit-inner-spin-button,
+.alarm-form input[type="number"]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+#alarmMusicBox input{font-size:14px}
 .alarm-num{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
 .alarm-num output{color:var(--text);font-weight:650;font-size:12px}
-.alarm-num input[type="number"]{height:36px;font-size:13px}
+.alarm-num input[type="number"]{height:42px;font-size:14px}
 .alarm-days{display:flex;gap:4px;flex-wrap:wrap}
 .alarm-days .chip{height:30px;padding:0 9px;font-size:11px;flex:0 0 auto}
 .alarm-ringing{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:12px;padding:14px 16px;
@@ -1330,6 +1340,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         </div>
         <div class="alarm-modes" id="alarmModes">
           <button type="button" class="chip" data-amode="radio" aria-pressed="true">Радио</button>
+          <button type="button" class="chip" data-amode="music" aria-pressed="false">Музыка</button>
           <button type="button" class="chip" data-amode="query" aria-pressed="false">Фраза</button>
         </div>
       </div>
@@ -1343,6 +1354,11 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         </div>
         <input type="text" id="alarmCustomStation" maxlength="120"
                placeholder="Своя станция или поток (если нет в списке)" autocomplete="off">
+      </div>
+      <div id="alarmMusicBox" hidden>
+        <input type="text" id="alarmMusicText" maxlength="200" value="мою волну"
+               placeholder="Что включить: мою волну, плейлист, исполнитель"
+               aria-label="Что включить из Яндекс Музыки">
       </div>
       <input type="text" id="alarmText" placeholder="Что сказать Алисе" maxlength="200"
              aria-label="Фраза для Алисы" hidden>
@@ -3486,11 +3502,12 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   }
 
   function setAlarmMode(mode) {
-    State.alarmMode = mode === 'query' ? 'query' : 'radio';
+    State.alarmMode = mode === 'query' || mode === 'music' ? mode : 'radio';
     Array.prototype.forEach.call(document.querySelectorAll('[data-amode]'), function (button) {
       button.setAttribute('aria-pressed', button.dataset.amode === State.alarmMode ? 'true' : 'false');
     });
     if (el.alarmRadioBox) el.alarmRadioBox.hidden = State.alarmMode !== 'radio';
+    if (el.alarmMusicBox) el.alarmMusicBox.hidden = State.alarmMode !== 'music';
     if (el.alarmText) el.alarmText.hidden = State.alarmMode !== 'query';
   }
 
@@ -3555,8 +3572,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       meta.className = 'alarm-meta';
       var what = document.createElement('div');
       what.className = 'alarm-what';
-      what.textContent = (alarm.mode === 'query' ? 'Алиса: ' : 'Радио: ') +
-        (alarm.text || '');
+      var prefix = alarm.mode === 'query' ? 'Алиса: '
+        : alarm.mode === 'music' ? 'Музыка: ' : 'Радио: ';
+      what.textContent = prefix + (alarm.text || '');
       var when = document.createElement('div');
       when.className = 'alarm-when';
       when.textContent = alarmDaysText(alarm.days) +
@@ -3628,11 +3646,15 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   function alarmAdd() {
     var custom = (el.alarmCustomStation && el.alarmCustomStation.value || '').trim();
     var phrase = (el.alarmText && el.alarmText.value || '').trim();
-    var text = State.alarmMode === 'query'
-      ? phrase
-      : (custom || (State.alarmStation && (State.alarmStation.query || State.alarmStation.name)) || '');
+    var music = (el.alarmMusicText && el.alarmMusicText.value || '').trim();
+    var text;
+    if (State.alarmMode === 'query') text = phrase;
+    else if (State.alarmMode === 'music') text = music || 'мою волну';
+    else text = custom || (State.alarmStation
+      && (State.alarmStation.query || State.alarmStation.name)) || '';
     if (!text) {
-      toast(State.alarmMode === 'query' ? 'Введите фразу для Алисы' : 'Выберите станцию или введите свою', 'warn');
+      toast(State.alarmMode === 'query' ? 'Введите фразу для Алисы'
+        : 'Выберите станцию или введите свою', 'warn');
       return;
     }
     var payload = {
@@ -7944,7 +7966,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'alarmTimeField', 'btnAlarmTime', 'alarmTimeValue', 'alarmTimePop',
       'alarmHours', 'alarmMinutes', 'btnAlarmTimeDone',
       'alarmRadioBox', 'alarmModes', 'btnAlarmStation', 'alarmStationName',
-      'alarmStationList', 'alarmCustomStation',
+      'alarmStationList', 'alarmCustomStation', 'alarmMusicBox', 'alarmMusicText',
       'alarmVolume', 'alarmVolumeVal', 'alarmRamp', 'alarmStop', 'alarmSnooze',
       'btnAlarmAdd', 'clockAnimStatus', 'btnAlarmOpen', 'btnAlarmClose', 'alarmDlg',
       'volume', 'volumeVal', 'btnVolDown', 'btnVolUp', 'btnMute',

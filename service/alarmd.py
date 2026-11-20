@@ -230,9 +230,14 @@ class AlarmScheduler(threading.Thread):
         except Exception:  # noqa: BLE001
             pass
         try:
-            if alarm.get("mode") == "query":
+            mode = alarm.get("mode")
+            if mode == "query":
                 glagol.send({"command": "sendText",
                              "text": alarm.get("text") or "доброе утро"},
+                            timeout=20)
+            elif mode == "music":
+                glagol.send({"command": "sendText",
+                             "text": "включи " + (alarm.get("text") or "мою волну")},
                             timeout=20)
             else:
                 glagol.send({"command": "sendText",

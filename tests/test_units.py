@@ -1171,6 +1171,10 @@ def test_alarm_rules():
           and item["snooze"] == 1, str((item["ramp"], item["snooze"])))
     check("будильник: текст сохранён", item["text"] == "Маяк")
 
+    music = alarm.build({"time": "08:00", "mode": "music", "text": ""})
+    check("будильник: Яндекс Музыка по умолчанию",
+          music["mode"] == "music" and music["text"] == "мою волну", str(music))
+
     try:
         alarm.build({"time": "25:00"})
         bad = False
