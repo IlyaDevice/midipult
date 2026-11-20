@@ -9690,10 +9690,15 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       fctx.lineTo(fd + 512, 512);
       fctx.stroke();
     }
+    var noiseSeed = 12345;
     for (var fn = 0; fn < 24000; fn++) {
-      fctx.fillStyle = Math.random() > 0.5
+      noiseSeed = (noiseSeed * 1664525 + 1013904223) >>> 0;
+      var nx = noiseSeed % 512;
+      noiseSeed = (noiseSeed * 1664525 + 1013904223) >>> 0;
+      var ny = noiseSeed % 512;
+      fctx.fillStyle = (noiseSeed & 1)
         ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.12)';
-      fctx.fillRect(Math.floor(Math.random() * 512), Math.floor(Math.random() * 512), 1, 1);
+      fctx.fillRect(nx, ny, 1, 1);
     }
     var fabric = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, fabric);
