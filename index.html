@@ -336,16 +336,14 @@ main.grid{
   #scType{flex:0 1 260px;max-width:260px}
 
   .sys-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--gap-md);margin-top:12px}
-.chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px}
-.chart-card{padding:10px 12px 8px;border:1px solid var(--stroke);border-radius:14px;
-  background:rgba(255,255,255,.035);min-width:0}
-.chart-card span{display:block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;
-  color:var(--muted)}
-.chart-card canvas{display:block;width:100%;height:110px;margin:6px 0 2px}
-.chart-card b{font-size:15px;font-weight:650;font-variant-numeric:tabular-nums}  .sys-tile{
+  .sys-tile{
+    position:relative;overflow:hidden;
     padding:12px;border-radius:var(--r16);background:rgba(255,255,255,.04);
     border:1px solid var(--stroke);display:flex;flex-direction:column;gap:var(--gap-xs);
   }
+  .sys-tile > *{position:relative;z-index:1}
+  .sys-spark{position:absolute!important;left:0;right:0;bottom:0;width:100%!important;
+    height:44px!important;margin:0!important;z-index:0!important;opacity:.38;pointer-events:none}
   .sys-label{font-size:var(--fs-11);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
   .sys-tile strong{font-size:var(--fs-22);font-weight:700;font-variant-numeric:tabular-nums}
   .sys-tile small{font-size:var(--fs-12);color:var(--muted);line-height:1.35}
@@ -1729,23 +1727,27 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         <strong id="sysCpu">—</strong>
         <div class="sys-bar"><i id="sysCpuBar"></i></div>
         <small id="sysLoad"></small>
+        <canvas class="sys-spark" id="sparkCpu"></canvas>
       </div>
       <div class="sys-tile">
         <span class="sys-label">Память</span>
         <strong id="sysRam">—</strong>
         <div class="sys-bar"><i id="sysRamBar"></i></div>
         <small id="sysRamSub"></small>
+        <canvas class="sys-spark" id="sparkMem"></canvas>
       </div>
       <div class="sys-tile">
         <span class="sys-label">Температура</span>
         <strong id="sysTemp">—</strong>
         <small id="sysTempSub"></small>
+        <canvas class="sys-spark" id="sparkTemp"></canvas>
       </div>
       <div class="sys-tile">
         <span class="sys-label">Диск /data</span>
         <strong id="sysDisk">—</strong>
         <div class="sys-bar"><i id="sysDiskBar"></i></div>
         <small id="sysDiskSub"></small>
+        <canvas class="sys-spark" id="sparkDisk"></canvas>
       </div>
       <div class="sys-tile">
         <span class="sys-label">Диск /</span>
@@ -1895,18 +1897,6 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     <div class="row" style="margin-top:8px">
       <button class="btn sm ghost" id="btnUpdateCheck">Проверить обновления</button>
     </div>
-  </section>
-
-  <!-- ───────── графики ───────── -->
-  <section class="card c-sys c-charts" data-group="system" aria-labelledby="h-charts">
-    <h2 id="h-charts"><span class="dot"></span>Графики за сутки</h2>
-    <div class="chart-grid">
-      <div class="chart-card"><span>CPU</span><canvas id="chartCpu"></canvas><b id="chartCpuVal">—</b></div>
-      <div class="chart-card"><span>Температура</span><canvas id="chartTemp"></canvas><b id="chartTempVal">—</b></div>
-      <div class="chart-card"><span>Память</span><canvas id="chartMem"></canvas><b id="chartMemVal">—</b></div>
-      <div class="chart-card"><span>Диск</span><canvas id="chartDisk"></canvas><b id="chartDiskVal">—</b></div>
-    </div>
-    <div class="seg-note" id="chartsStatus" style="margin-top:8px">История собирается каждые 30 секунд.</div>
   </section>
 
   <!-- ───────── логи ───────── -->
@@ -6788,14 +6778,11 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   }
 
   function loadCharts() {
-    if (!document.getElementById('chartCpu')) return;
-    var status = document.getElementById('chartsStatus');
+    var cpuCanvas = document.getElementById('sparkCpu');
+    if (!cpuCanvas) return;
     return cgi('history.py', {}, { timeout: 12000, silent: true }).then(function (data) {
       var points = data.points || [];
-      if (points.length < 2) {
-        if (status) status.textContent = 'История только собирается — нужно пару минут.';
-        return;
-      }
+      if (points.length < 2) return;
       function series(key) {
         return points.map(function (p) { return Number(p[key]); })
           .map(function (v) { return isNaN(v) ? 0 : v; });
@@ -6807,19 +6794,11 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         var v = Number(value);
         return isNaN(v) ? null : v;
       }).filter(function (v) { return v !== null; });
-      drawChart(document.getElementById('chartCpu'), cpu, '#7c5cff', 100);
-      drawChart(document.getElementById('chartMem'), mem, '#22d3ee', 100);
-      drawChart(document.getElementById('chartDisk'), disk, '#f59e0b', 100);
-      drawChart(document.getElementById('chartTemp'), temp, '#f472b6', 0);
-      document.getElementById('chartCpuVal').textContent = cpu[cpu.length - 1] + '%';
-      document.getElementById('chartMemVal').textContent = mem[mem.length - 1] + '%';
-      document.getElementById('chartDiskVal').textContent = disk[disk.length - 1] + '%';
-      document.getElementById('chartTempVal').textContent = temp.length
-        ? temp[temp.length - 1] + '°C' : '—';
-      if (status) status.textContent = 'Точек: ' + points.length + ' · последние ~24 часа';
-    }).catch(function () {
-      if (status) status.textContent = 'История недоступна.';
-    });
+      drawChart(cpuCanvas, cpu, '#7c5cff', 100);
+      drawChart(document.getElementById('sparkMem'), mem, '#22d3ee', 100);
+      drawChart(document.getElementById('sparkDisk'), disk, '#f59e0b', 100);
+      drawChart(document.getElementById('sparkTemp'), temp, '#f472b6', 0);
+    }).catch(function () {});
   }
 
   /* ─────────── логи ─────────── */

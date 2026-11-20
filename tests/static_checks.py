@@ -562,7 +562,8 @@ def test_yapanel_features():
           and "sha256sum -c" in preflight_sh)
     check("графики: история за сутки",
           "history.jsonl" in daemon_py and "record_history" in daemon_py
-          and "history.jsonl" in history_py and 'id="chartCpu"' in html)
+          and "history.jsonl" in history_py and 'id="sparkCpu"' in html
+          and 'class="sys-spark"' in html)
     check("UI: лайки и оверлей текста",
           all(token in html for token in (
               'id="btnLike"', 'id="btnDislike"', 'id="lyricsDlg"',
