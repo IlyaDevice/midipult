@@ -585,6 +585,7 @@ def test_yapanel_features():
     check("главная: glTF-станция, экран и кольцо",
           "initStationGLTF" in html and "GLTFLoader" in html
           and "screenPlane" in html and "ringTube" in html
+          and "mutePlane" in html and "usbPlane" in html
           and os.path.isfile(os.path.join(ROOT, "assets", "scene.gltf"))
           and os.path.isfile(os.path.join(ROOT, "assets", "GLTFLoader.js")))
     check("UI: лайки и оверлей текста",

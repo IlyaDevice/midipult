@@ -9756,6 +9756,86 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         state.ringTube = ringTube.material;
         scene.add(dotGroup);
         state.ringDots3d = ringDots3d;
+        var backZ = bodyBox.min.z - 0.012;
+        function roundRectPath(ctx, x, y, w, h, r) {
+          ctx.beginPath();
+          ctx.moveTo(x + r, y);
+          ctx.arcTo(x + w, y, x + w, y + h, r);
+          ctx.arcTo(x + w, y + h, x, y + h, r);
+          ctx.arcTo(x, y + h, x, y, r);
+          ctx.arcTo(x, y, x + w, y, r);
+          ctx.closePath();
+        }
+        var muteCanvas = document.createElement('canvas');
+        muteCanvas.width = 512;
+        muteCanvas.height = 192;
+        var mctx = muteCanvas.getContext('2d');
+        mctx.clearRect(0, 0, 512, 192);
+        mctx.shadowColor = 'rgba(0,0,0,.7)';
+        mctx.shadowBlur = 18;
+        mctx.fillStyle = '#111318';
+        roundRectPath(mctx, 40, 46, 432, 100, 44);
+        mctx.fill();
+        mctx.shadowBlur = 0;
+        mctx.strokeStyle = 'rgba(255,255,255,.18)';
+        mctx.lineWidth = 2;
+        mctx.stroke();
+        mctx.strokeStyle = '#d8d9df';
+        mctx.lineWidth = 6;
+        mctx.lineCap = 'round';
+        mctx.beginPath();
+        mctx.moveTo(256, 76);
+        mctx.lineTo(256, 116);
+        mctx.stroke();
+        mctx.beginPath();
+        mctx.arc(256, 76, 24, Math.PI, 0);
+        mctx.stroke();
+        mctx.beginPath();
+        mctx.arc(256, 116, 38, 0, Math.PI);
+        mctx.stroke();
+        mctx.beginPath();
+        mctx.moveTo(256, 154);
+        mctx.lineTo(256, 168);
+        mctx.stroke();
+        var muteTex = new THREE.CanvasTexture(muteCanvas);
+        muteTex.minFilter = THREE.LinearFilter;
+        if (THREE.sRGBEncoding) muteTex.encoding = THREE.sRGBEncoding;
+        var mutePlane = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.46, 0.17),
+          new THREE.MeshBasicMaterial({ map: muteTex, transparent: true,
+            depthWrite: false, side: THREE.DoubleSide })
+        );
+        mutePlane.position.set(bcenter.x, bodyBox.max.y - 0.48, backZ);
+        mutePlane.rotation.y = Math.PI;
+        mutePlane.renderOrder = 6;
+        scene.add(mutePlane);
+
+        var usbCanvas = document.createElement('canvas');
+        usbCanvas.width = 256;
+        usbCanvas.height = 128;
+        var uctx = usbCanvas.getContext('2d');
+        uctx.clearRect(0, 0, 256, 128);
+        uctx.fillStyle = '#0b0d11';
+        roundRectPath(uctx, 56, 40, 144, 48, 22);
+        uctx.fill();
+        uctx.strokeStyle = 'rgba(255,255,255,.26)';
+        uctx.lineWidth = 3;
+        uctx.stroke();
+        uctx.fillStyle = '#2b2e36';
+        roundRectPath(uctx, 74, 54, 108, 20, 10);
+        uctx.fill();
+        var usbTex = new THREE.CanvasTexture(usbCanvas);
+        usbTex.minFilter = THREE.LinearFilter;
+        if (THREE.sRGBEncoding) usbTex.encoding = THREE.sRGBEncoding;
+        var usbPlane = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.24, 0.12),
+          new THREE.MeshBasicMaterial({ map: usbTex, transparent: true,
+            depthWrite: false, side: THREE.DoubleSide })
+        );
+        usbPlane.position.set(bcenter.x, bodyBox.min.y + 0.44, backZ);
+        usbPlane.rotation.y = Math.PI;
+        usbPlane.renderOrder = 6;
+        scene.add(usbPlane);
       }
       if (screenMesh) {
         model.updateMatrixWorld(true);
