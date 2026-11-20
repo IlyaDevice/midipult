@@ -61,6 +61,10 @@ cp -f "$SRC/index.html" "$WEB/index.html" || die "не скопировался 
 for asset in favicon.ico icon-192.png icon-512.png icon.png icon-circle.png; do
     [ -f "$SRC/$asset" ] && cp -f "$SRC/$asset" "$WEB/$asset"
 done
+if [ -d "$SRC/assets" ]; then
+    mkdir -p "$WEB/assets"
+    cp -f "$SRC/assets/"* "$WEB/assets/" 2>/dev/null || warn "не скопировались assets"
+fi
 rm -f "$WEB/icon.svg"
 [ -f "$SRC/version.json" ] && cp -f "$SRC/version.json" "$WEB/version.json"
 for f in "$SRC"/cgi-bin/*.py; do

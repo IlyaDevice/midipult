@@ -18,7 +18,7 @@ $shaFile = "$archive.sha256"
 $items = @(
     'index.html', 'index.py', 'manifest.json', 'version.json',
     'favicon.ico', 'icon-192.png', 'icon-512.png', 'icon.png', 'icon-circle.png',
-    'cgi-bin', 'service', 'init.d', 'lighttpd', 'deploy'
+    'assets', 'cgi-bin', 'service', 'init.d', 'lighttpd', 'deploy'
 ) | Where-Object { Test-Path (Join-Path $root $_) }
 
 if ($items -notcontains 'version.json' -or $items -notcontains 'cgi-bin' -or

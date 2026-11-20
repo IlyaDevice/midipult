@@ -9567,6 +9567,107 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
   }
 
+  function initStationFBX() {
+    if (!window.THREE || !THREE.FBXLoader) return false;
+    var canvas = document.getElementById('stationGL');
+    var stage = document.getElementById('stationStage');
+    if (!canvas || !stage) return false;
+    var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+    renderer.setSize(stage.clientWidth || 600, stage.clientHeight || 500, false);
+    if (THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(30, (stage.clientWidth || 600) / (stage.clientHeight || 500), 0.1, 100);
+    scene.add(new THREE.HemisphereLight(0xd9d6ff, 0x111218, 1.0));
+    var key = new THREE.DirectionalLight(0xffffff, 1.5);
+    key.position.set(2.4, 4.0, 3.2);
+    key.castShadow = true;
+    scene.add(key);
+    var fill = new THREE.DirectionalLight(0x8b5cf6, 0.7);
+    fill.position.set(-3, 1.6, -2);
+    scene.add(fill);
+    var rim = new THREE.DirectionalLight(0x22d3ee, 0.5);
+    rim.position.set(0, 2, -4);
+    scene.add(rim);
+    var state = { renderer: renderer, scene: scene, camera: camera, model: null,
+      yaw: -0.38, pitch: 0.12, distance: 3.05 };
+    window.__stationFBX = state;
+    var drag = null;
+    stage.addEventListener('pointerdown', function (event) {
+      drag = { x: event.clientX, y: event.clientY, yaw: state.yaw, pitch: state.pitch };
+      try { stage.setPointerCapture(event.pointerId); } catch (e) {}
+    });
+    stage.addEventListener('pointermove', function (event) {
+      if (!drag) return;
+      state.yaw = drag.yaw + (event.clientX - drag.x) * 0.007;
+      state.pitch = Math.max(-0.25, Math.min(0.7, drag.pitch - (event.clientY - drag.y) * 0.004));
+    });
+    stage.addEventListener('pointerup', function () { drag = null; });
+    stage.addEventListener('pointercancel', function () { drag = null; });
+    stage.addEventListener('dblclick', function () { state.yaw = -0.38; state.pitch = 0.12; });
+    function resize() {
+      var w = stage.clientWidth || 600;
+      var h = stage.clientHeight || 500;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
+    if (window.ResizeObserver) new ResizeObserver(resize).observe(stage);
+    else window.addEventListener('resize', resize);
+    var loader = new THREE.FBXLoader();
+    loader.load('assets/station-midi.fbx', function (model) {
+      var box = new THREE.Box3().setFromObject(model);
+      var size = new THREE.Vector3();
+      box.getSize(size);
+      var scale = 2.15 / Math.max(size.y, 0.001);
+      model.scale.setScalar(scale);
+      box.setFromObject(model);
+      var center = new THREE.Vector3();
+      box.getCenter(center);
+      model.position.x -= center.x;
+      model.position.y -= center.y;
+      model.position.z -= center.z;
+      model.traverse(function (node) {
+        if (node.isMesh) {
+          node.castShadow = true;
+          node.receiveShadow = true;
+          if (node.material) {
+            node.material.side = THREE.FrontSide;
+            if (node.material.map) node.material.map.anisotropy = 4;
+          }
+        }
+      });
+      scene.add(model);
+      state.model = model;
+      stage.classList.add('gl-on');
+      var last = 0;
+      function frame(now) {
+        requestAnimationFrame(frame);
+        if (document.hidden || now - last < 33) return;
+        last = now;
+        camera.position.set(
+          Math.sin(state.yaw) * state.distance,
+          0.35 + Math.sin(state.pitch) * state.distance,
+          Math.cos(state.yaw) * state.distance
+        );
+        camera.lookAt(0, 0, 0);
+        renderer.render(scene, camera);
+      }
+      requestAnimationFrame(frame);
+      drawHomeScreen();
+      syncHomeRing();
+      setInterval(drawHomeScreen, 1000);
+      setInterval(syncHomeRing, 130);
+    }, undefined, function (error) {
+      console.warn('FBX load failed', error);
+      window.__stationFBX = null;
+      stage.classList.remove('gl-on');
+    });
+    return true;
+  }
+
   function initStationGL() {
     var canvas = document.getElementById('stationGL');
     var stage = document.getElementById('stationStage');
@@ -9810,6 +9911,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     var stage = document.getElementById('stationStage');
     var scene = document.getElementById('stationScene');
     if (!stage || !scene) return;
+    if (initStationFBX()) return;
     if (initStationGL()) {
       drawHomeScreen();
       syncHomeRing();
