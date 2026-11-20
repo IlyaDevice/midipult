@@ -578,6 +578,10 @@ def test_yapanel_features():
           and 'id="homeScreen"' in html and 'id="homeRing"' in html
           and 'id="btnMobileTabs"' in html and "initStation3D" in html
           and "buildMobileTabs" in html)
+    check("главная: WebGL-станция",
+          'id="stationGL"' in html and "function initStationGL" in html
+          and "gl_FragColor" in html and "u_screen" in html
+          and "sdRound" in html and "gl-on" in html)
     check("UI: лайки и оверлей текста",
           all(token in html for token in (
               'id="btnLike"', 'id="btnDislike"', 'id="lyricsDlg"',
