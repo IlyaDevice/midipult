@@ -9701,6 +9701,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         mats.forEach(function (mat) {
           if (!mat) return;
           mat.side = THREE.FrontSide;
+          if (name === '.002') ringMaterials.push(mat);
           if (mat.emissive) {
             var lum = mat.emissive.r + mat.emissive.g + mat.emissive.b;
             if (lum > 0.25) ringMaterials.push(mat);
@@ -9782,10 +9783,21 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
           new THREE.MeshBasicMaterial({ color: 0x8b5cf6, side: THREE.DoubleSide })
         );
         ringBand.rotation.x = -Math.PI / 2;
-        ringBand.position.set(bcenter.x, bodyBox.max.y + 0.03, bcenter.z);
+        ringBand.position.set(bcenter.x, bodyBox.max.y + 0.004, bcenter.z);
         ringBand.renderOrder = 6;
         scene.add(ringBand);
         state.ringBand = ringBand.material;
+        var ringGlow = new THREE.Mesh(
+          new THREE.RingGeometry(0.75, 0.93, 64),
+          new THREE.MeshBasicMaterial({ color: 0x8b5cf6, transparent: true,
+            opacity: 0.28, blending: THREE.AdditiveBlending,
+            depthWrite: false, side: THREE.DoubleSide })
+        );
+        ringGlow.rotation.x = -Math.PI / 2;
+        ringGlow.position.set(bcenter.x, bodyBox.max.y + 0.002, bcenter.z);
+        ringGlow.renderOrder = 5;
+        scene.add(ringGlow);
+        state.ringGlow = ringGlow.material;
         var logoCanvas = document.createElement('canvas');
         logoCanvas.width = 512;
         logoCanvas.height = 512;
@@ -10307,7 +10319,8 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       gltfState.ringMaterials.forEach(function (material) {
         if (material.emissive) {
           material.emissive.setRGB(rgb[0], rgb[1], rgb[2]);
-          material.emissiveIntensity = off ? 0.45 : 3.0;
+          material.emissiveIntensity = off ? 0.8 : 6.0;
+          if ('toneMapped' in material) material.toneMapped = false;
           material.needsUpdate = true;
         }
         if (material.color) {
@@ -10324,6 +10337,10 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       gltfState.ringBand.color.setRGB(rgb[0], rgb[1], rgb[2]);
       gltfState.ringBand.opacity = off ? 0.5 : 1;
       gltfState.ringBand.transparent = true;
+    }
+    if (gltfState && gltfState.ringGlow) {
+      gltfState.ringGlow.color.setRGB(rgb[0], rgb[1], rgb[2]);
+      gltfState.ringGlow.opacity = off ? 0.12 : 0.28;
     }
     if (gltfState && gltfState.ringDots3d) {
       gltfState.ringDots3d.forEach(function (material, index) {
