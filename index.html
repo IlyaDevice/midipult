@@ -2940,10 +2940,14 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     var duration = State.mediaDuration || 0;
     var progress = currentProgress();
     State.mediaProgress = progress;
-    var ratio = duration > 0 ? Math.max(0, Math.min(1, progress / duration)) : 0;
-    el.mediaSeek.value = String(Math.round(ratio * 1000));
-    el.mediaPos.textContent = fmtTime(progress);
-    el.mediaDur.textContent = duration > 0 ? fmtTime(duration) : '0:00';
+    // Пока пользователь тянет ползунок, его значение и подпись трогать нельзя:
+    // иначе change прочитает позицию, переписанную таймером, и перемотки не будет.
+    if (!State.seeking) {
+      var ratio = duration > 0 ? Math.max(0, Math.min(1, progress / duration)) : 0;
+      el.mediaSeek.value = String(Math.round(ratio * 1000));
+      el.mediaPos.textContent = fmtTime(progress);
+      el.mediaDur.textContent = duration > 0 ? fmtTime(duration) : '0:00';
+    }
     highlightLyrics();
   }
 
@@ -3107,12 +3111,40 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     State.progressAt = Date.now() / 1000;
     State.mediaProgress = position;
     updateMediaProgress();
-    return cgi('media.py', { action: 'seek', position: position }, { timeout: 12000 })
-      .then(function () { el.mediaKind.textContent = 'перематываю…'; return refreshPlayer(true, true); })
-      .catch(function (err) {
-        State.pendingSeek = null;
-        toast('Перемотка: ' + err.message, 'bad');
-      });
+
+    var attempts = 0;
+    var send = function () {
+      attempts += 1;
+      return cgi('media.py', { action: 'seek', position: position }, { timeout: 12000 })
+        .then(function () {
+          el.mediaKind.textContent = 'перематываю…';
+          return new Promise(function (resolve) { setTimeout(resolve, 700); });
+        })
+        .then(function () { return refreshPlayer(true, true); })
+        .then(function () { return check(); });
+    };
+    var check = function () {
+      // Проверяем по «сырому» state, а не по отображаемой цели: если станция
+      // команду проигнорировала, повторяем (до 3 раз).
+      return fetch('/state?player=1&fresh=1', { cache: 'no-store', credentials: 'same-origin' })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          var p = (data && data.player) || {};
+          var got = Number(p.progress) || 0;
+          if (Math.abs(got - position) <= 8) {
+            el.mediaKind.textContent = 'сейчас музыка';
+            return;
+          }
+          if (attempts < 3) return send();
+          State.pendingSeek = null;
+          el.mediaKind.textContent = 'перемотка не удалась';
+          toast('Станция не применила перемотку', 'warn');
+        });
+    };
+    return send().catch(function (err) {
+      State.pendingSeek = null;
+      toast('Перемотка: ' + err.message, 'bad');
+    });
   }
 
   function setPlaying(value) {    State.playing = !!value;
@@ -6464,6 +6496,13 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     });
     el.mediaSeek.addEventListener('change', function () {
       seekMedia(parseInt(el.mediaSeek.value, 10) || 0);
+    });
+    // Если перетаскивание прервалось без change, снимаем «seeking», иначе
+    // ползунок перестанет обновляться.
+    ['pointerup', 'pointercancel', 'blur'].forEach(function (name) {
+      el.mediaSeek.addEventListener(name, function () {
+        setTimeout(function () { State.seeking = false; }, 0);
+      });
     });
     el.btnPlay.addEventListener('click', function () {
       mediaAction(State.playing ? 'pause' : 'play');

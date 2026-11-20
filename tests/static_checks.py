@@ -424,6 +424,7 @@ def test_p2_hardening():
           and "refreshPlayer(true, true)" in html
           and "fresh=1" in html and "pendingSeek" in html
           and "Перемотка не применилась" in html
+          and "Станция не применила перемотку" in html
           and "commandGuard(" in html and "cmdPlaying" in html
           and "currentProgress" in html and "progressAt" in html
           and "start_watcher" in read(os.path.join(ROOT, "service", "state_daemon.py"))
