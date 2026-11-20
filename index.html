@@ -1158,6 +1158,43 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .station-ring i{position:absolute;width:7px;height:7px;margin:-3.5px;border-radius:50%;
   background:#16352a;border:1px solid rgba(255,255,255,.16);box-shadow:none}
 .station-hint{text-align:center;font-size:11px;color:var(--muted);margin-top:8px}
+.station-scene{width:300px;height:360px}
+.station-depth,.station-shell{position:absolute;left:50%;top:50%;transform-style:preserve-3d}
+.station-depth{width:0;height:0}
+.station-layer{position:absolute;left:50%;top:50%;width:226px;height:266px;
+  margin:-133px 0 0 -113px;border-radius:48px;
+  background:linear-gradient(160deg,#202228,#101216);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.05)}
+.station-shell{width:230px;height:270px;margin:-135px 0 0 -115px}
+.station-fabric{position:absolute;inset:0;border-radius:48px;overflow:hidden;
+  background:
+    radial-gradient(120% 90% at 50% -10%,rgba(255,255,255,.13),transparent 55%),
+    radial-gradient(circle at 1px 1px,rgba(255,255,255,.16) 1px,transparent 1.3px) 0 0/5px 5px,
+    linear-gradient(155deg,#30333b 0%,#1d2026 55%,#111318 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.16),inset 0 -18px 34px rgba(0,0,0,.55),
+    0 26px 50px rgba(0,0,0,.55)}
+.station-fabric::after{content:'';position:absolute;inset:0;border-radius:inherit;
+  background:radial-gradient(90% 60% at 20% 10%,rgba(255,255,255,.08),transparent 60%);
+  pointer-events:none}
+.station-fabric canvas{position:absolute;left:50%;top:104px;width:154px;height:48px;
+  transform:translateX(-50%);z-index:2;filter:drop-shadow(0 0 8px rgba(167,139,250,.55))}
+.station-mic{position:absolute;left:50%;top:84px;width:46px;height:16px;margin-left:-23px;
+  border-radius:8px;background:linear-gradient(180deg,#202228,#0c0e12);
+  border:1px solid rgba(255,255,255,.12);box-shadow:0 2px 6px rgba(0,0,0,.5);
+  display:flex;align-items:center;justify-content:center;z-index:3}
+.station-mic svg{width:9px;height:9px;fill:#c9cbd3;opacity:.85}
+.station-usb{position:absolute;left:50%;bottom:16px;width:30px;height:9px;margin-left:-15px;
+  border-radius:5px;background:#080a0d;border:1px solid rgba(255,255,255,.13);z-index:3}
+.station-topglass{position:absolute;left:50%;top:24px;width:252px;height:56px;margin-left:-126px;
+  border-radius:50%;z-index:8;
+  background:radial-gradient(55% 60% at 50% 42%,#20222a,#07080b 72%);
+  border:2px solid rgba(139,92,246,.9);
+  box-shadow:0 0 18px rgba(139,92,246,.55),0 0 42px rgba(139,92,246,.22),
+    inset 0 2px 4px rgba(255,255,255,.13),0 16px 28px rgba(0,0,0,.55);
+  transform:translateZ(30px)}
+.station-ring{position:absolute;inset:0;z-index:2}
+.station-ring i{position:absolute;width:5px;height:5px;margin:-2.5px;border-radius:50%;
+  background:#8b5cf6;border:none;box-shadow:0 0 6px rgba(139,92,246,.8)}
 .home-now{display:flex;align-items:center;gap:12px;margin-top:12px;min-width:0}
 .home-now img,.home-art{width:54px;height:54px;border-radius:12px;object-fit:cover;flex:0 0 auto;
   background:rgba(255,255,255,.06);padding:14px}
@@ -1260,12 +1297,17 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     <h2 id="h-home"><span class="dot"></span>Станция</h2>
     <div class="station-stage" id="stationStage">
       <div class="station-scene" id="stationScene">
-        <div class="station-body" id="stationBody"></div>
-        <div class="station-screen">
-          <canvas id="homeScreen" width="360" height="150"></canvas>
-          <span class="station-live">LIVE</span>
+        <div class="station-depth" id="stationDepth"></div>
+        <div class="station-shell">
+          <div class="station-fabric">
+            <canvas id="homeScreen" width="300" height="100"></canvas>
+            <div class="station-mic" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V22h2v-3.1A7 7 0 0 0 19 12Z"/></svg>
+            </div>
+            <div class="station-usb" aria-hidden="true"></div>
+          </div>
         </div>
-        <div class="station-top"><div class="station-ring" id="homeRing"></div></div>
+        <div class="station-topglass"><div class="station-ring" id="homeRing"></div></div>
       </div>
     </div>
     <div class="station-hint">Потяните, чтобы повернуть · двойной клик — сброс</div>
@@ -9397,25 +9439,20 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     var ctx = canvas.getContext('2d');
     var now = new Date();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    var grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    grad.addColorStop(0, '#06110d');
-    grad.addColorStop(1, '#020604');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
     var text = (now.getHours() < 10 ? '0' : '') + now.getHours() + ':' +
       (now.getMinutes() < 10 ? '0' : '') + now.getMinutes();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = '700 82px "Segoe UI", system-ui, sans-serif';
-    ctx.fillStyle = '#c9ffe8';
-    ctx.shadowColor = 'rgba(52,211,153,.9)';
-    ctx.shadowBlur = 18;
-    ctx.fillText(text, canvas.width / 2, canvas.height / 2 + 2);
+    ctx.font = '600 58px "Segoe UI", system-ui, sans-serif';
+    ctx.fillStyle = '#d8ccff';
+    ctx.shadowColor = 'rgba(139,92,246,.9)';
+    ctx.shadowBlur = 14;
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2 - 4);
     ctx.shadowBlur = 0;
-    ctx.font = '500 13px "Segoe UI", system-ui, sans-serif';
-    ctx.fillStyle = 'rgba(126,243,199,.65)';
-    ctx.fillText(now.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' }),
-      canvas.width / 2, canvas.height - 18);
+    ctx.font = '500 12px "Segoe UI", system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(196,181,253,.55)';
+    ctx.fillText(now.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }),
+      canvas.width / 2, canvas.height - 8);
   }
 
   function syncHomeRing() {
@@ -9424,14 +9461,13 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     for (var i = 0; i < homeRingDots.length; i++) {
       var source = ringDots[i];
       if (off) {
-        var base = State.color || '#00E676';
-        homeRingDots[i].style.background = base;
-        homeRingDots[i].style.opacity = '.32';
-        homeRingDots[i].style.boxShadow = '0 0 6px ' + base;
+        homeRingDots[i].style.background = '#8b5cf6';
+        homeRingDots[i].style.opacity = '.55';
+        homeRingDots[i].style.boxShadow = '0 0 6px rgba(139,92,246,.8)';
         continue;
       }
       var color = source ? source.style.background : '';
-      if (!color || color === 'transparent') color = '#16352a';
+      if (!color || color === 'transparent') color = '#8b5cf6';
       homeRingDots[i].style.background = color;
       homeRingDots[i].style.opacity = '1';
       homeRingDots[i].style.boxShadow = source ? source.style.boxShadow : 'none';
@@ -9439,32 +9475,30 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   }
 
   function initStation3D() {
-    var body = document.getElementById('stationBody');
+    var depth = document.getElementById('stationDepth');
     var stage = document.getElementById('stationStage');
     var scene = document.getElementById('stationScene');
     var ring = document.getElementById('homeRing');
-    if (!body || !stage || !scene || !ring) return;
-    body.innerHTML = '';
-    var facets = 24;
-    var radius = 112;
-    for (var i = 0; i < facets; i++) {
-      var facet = document.createElement('div');
-      facet.className = 'station-facet';
-      facet.style.width = '32px';
-      facet.style.transform = 'rotateY(' + (i * (360 / facets)) + 'deg) translateZ(' + radius + 'px)';
-      body.appendChild(facet);
+    if (!depth || !stage || !scene || !ring) return;
+    depth.innerHTML = '';
+    for (var i = 1; i <= 12; i++) {
+      var layer = document.createElement('div');
+      layer.className = 'station-layer';
+      layer.style.transform = 'translateZ(-' + (i * 3.2) + 'px) scale(' + (1 - i * 0.004) + ')';
+      layer.style.opacity = String(1 - i * 0.045);
+      depth.appendChild(layer);
     }
     ring.innerHTML = '';
     homeRingDots = [];
     for (var d = 0; d < 24; d++) {
       var dot = document.createElement('i');
       var angle = (d / 24) * Math.PI * 2;
-      dot.style.left = (50 + Math.cos(angle) * 46) + '%';
-      dot.style.top = (50 + Math.sin(angle) * 17) + '%';
+      dot.style.left = (50 + Math.cos(angle) * 47) + '%';
+      dot.style.top = (50 + Math.sin(angle) * 43) + '%';
       ring.appendChild(dot);
       homeRingDots.push(dot);
     }
-    var ry = -18, rx = -6;
+    var ry = -16, rx = -6;
     var drag = null;
     scene.style.setProperty('--ry', ry + 'deg');
     scene.style.setProperty('--rx', rx + 'deg');
@@ -9474,15 +9508,15 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     });
     stage.addEventListener('pointermove', function (event) {
       if (!drag) return;
-      ry = drag.ry + (event.clientX - drag.x) * 0.45;
-      rx = Math.max(-24, Math.min(18, drag.rx - (event.clientY - drag.y) * 0.22));
+      ry = drag.ry + (event.clientX - drag.x) * 0.42;
+      rx = Math.max(-22, Math.min(16, drag.rx - (event.clientY - drag.y) * 0.2));
       scene.style.setProperty('--ry', ry + 'deg');
       scene.style.setProperty('--rx', rx + 'deg');
     });
     stage.addEventListener('pointerup', function () { drag = null; });
     stage.addEventListener('pointercancel', function () { drag = null; });
     stage.addEventListener('dblclick', function () {
-      ry = -18;
+      ry = -16;
       rx = -6;
       scene.style.setProperty('--ry', ry + 'deg');
       scene.style.setProperty('--rx', rx + 'deg');
