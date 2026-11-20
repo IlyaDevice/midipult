@@ -361,6 +361,26 @@ main.grid{
 .alarm-dlg-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px 6px}
 .alarm-dlg-head h3{margin:0;font-size:17px}
 .alarm-form{display:flex;flex-direction:column;gap:10px;padding:14px 20px 20px}
+.alarm-time-field{position:relative;flex:1 1 0;min-width:0}
+.alarm-time-btn{width:100%;height:42px;display:flex;align-items:center;justify-content:center;
+  border-radius:12px;border:1px solid var(--stroke);background:rgba(255,255,255,.045);color:var(--text);
+  font:inherit;font-size:21px;font-weight:700;letter-spacing:.5px;cursor:pointer;
+  font-variant-numeric:tabular-nums}
+.alarm-time-btn:hover{background:rgba(255,255,255,.08)}
+.alarm-time-pop{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:30;background:#121724;
+  border:1px solid var(--stroke);border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.55);padding:8px}
+.alarm-time-cols{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.alarm-time-col{min-width:0}
+.alarm-time-cap{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+  text-align:center;padding:2px 0 6px}
+.alarm-time-list{display:flex;flex-direction:column;gap:2px;max-height:178px;overflow-y:auto;
+  scrollbar-width:thin;overscroll-behavior:contain}
+.alarm-time-item{border:0;background:transparent;color:var(--text);padding:7px 0;border-radius:8px;
+  font:inherit;font-size:14px;cursor:pointer;text-align:center;font-variant-numeric:tabular-nums}
+.alarm-time-item:hover{background:rgba(255,255,255,.07)}
+.alarm-time-item[aria-selected="true"]{background:rgba(124,92,255,.26);font-weight:650}
+.alarm-time-foot{display:flex;justify-content:flex-end;padding-top:8px}
+body.light .alarm-time-pop{background:#fff}
 .alarm-modes{display:flex;gap:6px;flex:1 1 auto;justify-content:flex-end}
 .alarm-modes .chip{height:42px;padding:0 14px;flex:0 0 auto}
 .alarm-station{position:relative}
@@ -1272,7 +1292,26 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     </div>
     <div class="alarm-form">
       <div class="alarm-row">
-        <input type="time" id="alarmTime" value="07:00" aria-label="Время будильника">
+        <div class="alarm-time-field" id="alarmTimeField">
+          <button type="button" class="alarm-time-btn" id="btnAlarmTime" aria-label="Выбрать время будильника">
+            <span id="alarmTimeValue">07:00</span>
+          </button>
+          <div class="alarm-time-pop" id="alarmTimePop" hidden>
+            <div class="alarm-time-cols">
+              <div class="alarm-time-col">
+                <div class="alarm-time-cap">часы</div>
+                <div class="alarm-time-list" id="alarmHours"></div>
+              </div>
+              <div class="alarm-time-col">
+                <div class="alarm-time-cap">минуты</div>
+                <div class="alarm-time-list" id="alarmMinutes"></div>
+              </div>
+            </div>
+            <div class="alarm-time-foot">
+              <button type="button" class="btn sm primary" id="btnAlarmTimeDone">Готово</button>
+            </div>
+          </div>
+        </div>
         <div class="alarm-modes" id="alarmModes">
           <button type="button" class="chip" data-amode="radio" aria-pressed="true">Радио</button>
           <button type="button" class="chip" data-amode="query" aria-pressed="false">Фраза</button>
@@ -2073,6 +2112,8 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     liked: false,
     queueTab: 'queue',
     alarmMode: 'radio',
+    alarmHour: 7,
+    alarmMinute: 0,
     alarmStations: [],
     alarmStation: null,
     lyricsInline: false,
@@ -3276,6 +3317,81 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
                     [5, 'Пт'], [6, 'Сб'], [7, 'Вс']];
   var alarmDays = new Set([1, 2, 3, 4, 5]);
 
+  function alarmPad(value) {
+    return (value < 10 ? '0' : '') + value;
+  }
+
+  function scrollAlarmTimeList(list) {
+    if (!list) return;
+    var selected = list.querySelector('[aria-selected="true"]');
+    if (!selected) return;
+    list.scrollTop = Math.max(0, selected.offsetTop - list.clientHeight / 2
+      + selected.offsetHeight / 2);
+  }
+
+  function renderAlarmTime() {
+    if (el.alarmTimeValue) {
+      el.alarmTimeValue.textContent = alarmPad(State.alarmHour) + ':'
+        + alarmPad(State.alarmMinute);
+    }
+    [el.alarmHours, el.alarmMinutes].forEach(function (list) {
+      if (!list) return;
+      Array.prototype.forEach.call(list.children, function (button) {
+        button.setAttribute('aria-selected',
+          button.dataset.value === String(list === el.alarmHours
+            ? State.alarmHour : State.alarmMinute) ? 'true' : 'false');
+      });
+    });
+  }
+
+  function buildAlarmTimeLists() {
+    if (!el.alarmHours || el.alarmHours.childElementCount) return;
+    var hour, minute;
+    for (hour = 0; hour < 24; hour += 1) {
+      (function (value) {
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'alarm-time-item';
+        button.dataset.value = String(value);
+        button.textContent = alarmPad(value);
+        button.addEventListener('click', function () {
+          State.alarmHour = value;
+          renderAlarmTime();
+          scrollAlarmTimeList(el.alarmHours);
+        });
+        el.alarmHours.appendChild(button);
+      }(hour));
+    }
+    for (minute = 0; minute < 60; minute += 1) {
+      (function (value) {
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'alarm-time-item';
+        button.dataset.value = String(value);
+        button.textContent = alarmPad(value);
+        button.addEventListener('click', function () {
+          State.alarmMinute = value;
+          renderAlarmTime();
+          scrollAlarmTimeList(el.alarmMinutes);
+        });
+        el.alarmMinutes.appendChild(button);
+      }(minute));
+    }
+    renderAlarmTime();
+  }
+
+  function openAlarmTime() {
+    buildAlarmTimeLists();
+    renderAlarmTime();
+    if (el.alarmTimePop) el.alarmTimePop.hidden = false;
+    scrollAlarmTimeList(el.alarmHours);
+    scrollAlarmTimeList(el.alarmMinutes);
+  }
+
+  function closeAlarmTime() {
+    if (el.alarmTimePop) el.alarmTimePop.hidden = true;
+  }
+
   function updateAlarmStationName() {
     if (!el.alarmStationName) return;
     el.alarmStationName.textContent = State.alarmStation
@@ -3478,7 +3594,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       return;
     }
     var payload = {
-      time: el.alarmTime.value || '07:00',
+      time: alarmPad(State.alarmHour) + ':' + alarmPad(State.alarmMinute),
       mode: State.alarmMode,
       text: text,
       days: Array.from(alarmDays),
@@ -7137,7 +7253,19 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     if (el.btnAlarmOpen) el.btnAlarmOpen.addEventListener('click', function () {
       setAlarmMode(State.alarmMode || 'radio');
       if (el.alarmDlg) el.alarmDlg.showModal();
+      buildAlarmTimeLists();
+      renderAlarmTime();
+      closeAlarmTime();
       loadAlarmStations();
+    });
+    if (el.btnAlarmTime) el.btnAlarmTime.addEventListener('click', function (event) {
+      event.stopPropagation();
+      if (el.alarmTimePop && el.alarmTimePop.hidden) openAlarmTime();
+      else closeAlarmTime();
+    });
+    if (el.btnAlarmTimeDone) el.btnAlarmTimeDone.addEventListener('click', closeAlarmTime);
+    if (el.alarmTimePop) el.alarmTimePop.addEventListener('click', function (event) {
+      event.stopPropagation();
     });
     if (el.btnAlarmStation) el.btnAlarmStation.addEventListener('click', function (event) {
       event.stopPropagation();
@@ -7153,9 +7281,11 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       el.alarmDlg.addEventListener('click', function (event) {
         if (event.target === el.alarmDlg) el.alarmDlg.close();
         if (el.alarmStationList) el.alarmStationList.hidden = true;
+        closeAlarmTime();
       });
       el.alarmDlg.addEventListener('close', function () {
         if (el.alarmStationList) el.alarmStationList.hidden = true;
+        closeAlarmTime();
       });
     }
     if (el.btnAlarmDismiss) el.btnAlarmDismiss.addEventListener('click', alarmDismiss);
@@ -7617,7 +7747,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'btnQueue', 'queueDlg', 'queueName', 'queueList', 'btnQueueClose', 'queueKicker',
       'lyricsNow', 'lyricsInline',
       'alarmList', 'alarmRinging', 'alarmRingLabel', 'btnAlarmDismiss',
-      'btnAlarmSnooze', 'alarmTime', 'alarmText', 'alarmDays',
+      'btnAlarmSnooze', 'alarmText', 'alarmDays',
+      'alarmTimeField', 'btnAlarmTime', 'alarmTimeValue', 'alarmTimePop',
+      'alarmHours', 'alarmMinutes', 'btnAlarmTimeDone',
       'alarmRadioBox', 'alarmModes', 'btnAlarmStation', 'alarmStationName',
       'alarmStationList', 'alarmCustomStation',
       'alarmVolume', 'alarmVolumeVal', 'alarmRamp', 'alarmStop', 'alarmSnooze',
