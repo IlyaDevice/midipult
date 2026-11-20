@@ -421,8 +421,9 @@ main.grid{
 .alarm-time-item[aria-selected="true"]{background:rgba(124,92,255,.26);font-weight:650}
 .alarm-time-foot{display:flex;justify-content:flex-end;padding-top:8px}
 body.light .alarm-time-pop{background:#fff}
-.alarm-modes{display:flex;gap:6px;flex:1 1 auto;justify-content:flex-end}
-.alarm-modes .chip{height:42px;padding:0 14px;flex:0 0 auto}
+.alarm-modes{display:flex;gap:6px;flex:1 1 auto;justify-content:flex-start;
+  flex-wrap:wrap;margin:2px 0 4px}
+.alarm-modes .chip{height:34px;padding:0 12px;flex:0 0 auto;font-size:12px}
 .alarm-station{position:relative}
 .alarm-select{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;height:40px;
   padding:0 12px;border-radius:12px;border:1px solid var(--stroke);background:rgba(255,255,255,.045);
@@ -1494,12 +1495,12 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
             </div>
           </div>
         </div>
-        <div class="alarm-modes" id="alarmModes">
-          <button type="button" class="chip" data-amode="radio" aria-pressed="true">Радио</button>
-          <button type="button" class="chip" data-amode="music" aria-pressed="false">Музыка</button>
-          <button type="button" class="chip" data-amode="sound" aria-pressed="false">Звук</button>
-          <button type="button" class="chip" data-amode="query" aria-pressed="false">Фраза</button>
-        </div>
+      </div>
+      <div class="alarm-modes" id="alarmModes">
+        <button type="button" class="chip" data-amode="radio" aria-pressed="true">Радио</button>
+        <button type="button" class="chip" data-amode="music" aria-pressed="false">Музыка</button>
+        <button type="button" class="chip" data-amode="sound" aria-pressed="false">Звук</button>
+        <button type="button" class="chip" data-amode="query" aria-pressed="false">Фраза</button>
       </div>
       <div id="alarmRadioBox">
         <div class="alarm-station" id="alarmStationBox">
@@ -4118,7 +4119,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     if (!State.alarmSounds.length) {
       var note = document.createElement('div');
       note.className = 'alarm-station-item';
-      note.textContent = 'Сначала добавьте свой звук во вкладке «Звук»';
+      note.textContent = 'Сначала добавьте звук: «Система» → «Звуки»';
       el.alarmSoundList.appendChild(note);
     }
   }
@@ -7667,6 +7668,13 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     State.sounds = data.sounds || [];
     State.customSounds = data.custom || [];
     State.soundInfo = data;
+    var previousSound = State.alarmSound;
+    State.alarmSounds = (State.customSounds || []).slice();
+    State.alarmSound = (State.alarmSounds.filter(function (sound) {
+      return previousSound && sound.id === previousSound.id;
+    })[0] || State.alarmSounds[0] || null);
+    renderAlarmSoundList();
+    updateAlarmSoundName();
     renderSounds();
     renderCustomSounds();
     refreshSoundPickers();
