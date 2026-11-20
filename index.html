@@ -183,6 +183,15 @@ main.grid{
   .radio-grid .radio-label{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
   .radio-picker{position:relative;margin-top:12px;z-index:2}
 .c-radio{overflow:hidden}
+.ring-anim-row{align-items:flex-start}
+.ring-picker{position:relative;flex:1 1 240px;min-width:0;z-index:2}
+.ring-picker .alarm-select{height:36px}
+.ring-picker .ring-list{position:static;left:auto;right:auto;top:auto;max-height:240px;
+  margin-top:6px;padding:6px;background:#0f1420;border-radius:12px;overscroll-behavior:contain}
+.ring-option{display:flex;align-items:center;gap:8px;width:100%;font-size:13px}
+.ring-option .ring-raw{margin-left:auto;color:var(--muted);font-size:10px;opacity:.6}
+.ring-option[hidden]{display:none}
+.ring-list .net-input{height:34px;margin-bottom:6px;position:sticky;top:-6px;z-index:1}
 .radio-pick-count{font-size:11px;color:var(--muted);margin-left:auto;margin-right:2px}
 .radio-picker .radio-list{position:static;left:auto;right:auto;top:auto;max-height:260px;
   margin-top:8px;padding:6px;background:#0f1420;border-radius:12px;overscroll-behavior:contain}
@@ -1229,8 +1238,19 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     <div class="field" style="margin-top:14px">
       <div class="field-top"><label>Анимации с колонки</label><output id="ringAnimStatus">—</output></div>
       <div class="anim-grid" id="ringAnimChips"></div>
-      <div class="row" style="margin-top:8px">
-        <select id="ringAnim" aria-label="Все анимации кольца"></select>
+      <div class="row ring-anim-row" style="margin-top:8px">
+        <div class="ring-picker">
+          <button type="button" class="alarm-select" id="btnRingPick"
+                  aria-haspopup="listbox" aria-expanded="false">
+            <span id="ringPickName">Все анимации</span>
+            <span class="alarm-caret">▾</span>
+          </button>
+          <div class="alarm-station-list ring-list" id="ringPickPop" hidden>
+            <input type="text" id="ringSearch" class="net-input" placeholder="Поиск анимации"
+                   autocomplete="off" aria-label="Поиск анимации кольца">
+            <div id="ringAnimList" role="listbox" aria-label="Анимации кольца"></div>
+          </div>
+        </div>
         <button class="btn ghost sm" id="btnRingAnimPlay">Проиграть</button>
         <button class="btn ghost sm" id="btnRingAnimStop">Стоп</button>
       </div>
@@ -6639,7 +6659,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         applyBrightness(data.display_brightness, false);
       }
       applyAutoConfig(data.auto || {}, data.mode || {});
-      if (el.ringAnim && data.animations) {
+      if (el.ringAnimChips && data.animations) {
         renderRingAnims(data.animations, data.animation ? State.ringAnimName : null);
         if (el.ringAnimStatus) {
           el.ringAnimStatus.textContent = data.animation ? 'играет' : '—';
@@ -6727,6 +6747,30 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       tile.active = active || tile.hovered;
     });
     if (el.ringAnimStatus) el.ringAnimStatus.textContent = name ? 'играет' : '—';
+    if (el.ringPickName) {
+      el.ringPickName.textContent = name ? (RING_ANIM_LABELS[name] || name) : 'Все анимации';
+    }
+  }
+
+  function filterRingAnims() {
+    if (!el.ringAnimList || !el.ringSearch) return;
+    var query = (el.ringSearch.value || '').trim().toLowerCase();
+    Array.prototype.forEach.call(el.ringAnimList.children, function (option) {
+      var text = (option.dataset.name || '').toLowerCase() + ' ' +
+        (option.textContent || '').toLowerCase();
+      option.hidden = !!query && text.indexOf(query) < 0;
+    });
+  }
+
+  function toggleRingPick(show) {
+    if (!el.ringPickPop || !el.btnRingPick) return;
+    el.ringPickPop.hidden = !show;
+    el.btnRingPick.setAttribute('aria-expanded', show ? 'true' : 'false');
+    if (show) {
+      el.ringSearch.value = '';
+      filterRingAnims();
+      setTimeout(function () { el.ringSearch.focus(); }, 30);
+    }
   }
 
   function renderRingAnims(animations, playingName) {
@@ -6774,15 +6818,37 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         loadRingFrames(name);
       }
     });
-    var current = el.ringAnim.value;
-    el.ringAnim.innerHTML = '';
-    list.forEach(function (item) {
-      var option = document.createElement('option');
-      option.value = item.name;
-      option.textContent = item.name;
-      el.ringAnim.appendChild(option);
-    });
-    if (current) el.ringAnim.value = current;
+    if (el.ringAnimList) {
+      el.ringAnimList.innerHTML = '';
+      var seen = {};
+      list.forEach(function (item) {
+        if (seen[item.name]) return;
+        seen[item.name] = true;
+        var option = document.createElement('button');
+        option.type = 'button';
+        option.className = 'alarm-station-item ring-option';
+        option.dataset.name = item.name;
+        option.setAttribute('role', 'option');
+        option.title = item.name;
+        var label = document.createElement('span');
+        label.className = 'ring-label';
+        label.textContent = RING_ANIM_LABELS[item.name] || item.name;
+        option.appendChild(label);
+        if (RING_ANIM_LABELS[item.name]) {
+          var raw = document.createElement('span');
+          raw.className = 'ring-raw';
+          raw.textContent = item.name;
+          option.appendChild(raw);
+        }
+        option.addEventListener('click', function () {
+          toggleRingPick(false);
+          playRingAnim(item.name);
+        });
+        el.ringAnimList.appendChild(option);
+      });
+      filterRingAnims();
+    }
+    markRingAnim(playingName);
   }
 
   function tickRingAnims() {
@@ -6796,8 +6862,8 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   }
 
   function playRingAnim(name) {
-    name = name || (el.ringAnim && el.ringAnim.value);
-    if (!name) { toast('Анимации не найдены', 'warn'); return; }
+    name = typeof name === 'string' ? name : (State.ringAnimName || '');
+    if (!name) { toast('Выберите анимацию кольца', 'warn'); return; }
     return cgi('display.py', { ring_anim: name }, { timeout: 10000 }).then(function () {
       State.ringAnimName = name;
       markRingAnim(name);
@@ -7723,8 +7789,23 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     /* дисплей */
     el.btnDisplayReset.addEventListener('click', resetDisplay);
     el.btnRingReset.addEventListener('click', resetRing);
-    el.btnRingAnimPlay.addEventListener('click', playRingAnim);
+    el.btnRingAnimPlay.addEventListener('click', function () { playRingAnim(); });
     el.btnRingAnimStop.addEventListener('click', stopRingAnim);
+    el.btnRingPick.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      toggleRingPick(el.ringPickPop.hidden);
+    });
+    el.ringSearch.addEventListener('input', filterRingAnims);
+    el.ringPickPop.addEventListener('click', function (ev) { ev.stopPropagation(); });
+    document.addEventListener('click', function (ev) {
+      if (!ev.target.closest('.ring-picker')) toggleRingPick(false);
+    });
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape' && el.ringPickPop && !el.ringPickPop.hidden) {
+        toggleRingPick(false);
+        el.btnRingPick.focus();
+      }
+    });
     el.btnScreenOff.addEventListener('click', function () {
       withBusy(el.btnScreenOff, function () {
         return sendDisplayOff().then(function () {
@@ -8345,7 +8426,8 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'displayText', 'btnDisplayText', 'btnClockBack',
       'ring', 'ringDots', 'ringHex', 'colorPicker', 'colorCode', 'presets', 'btnLedOff', 'btnRingReset', 'ledHint',
       'ringBrightness', 'ringBrightVal', 'ringSpeed', 'ringSpeedVal',
-      'ringAnim', 'ringAnimStatus', 'ringAnimChips', 'btnRingAnimPlay', 'btnRingAnimStop',
+      'ringAnimStatus', 'ringAnimChips', 'btnRingAnimPlay', 'btnRingAnimStop',
+      'btnRingPick', 'ringPickName', 'ringPickPop', 'ringSearch', 'ringAnimList',
       'mediaTitle', 'mediaSub', 'btnPrev', 'btnPlay', 'btnNext', 'mediaCover', 'mediaArtIcon',
       'btnMusic', 'mediaKind', 'mediaSeek', 'mediaPos', 'mediaDur', 'mediaProgress',
       'btnLyrics', 'lyricsStatus', 'lyricsBox',

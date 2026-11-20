@@ -531,7 +531,7 @@ def test_yapanel_features():
           and "lrclib.net" in lyrics_py and "parse_lrc" in lyrics_py)
     check("UI: follow-up, анимации и текст песни",
           all(token in html for token in (
-              'id="llmFollowUp"', 'id="ringAnim"', 'id="ringAnimChips"',
+              'id="llmFollowUp"', 'id="ringPickPop"', 'id="ringAnimChips"',
               'id="btnLyrics"', 'id="lyricsBox"', "currentProgress")))
     check("текст: без караоке-заливки",
           "np-lyric-text::before" not in html and "State.audioProgress" in html)
