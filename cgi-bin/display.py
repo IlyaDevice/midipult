@@ -36,6 +36,7 @@ ANIM_DIRS = (
     "/system/vendor/quasar/ledpatterns/oknix",
 )
 CUSTOM_ANIM_DIR = "/data/mypult/ring_anims"
+RING_HIDDEN = "/data/mypult/ring_hidden.json"
 ANIM_PID = "/tmp/mypult-ringanim.pid"
 ANIM_NAME = "/tmp/mypult-ringanim.name"
 CLOCK_ANIM_PID = "/tmp/mypult-clockanim.pid"
@@ -375,6 +376,16 @@ def reset_ring():
     return {"ring_brightness": value, "auto": load_auto(), "off": True}
 
 
+def hidden_ring_anims():
+    data = common.read_json(RING_HIDDEN, {"names": []}) or {}
+    names = data.get("names")
+    return [str(item) for item in names] if isinstance(names, list) else []
+
+
+def save_hidden_ring_anims(names):
+    common.write_json(RING_HIDDEN, {"names": [str(item) for item in names]})
+
+
 def ring_animations():
     """Анимации кольца из прошивки и свои из /data/mypult/ring_anims."""
     items = []
@@ -663,6 +674,20 @@ def anim_preview(name, limit=24):
 def main():
     data = common.params()
 
+    if data.get("ring_anim_hide") is not None:
+        target = str(data.get("ring_anim_hide") or "").strip()
+        hidden = hidden_ring_anims()
+        if target and target not in hidden:
+            hidden.append(target)
+        save_hidden_ring_anims(hidden)
+        common.ok(hidden_animations=hidden)
+        return
+
+    if common.truthy(data.get("ring_anim_restore")):
+        save_hidden_ring_anims([])
+        common.ok(hidden_animations=[])
+        return
+
     if data.get("ring_anim_save") is not None:
         try:
             saved = save_ring_anim(data.get("ring_anim_save"))
@@ -883,6 +908,7 @@ def main():
         animation_name=animation_name(),
         clock_anims=clock_anims(),
         hidden_presets=hidden_clock_presets(),
+        hidden_animations=hidden_ring_anims(),
     )
 
 

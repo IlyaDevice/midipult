@@ -1107,8 +1107,13 @@ body.light .reboot-bar{background:rgba(76,62,48,.1)}
 .q-note{padding:24px;color:var(--muted);font-size:13px;text-align:center}
 .anim-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;margin-top:8px}
 .anim-tile{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 4px;
+  position:relative;
   border:1px solid rgba(255,255,255,.09);border-radius:12px;background:transparent;color:inherit;
   cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.anim-tile-x{position:absolute;right:2px;top:1px;width:16px;height:16px;line-height:15px;
+  text-align:center;border-radius:50%;font-size:12px;color:var(--muted);
+  background:rgba(10,13,20,.8)}
+.anim-tile-x:hover{color:#fff;background:rgba(239,68,68,.65)}
 .anim-tile:hover{border-color:rgba(255,255,255,.22)}
 .anim-tile[aria-pressed="true"]{border-color:#7c5cff;box-shadow:0 0 0 1px #7c5cff inset}
 .anim-tile .anim-ring{position:relative;width:40px;height:40px;flex:0 0 auto}
@@ -1263,11 +1268,6 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       <div class="led-labels"><span>Цвет</span><code id="colorCode">#00E676</code></div>
     </div>
     <div class="chips" id="presets">
-      <button class="chip" data-hex="#ffffff" aria-pressed="false"><i class="sw" style="background:#fff"></i>Белый</button>
-      <button class="chip" data-hex="#ffd7a8" aria-pressed="false"><i class="sw" style="background:#ffd7a8"></i>Тёплый</button>
-      <button class="chip" data-hex="#ff3b3b" aria-pressed="false"><i class="sw" style="background:#ff3b3b"></i>Красный</button>
-      <button class="chip" data-hex="#22c55e" aria-pressed="false"><i class="sw" style="background:#22c55e"></i>Зелёный</button>
-      <button class="chip" data-hex="#3b82f6" aria-pressed="false"><i class="sw" style="background:#3b82f6"></i>Синий</button>
       <button class="chip" data-mode="rainbow" aria-pressed="false">🌈 Радуга</button>
       <button class="chip" data-mode="gradient" aria-pressed="false">🎨 Градиент</button>
       <button class="chip" data-mode="wave" aria-pressed="false">🌊 Волна</button>
@@ -1306,6 +1306,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         <button class="btn ghost sm" id="btnRingAnimPlay">Проиграть</button>
         <button class="btn ghost sm" id="btnRingAnimStop">Стоп</button>
         <button class="btn ghost sm" id="btnRingEditor">Редактор</button>
+        <button class="chip" id="btnRingRestoreHidden" hidden>Вернуть анимации</button>
       </div>
     </div>
     <div class="row" style="margin-top:12px">
@@ -2124,6 +2125,8 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
           <button type="button" class="btn sm ghost" id="btnRingEditorAdd">+ кадр</button>
           <button type="button" class="btn sm ghost" id="btnRingEditorDup">Дублировать</button>
           <button type="button" class="btn sm ghost" id="btnRingEditorDelFrame">Удалить кадр</button>
+          <button type="button" class="btn sm ghost" id="btnRingEditorFill">Залить всё</button>
+          <button type="button" class="btn sm ghost" id="btnRingEditorClear">Очистить</button>
         </div>
         <div class="anim-frames" id="ringEditorFrames"></div>
         <input type="text" id="ringEditorName" maxlength="40" placeholder="Название анимации" autocomplete="off">
@@ -2364,6 +2367,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     ringAnimName: null,
     ringPreview: null,
     ringAnimations: [],
+    hiddenRing: [],
     blinkTimer: null,
     muted: false,
     llmAnswer: '',
@@ -7111,6 +7115,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         State.hiddenPresets = data.hidden_presets || [];
         renderClockAnimList();
       }
+      if (data.hidden_animations) State.hiddenRing = data.hidden_animations;
       if (el.ringAnimChips && data.animations) {
         var playingName = data.animation
           ? (State.ringAnimName || data.animation_name || null) : null;
@@ -7318,13 +7323,23 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 
   function openRingEditor() {
     if (!el.ringEditorDlg) return;
+    var painting = false;
     ringEditorDots = buildRingDots(el.ringEditorRing, 24, 82);
     ringEditorDots.forEach(function (dot, index) {
-      dot.addEventListener('click', function () {
+      var paint = function () {
         ringEditorFrames[ringEditorIndex][index] = ringEditorColor.replace('#', '');
         ringEditorPaint();
+      };
+      dot.addEventListener('pointerdown', function (event) {
+        event.preventDefault();
+        painting = true;
+        paint();
+      });
+      dot.addEventListener('pointerenter', function () {
+        if (painting) paint();
       });
     });
+    document.addEventListener('pointerup', function () { painting = false; });
     ringEditorSetFrames([ringEditorNewFrame()], null);
     renderRingEditorSaved();
     el.ringEditorDlg.showModal();
@@ -7432,13 +7447,14 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     if (!el.ringAnimChips) return;
     var list = animations || [];
     State.ringAnimations = list;
+    var hidden = State.hiddenRing || [];
     var names = {};
     list.forEach(function (item) { names[item.name] = true; });
     el.ringAnimChips.innerHTML = '';
     ringAnimTiles = {};
     State.ringAnimName = playingName || null;
     Object.keys(RING_ANIM_LABELS).forEach(function (name) {
-      if (!names[name]) return;
+      if (!names[name] || hidden.indexOf(name) >= 0) return;
       var tile = document.createElement('button');
       tile.type = 'button';
       tile.className = 'anim-tile';
@@ -7451,6 +7467,15 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       label.textContent = RING_ANIM_LABELS[name];
       tile.appendChild(ring);
       tile.appendChild(label);
+      var hideTile = document.createElement('span');
+      hideTile.className = 'anim-tile-x';
+      hideTile.textContent = '×';
+      hideTile.title = 'Скрыть анимацию';
+      hideTile.addEventListener('click', function (event) {
+        event.stopPropagation();
+        hideRingAnim(name);
+      });
+      tile.appendChild(hideTile);
       ringAnimTiles[name] = {
         el: tile, dots: dots,
         active: playingName === name,
@@ -7474,11 +7499,56 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         loadRingFrames(name);
       }
     });
+    list.filter(function (item) {
+      return item.custom && hidden.indexOf(item.name) < 0;
+    }).forEach(function (item) {
+      var name = item.name;
+      var tile = document.createElement('button');
+      tile.type = 'button';
+      tile.className = 'anim-tile';
+      tile.setAttribute('aria-pressed', playingName === name ? 'true' : 'false');
+      var ring = document.createElement('span');
+      ring.className = 'anim-ring';
+      var dots = buildRingDots(ring, 24);
+      var label = document.createElement('span');
+      label.className = 'anim-name';
+      label.textContent = name;
+      tile.appendChild(ring);
+      tile.appendChild(label);
+      var remove = document.createElement('span');
+      remove.className = 'anim-tile-x';
+      remove.textContent = '×';
+      remove.title = 'Удалить свою анимацию';
+      remove.addEventListener('click', function (event) {
+        event.stopPropagation();
+        askConfirm('Удалить анимацию кольца «' + name + '»?', { yes: 'Удалить' })
+          .then(function (ok) { if (ok) ringEditorDelete(name); });
+      });
+      tile.appendChild(remove);
+      ringAnimTiles[name] = { el: tile, dots: dots, active: playingName === name, hovered: false };
+      tile.addEventListener('mouseenter', function () {
+        ringAnimTiles[name].hovered = true;
+        ringAnimTiles[name].active = true;
+        loadRingFrames(name);
+      });
+      tile.addEventListener('mouseleave', function () {
+        ringAnimTiles[name].hovered = false;
+        ringAnimTiles[name].active = tile.getAttribute('aria-pressed') === 'true';
+      });
+      tile.addEventListener('click', function () { playRingAnim(name); });
+      el.ringAnimChips.appendChild(tile);
+      loadRingFrames(name).then(function (playback) {
+        if (playback && playback.frames.length) {
+          paintRingFrame(name, playback.frames[playback.index] || playback.frames[0]);
+        }
+      });
+    });
+    if (el.btnRingRestoreHidden) el.btnRingRestoreHidden.hidden = !hidden.length;
     if (el.ringAnimList) {
       el.ringAnimList.innerHTML = '';
       var seen = {};
       list.forEach(function (item) {
-        if (seen[item.name]) return;
+        if (seen[item.name] || hidden.indexOf(item.name) >= 0) return;
         seen[item.name] = true;
         var option = document.createElement('button');
         option.type = 'button';
@@ -7536,6 +7606,28 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     }).catch(function (err) {
       toast('Анимация: ' + err.message, 'bad');
     });
+  }
+
+  function hideRingAnim(name) {
+    cgi('display.py', { ring_anim_hide: name }, { timeout: 10000 }).then(function (data) {
+      State.hiddenRing = data.hidden_animations || [];
+      if (State.ringAnimName === name) {
+        State.ringAnimName = null;
+        State.ringPreview = null;
+        paintOff();
+        el.ledHint.textContent = 'Кольцо выключено';
+      }
+      renderRingAnims(State.ringAnimations, State.ringAnimName);
+      toast('Анимация убрана из списка', 'ok');
+    }).catch(function (err) { toast('Кольцо: ' + err.message, 'bad'); });
+  }
+
+  function restoreRingAnims() {
+    cgi('display.py', { ring_anim_restore: 1 }, { timeout: 10000 }).then(function (data) {
+      State.hiddenRing = data.hidden_animations || [];
+      renderRingAnims(State.ringAnimations, State.ringAnimName);
+      toast('Анимации возвращены', 'ok');
+    }).catch(function (err) { toast('Кольцо: ' + err.message, 'bad'); });
   }
 
   function stopRingAnim() {
@@ -8463,9 +8555,11 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     el.btnRingReset.addEventListener('click', resetRing);
     el.btnRingAnimPlay.addEventListener('click', function () { playRingAnim(); });
     el.btnRingAnimStop.addEventListener('click', stopRingAnim);
+    if (el.btnRingRestoreHidden) {
+      el.btnRingRestoreHidden.addEventListener('click', restoreRingAnims);
+    }
     if (el.btnRingEditor) {
-      el.btnRingEditor.addEventListener('click', openRingEditor);
-      el.btnRingEditorClose.addEventListener('click', function () {
+      el.btnRingEditor.addEventListener('click', openRingEditor);      el.btnRingEditorClose.addEventListener('click', function () {
         if (el.ringEditorDlg) el.ringEditorDlg.close();
       });
       el.btnRingEditorAdd.addEventListener('click', function () {
@@ -8487,6 +8581,14 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         ringEditorIndex = Math.max(0, ringEditorIndex - 1);
         ringEditorPaint();
         ringEditorRenderFrames();
+      });
+      el.btnRingEditorFill.addEventListener('click', function () {
+        ringEditorFrames[ringEditorIndex] = new Array(24).fill(ringEditorColor.replace('#', ''));
+        ringEditorPaint();
+      });
+      el.btnRingEditorClear.addEventListener('click', function () {
+        ringEditorFrames[ringEditorIndex] = ringEditorNewFrame();
+        ringEditorPaint();
       });
       el.ringEditorColor.addEventListener('input', function () {
         ringEditorColor = el.ringEditorColor.value || '#00e676';
@@ -9157,6 +9259,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'btnRingPick', 'ringPickName', 'ringPickPop', 'ringSearch', 'ringAnimList',
       'btnRingEditor', 'ringEditorDlg', 'ringEditorRing', 'ringEditorColor',
       'btnRingEditorAdd', 'btnRingEditorDup', 'btnRingEditorDelFrame',
+      'btnRingEditorFill', 'btnRingEditorClear', 'btnRingRestoreHidden',
       'ringEditorFrames', 'ringEditorName', 'ringEditorDuration',
       'btnRingEditorSave', 'btnRingEditorPlay', 'btnRingEditorDelete',
       'btnRingEditorClose', 'ringEditorSaved',
