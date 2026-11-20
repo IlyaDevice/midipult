@@ -499,6 +499,31 @@ def test_radio_url_and_search():
           "search_wanted" in voice_py and 'payload["search"] = 1' in voice_py)
 
 
+def test_yapanel_features():
+    """Идеи из yapanel-web: CLI Алисы, анимации кольца, текст песни."""
+    voice = read(os.path.join(ROOT, "service", "voice_daemon.py"))
+    display_py = read(os.path.join(ROOT, "cgi-bin", "display.py"))
+    html = read(os.path.join(ROOT, "index.html"))
+    search_py = read(os.path.join(ROOT, "cgi-bin", "websearch.py"))
+    lyrics_py = read(os.path.join(ROOT, "cgi-bin", "lyrics.py"))
+    check("голос: отмена через maind --cli",
+          "alice_cli" in voice and "alice_cli.cancel()" in voice)
+    check("голос: follow-up через CLI и Luna speech",
+          "listen_for_phrase" in voice and "/api/alice/speech" in voice
+          and "follow_up" in voice)
+    check("кольцо: анимации прошивки через led_util",
+          "led_util" in display_py and "ring_animations" in display_py)
+    check("плеер: текст песни из LRCLIB",
+          os.path.isfile(os.path.join(ROOT, "cgi-bin", "lyrics.py"))
+          and "lrclib.net" in lyrics_py and "parse_lrc" in lyrics_py)
+    check("UI: follow-up, анимации и текст песни",
+          all(token in html for token in (
+              'id="llmFollowUp"', 'id="ringAnim"', 'id="btnLyrics"',
+              'id="lyricsBox"')))
+    check("поиск: без скрейпинга выдачи",
+          "_bing" not in search_py and "duckduckgo" not in search_py.lower())
+
+
 def main():
     for test in (
         test_encoding,
@@ -516,6 +541,7 @@ def main():
         test_symlink_docroot_fix,
         test_autostart_shim,
         test_radio_url_and_search,
+        test_yapanel_features,
         test_button_grids,
         test_lighttpd_config,
         test_init_script,

@@ -827,6 +827,12 @@ body.light .reboot-bar{background:rgba(76,62,48,.1)}
 .llm-source{font-size:var(--fs-12);line-height:1.4;color:#8fc7ff;text-decoration:none;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .llm-sources .seg-note{color:#8f9bb3}
+.lyrics{margin-top:10px;max-height:220px;overflow:auto;display:flex;flex-direction:column;
+  gap:2px;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:8px 10px;
+  font-size:var(--fs-12);line-height:1.5}
+.lyrics .line{opacity:.55;transition:opacity .2s}
+.lyrics .line.active{opacity:1;font-weight:600}
+.lyrics .plain{white-space:pre-wrap}
 
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important}
@@ -969,6 +975,14 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       <div class="field-top"><label for="ringSpeed">Скорость / дыхание</label><output id="ringSpeedVal">фикс</output></div>
       <input type="range" id="ringSpeed" min="0" max="300" step="10" value="0" aria-label="Скорость анимации и мигания кольца">
     </div>
+    <div class="field" style="margin-top:14px">
+      <div class="field-top"><label for="ringAnim">Анимация из прошивки</label><output id="ringAnimStatus">—</output></div>
+      <select id="ringAnim"></select>
+      <div class="row" style="margin-top:8px">
+        <button class="btn ghost sm" id="btnRingAnimPlay">Проиграть</button>
+        <button class="btn ghost sm" id="btnRingAnimStop">Стоп</button>
+      </div>
+    </div>
     <div class="row" style="margin-top:12px">
       <button class="btn danger sm" id="btnLedOff">Выключить кольцо</button>
       <button class="btn ghost sm" id="btnRingReset">Сбросить кольцо</button>
@@ -1008,6 +1022,11 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       <input type="range" id="mediaSeek" min="0" max="1000" step="1" value="0" aria-label="Перемотка">
       <span id="mediaDur">0:00</span>
     </div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn sm ghost" id="btnLyrics">Текст песни</button>
+      <span class="seg-note" id="lyricsStatus"></span>
+    </div>
+    <div class="lyrics" id="lyricsBox" hidden></div>
     <div class="field">
       <div class="field-top"><label for="volume">Громкость</label><output id="volumeVal">40%</output></div>
       <div class="vol-row">
@@ -1135,6 +1154,10 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     <div class="row between" style="margin-top:8px">
       <label class="llm-toggle"><input type="checkbox" id="llmSearch"><span>Искать в интернете</span></label>
       <span class="seg-note" id="llmSearchStatus">выкл</span>
+    </div>
+    <div class="row between" style="margin-top:8px">
+      <label class="llm-toggle"><input type="checkbox" id="llmFollowUp"><span>Слушать продолжение</span></label>
+      <span class="seg-note">после ответа — без «Алисы»</span>
     </div>
     <div class="row" style="margin-top:8px">
       <input id="llmSearchUrl" class="net-input" placeholder="Свой SearXNG: https://searx.example (необязательно)" autocomplete="off">
@@ -1780,6 +1803,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     scenarios: [],
     mediaDuration: 0,
     mediaProgress: 0,
+    mediaTitle: '',
+    mediaArtist: '',
+    lyricsLines: [],
     seeking: false,
     volumeDragging: false,
     updateInfo: null,
@@ -2823,6 +2849,75 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     el.mediaSeek.value = String(Math.round(ratio * 1000));
     el.mediaPos.textContent = fmtTime(progress);
     el.mediaDur.textContent = duration > 0 ? fmtTime(duration) : '0:00';
+    highlightLyrics();
+  }
+
+  function clearLyrics() {
+    State.lyricsLines = [];
+    if (el.lyricsBox) {
+      el.lyricsBox.innerHTML = '';
+      el.lyricsBox.hidden = true;
+    }
+    if (el.lyricsStatus) el.lyricsStatus.textContent = '';
+  }
+
+  function renderLyrics(data) {
+    if (!el.lyricsBox) return;
+    el.lyricsBox.innerHTML = '';
+    State.lyricsLines = [];
+    if (!data || !data.found) {
+      el.lyricsStatus.textContent = 'не найдено';
+      el.lyricsBox.hidden = true;
+      return;
+    }
+    el.lyricsStatus.textContent = data.source || 'LRCLIB';
+    el.lyricsBox.hidden = false;
+    if (data.synced && data.synced.length) {
+      data.synced.forEach(function (item) {
+        var line = document.createElement('div');
+        line.className = 'line';
+        line.textContent = item.text;
+        line.dataset.t = item.t;
+        el.lyricsBox.appendChild(line);
+      });
+      State.lyricsLines = Array.prototype.slice.call(el.lyricsBox.children);
+      highlightLyrics();
+      return;
+    }
+    var plain = document.createElement('div');
+    plain.className = 'plain';
+    plain.textContent = data.plain || '';
+    el.lyricsBox.appendChild(plain);
+  }
+
+  function highlightLyrics() {
+    var lines = State.lyricsLines;
+    if (!lines || !lines.length) return;
+    var now = State.mediaProgress || 0;
+    var active = null;
+    lines.forEach(function (line) {
+      var moment = parseFloat(line.dataset.t);
+      if (!isNaN(moment) && moment <= now + 0.3) active = line;
+    });
+    lines.forEach(function (line) {
+      line.classList.toggle('active', line === active);
+    });
+  }
+
+  function loadLyrics() {
+    if (!State.mediaTitle) {
+      toast('Сейчас ничего не играет', 'warn');
+      return;
+    }
+    el.lyricsStatus.textContent = 'ищу…';
+    return cgi('lyrics.py', {
+      title: State.mediaTitle,
+      artist: State.mediaArtist,
+      duration: Math.round(State.mediaDuration || 0)
+    }, { timeout: 20000 }).then(renderLyrics).catch(function (err) {
+      el.lyricsStatus.textContent = '';
+      toast('Текст песни: ' + err.message, 'bad');
+    });
   }
 
   function seekMedia(value) {
@@ -2854,9 +2949,16 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         (data.kind === 'Track' ? 'сейчас музыка' : '');
     }
     if (data.title) {
+      if (data.title !== State.mediaTitle) {
+        State.mediaTitle = data.title;
+        State.mediaArtist = data.artist || '';
+        clearLyrics();
+      }
       el.mediaTitle.textContent = data.title;
       el.mediaSub.textContent = data.artist || '';
     } else {
+      State.mediaTitle = '';
+      State.mediaArtist = '';
       el.mediaTitle.textContent = 'Glagol';
       el.mediaSub.textContent = 'ws://127.0.0.1:1961';
     }
@@ -3314,9 +3416,18 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     }
     if (el.llmSearch) {
       el.llmSearch.checked = !!data.web_search;
+      var mode = data.search_mode || null;
+      el.llmSearch.disabled = !mode;
+      el.llmSearch.title = mode ? '' : 'У активного провайдера нет встроенного поиска';
+      var label = mode === 'openrouter' ? 'родной OpenRouter'
+        : mode === 'openai' ? 'родной OpenAI'
+          : mode === 'searx' ? 'свой SearXNG'
+            : 'поиск недоступен';
       el.llmSearchStatus.textContent = data.web_search
-        ? ('вкл · ' + (data.search_url ? 'свой SearXNG' : 'Bing'))
-        : 'выкл';
+        ? ('вкл · ' + label) : label;
+    }
+    if (el.llmFollowUp) {
+      el.llmFollowUp.checked = !!data.follow_up;
     }
     if (el.llmSearchUrl && document.activeElement !== el.llmSearchUrl) {
       el.llmSearchUrl.value = data.search_url || '';
@@ -3402,6 +3513,17 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     }).catch(function (err) {
       el.llmSearch.checked = !el.llmSearch.checked;
       toast('Поиск: ' + err.message, 'bad');
+    });
+  }
+
+  function toggleFollowUp() {
+    var on = el.llmFollowUp.checked ? 1 : 0;
+    return cgi('llm.py', { follow_up: on }, { timeout: 15000 }).then(function (data) {
+      applyLlmInfo(data);
+      toast(on ? 'Продолжение разговора включено' : 'Продолжение разговора выключено', 'ok');
+    }).catch(function (err) {
+      el.llmFollowUp.checked = !el.llmFollowUp.checked;
+      toast('Продолжение: ' + err.message, 'bad');
     });
   }
 
@@ -4925,7 +5047,40 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         applyBrightness(data.display_brightness, false);
       }
       applyAutoConfig(data.auto || {}, data.mode || {});
+      if (el.ringAnim && data.animations) {
+        var current = el.ringAnim.value;
+        el.ringAnim.innerHTML = '';
+        data.animations.forEach(function (item) {
+          var option = document.createElement('option');
+          option.value = item.name;
+          option.textContent = item.name;
+          el.ringAnim.appendChild(option);
+        });
+        if (current) el.ringAnim.value = current;
+        if (el.ringAnimStatus) {
+          el.ringAnimStatus.textContent = data.animation ? 'играет' : '—';
+        }
+      }
     }).catch(function () { /* тихо */ });
+  }
+
+  function playRingAnim() {
+    var name = el.ringAnim && el.ringAnim.value;
+    if (!name) { toast('Анимации не найдены', 'warn'); return; }
+    return cgi('display.py', { ring_anim: name }, { timeout: 10000 }).then(function () {
+      if (el.ringAnimStatus) el.ringAnimStatus.textContent = 'играет';
+      toast('Анимация: ' + name, 'ok');
+    }).catch(function (err) {
+      toast('Анимация: ' + err.message, 'bad');
+    });
+  }
+
+  function stopRingAnim() {
+    return cgi('display.py', { ring_anim_stop: 1 }, { timeout: 8000 }).then(function () {
+      if (el.ringAnimStatus) el.ringAnimStatus.textContent = '—';
+    }).catch(function (err) {
+      toast('Анимация: ' + err.message, 'bad');
+    });
   }
 
   function toggleAutoBright() {
@@ -5812,6 +5967,8 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     /* дисплей */
     el.btnDisplayReset.addEventListener('click', resetDisplay);
     el.btnRingReset.addEventListener('click', resetRing);
+    el.btnRingAnimPlay.addEventListener('click', playRingAnim);
+    el.btnRingAnimStop.addEventListener('click', stopRingAnim);
     el.btnScreenOff.addEventListener('click', function () {
       withBusy(el.btnScreenOff, function () {
         return sendDisplayOff().then(function () {
@@ -5901,6 +6058,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     el.btnPrev.addEventListener('click', function () { mediaAction('prev'); });
     el.btnNext.addEventListener('click', function () { mediaAction('next'); });
     el.btnMusic.addEventListener('click', function () { mediaAction('music'); });
+    el.btnLyrics.addEventListener('click', loadLyrics);
     el.mediaSeek.addEventListener('input', function () {
       State.seeking = true;
       var duration = State.mediaDuration || 0;
@@ -6031,6 +6189,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     el.btnLlmAsk.addEventListener('click', askLlm);
     el.btnLlmSay.addEventListener('click', sayLlmAnswer);
     el.llmSearch.addEventListener('change', toggleLlmSearch);
+    el.llmFollowUp.addEventListener('change', toggleFollowUp);
     el.btnLlmSearchUrl.addEventListener('click', saveLlmSearchUrl);
     el.llmSearchUrl.addEventListener('keydown', function (ev) {
       if (ev.key === 'Enter') {
@@ -6309,8 +6468,10 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'displayText', 'btnDisplayText', 'btnClockBack',
       'ring', 'ringDots', 'ringHex', 'colorPicker', 'colorCode', 'presets', 'btnLedOff', 'btnRingReset', 'ledHint',
       'ringBrightness', 'ringBrightVal', 'ringSpeed', 'ringSpeedVal',
+      'ringAnim', 'ringAnimStatus', 'btnRingAnimPlay', 'btnRingAnimStop',
       'mediaTitle', 'mediaSub', 'btnPrev', 'btnPlay', 'btnNext', 'mediaCover', 'mediaArtIcon',
       'btnMusic', 'mediaKind', 'mediaSeek', 'mediaPos', 'mediaDur', 'mediaProgress',
+      'btnLyrics', 'lyricsStatus', 'lyricsBox',
       'volume', 'volumeVal', 'btnVolDown', 'btnVolUp', 'btnMute',
       'btnMic', 'micHint', 'micTimer', 'transcript', 'btnRepeat', 'btnCancelListen',
       'command', 'btnSendCmd', 'ttsText', 'ttsCount', 'btnTtsClear', 'btnSay', 'ttsChips',
@@ -6324,6 +6485,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'llmEnabled', 'llmStatus', 'btnLlmSave', 'llmPrompt', 'btnLlmAsk', 'btnLlmSay',
       'llmSystem', 'btnLlmSystem', 'llmSystemStatus',
       'llmSearch', 'llmSearchStatus', 'llmSearchUrl', 'btnLlmSearchUrl', 'llmSources',
+      'llmFollowUp',
       'llmAnswer', 'llmMeta',
       'vpnUrl', 'btnVpnSave', 'btnVpnToggle', 'vpnStatus', 'vpnServer', 'vpnLog', 'vpnAutostart',
       'btnVoiceDaemon', 'voiceDaemonStatus',

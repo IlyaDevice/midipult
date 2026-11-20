@@ -104,6 +104,8 @@ def load_config():
         data["web_search"] = False
     if not isinstance(data.get("search_url"), str):
         data["search_url"] = ""
+    if not isinstance(data.get("follow_up"), bool):
+        data["follow_up"] = False
     return data
 
 
@@ -159,6 +161,9 @@ def info(config=None):
         "system_prompt": str(config.get("system_prompt") or ""),
         "web_search": bool(config.get("web_search")),
         "search_url": str(config.get("search_url") or ""),
+        "search_mode": search_mode(active.get("provider") if active else "",
+                                   config),
+        "follow_up": bool(config.get("follow_up")),
         "config": public_profile(active),
         "max_tokens": int(config.get("max_tokens") or 260),
         "chats": [chat_public(item) for item in chats.get("chats") or []],
@@ -212,6 +217,24 @@ def voice_enabled(config):
     return bool(config.get("enabled"))
 
 
+NATIVE_SEARCH = ("openrouter", "openai")
+
+
+def native_search(provider):
+    """У провайдера есть встроенный поиск? OpenRouter — плагин web,
+    OpenAI — инструмент web_search в Responses API."""
+    return (provider or "") in NATIVE_SEARCH
+
+
+def search_mode(provider, config):
+    """Чем реально будет искаться: провайдер, searx или ничего."""
+    if native_search(provider):
+        return provider
+    if str(config.get("search_url") or "").strip():
+        return "searx"
+    return None
+
+
 def _post_chat(base_url, payload, key, timeout=90):
     """Один POST в /chat/completions; HTTPError отдаётся вызывающему."""
     request = urllib.request.Request(
@@ -233,6 +256,55 @@ def _http_detail(exc, limit=600):
         return exc.read(limit).decode("utf-8", "replace")
     except OSError:
         return ""
+
+
+def _post_responses(base_url, payload, key, timeout=120):
+    """POST в OpenAI Responses API (родной веб-поиск)."""
+    request = urllib.request.Request(
+        base_url + "/responses",
+        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + key,
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def _responses_answer(body):
+    """Текст и аннотации из ответа Responses API."""
+    text = body.get("output_text")
+    annotations = []
+    if isinstance(text, str) and text.strip():
+        return text.strip(), annotations
+    parts = []
+    for item in body.get("output") or []:
+        if not isinstance(item, dict) or item.get("type") != "message":
+            continue
+        for part in item.get("content") or []:
+            if not isinstance(part, dict):
+                continue
+            if part.get("type") == "output_text":
+                parts.append(str(part.get("text") or ""))
+                annotations.extend(part.get("annotations") or [])
+    return "".join(parts).strip(), annotations
+
+
+def _openai_web_answer(base_url, profile, messages, max_tokens, timeout=120):
+    """Родной поиск OpenAI: Responses API + инструмент web_search."""
+    payload = {
+        "model": profile.get("model") or "gpt-4o-mini",
+        "input": messages,
+        "tools": [{"type": "web_search"}],
+        "max_output_tokens": int(max_tokens),
+    }
+    body = _post_responses(base_url, payload, profile["key"], timeout)
+    text, annotations = _responses_answer(body)
+    if not text:
+        raise RuntimeError("пустой ответ Responses API")
+    return text, websearch.annotations(annotations)
 
 
 def ask(prompt, system=None, search=None):
@@ -264,26 +336,36 @@ def ask(prompt, system=None, search=None):
     if not system:
         system = str(config.get("system_prompt") or "").strip()
 
-    # Веб-поиск: короткая выжимка из интернета уходит в system-промпт.
+    # Веб-поиск: сначала родной у провайдера, потом свой SearXNG.
     # `search` из запроса важнее настройки (голосовые триггеры вроде «поищи»).
     use_search = bool(config.get("web_search")) if search is None else bool(search)
     sources = []
     search_source = ""
     search_note = ""
-    if use_search and websearch is not None:
-        query = websearch.query_from_prompt(prompt) or prompt
-        try:
-            found = websearch.search(
-                query, searx_url=str(config.get("search_url") or ""))
-        except Exception as exc:  # noqa: BLE001 - поиск не должен валить ответ
-            found = {"results": [], "error": str(exc)[:200], "source": None}
-        sources = found.get("results") or []
-        search_source = str(found.get("source") or "")
-        if sources:
-            extra = websearch.context(sources, query)
-            system = (system + "\n\n" + extra) if system else extra
-        else:
-            search_note = str(found.get("error") or "ничего не найдено")[:200]
+    answer = None
+    body = None
+
+    if use_search:
+        mode = search_mode(provider, config)
+        if mode == "searx":
+            searx_url = str(config.get("search_url") or "").strip()
+            query = websearch.query_from_prompt(prompt) or prompt
+            try:
+                found = websearch.search_searx(query, searx_url)
+            except Exception as exc:  # noqa: BLE001 - поиск не должен валить ответ
+                found = []
+                search_note = "SearXNG не ответил: %s" % str(exc)[:160]
+            if found:
+                extra = websearch.context(found, query)
+                system = (system + "\n\n" + extra) if system else extra
+                sources = found
+                search_source = "searx"
+            elif not search_note:
+                search_note = "SearXNG ничего не нашёл"
+        elif mode is None:
+            search_note = ("У провайдера «%s» нет встроенного поиска: "
+                           "добавьте профиль OpenRouter/OpenAI или укажите SearXNG"
+                           % provider)
 
     if system:
         messages.append({"role": "system", "content": system})
@@ -300,39 +382,61 @@ def ask(prompt, system=None, search=None):
     if provider == "deepseek":
         # Без «размышлений» deepseek-flash отвечает ~1.5 с вместо 10–15 с.
         payload["thinking"] = {"type": "disabled"}
-    temperature_dropped = False
-    try:
-        body = _post_chat(base_url, payload, profile["key"])
-    except urllib.error.HTTPError as exc:
-        detail = _http_detail(exc)
-        # Новые модели (Claude 5.x и подобные) отвечают 400 на temperature.
-        # Правило — исправлять payload по ошибке провайдера, а не по имени
-        # модели: повторяем один раз без temperature, остальное не трогаем.
-        if (exc.code == 400 and "temperature" in payload
-                and "temperature" in detail.lower()):
-            payload.pop("temperature", None)
-            temperature_dropped = True
-            try:
-                body = _post_chat(base_url, payload, profile["key"])
-            except urllib.error.HTTPError as retry_exc:
-                common.fail(502, "API ответил HTTP %s" % retry_exc.code,
-                            detail=_http_detail(retry_exc)[:400])
-                return
-            except (urllib.error.URLError, OSError) as retry_exc:
-                common.fail(502, "Нет связи с API: %s" % retry_exc)
-                return
-        else:
-            common.fail(502, "API ответил HTTP %s" % exc.code, detail=detail[:400])
-            return
-    except (urllib.error.URLError, OSError) as exc:
-        common.fail(502, "Нет связи с API: %s" % exc)
-        return
+    if use_search and provider == "openrouter":
+        # Родной поиск OpenRouter: плагин web, источники приходят аннотациями.
+        payload["plugins"] = [{"id": "web"}]
+        search_source = "openrouter"
 
-    try:
-        answer = body["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, TypeError):
-        common.fail(502, "Неожиданный ответ API", detail=str(body)[:400])
-        return
+    if use_search and provider == "openai":
+        try:
+            answer, response_sources = _openai_web_answer(
+                base_url, profile, messages, payload["max_tokens"])
+            sources = response_sources
+            search_source = "openai"
+        except Exception as exc:  # noqa: BLE001 - упадёт, ответим без поиска
+            search_note = "Родной поиск OpenAI не сработал: %s" % str(exc)[:160]
+            answer = None
+
+    temperature_dropped = False
+    if answer is None:
+        try:
+            body = _post_chat(base_url, payload, profile["key"])
+        except urllib.error.HTTPError as exc:
+            detail = _http_detail(exc)
+            # Новые модели (Claude 5.x и подобные) отвечают 400 на temperature.
+            # Правило — исправлять payload по ошибке провайдера, а не по имени
+            # модели: повторяем один раз без temperature, остальное не трогаем.
+            if (exc.code == 400 and "temperature" in payload
+                    and "temperature" in detail.lower()):
+                payload.pop("temperature", None)
+                temperature_dropped = True
+                try:
+                    body = _post_chat(base_url, payload, profile["key"])
+                except urllib.error.HTTPError as retry_exc:
+                    common.fail(502, "API ответил HTTP %s" % retry_exc.code,
+                                detail=_http_detail(retry_exc)[:400])
+                    return
+                except (urllib.error.URLError, OSError) as retry_exc:
+                    common.fail(502, "Нет связи с API: %s" % retry_exc)
+                    return
+            else:
+                common.fail(502, "API ответил HTTP %s" % exc.code, detail=detail[:400])
+                return
+        except (urllib.error.URLError, OSError) as exc:
+            common.fail(502, "Нет связи с API: %s" % exc)
+            return
+
+    if answer is None:
+        try:
+            message = body["choices"][0]["message"]
+            answer = message["content"]
+        except (KeyError, IndexError, TypeError):
+            common.fail(502, "Неожиданный ответ API", detail=str(body)[:400])
+            return
+        if use_search and provider == "openrouter":
+            sources = websearch.annotations(message.get("annotations"))
+            if not sources and not search_note:
+                search_note = "OpenRouter не вернул источники"
 
     answer = answer.strip()
     history = chat.setdefault("messages", [])
@@ -341,9 +445,10 @@ def ask(prompt, system=None, search=None):
     chat["messages"] = history[-20:]
     save_chats(chats)
 
+    usage = (body or {}).get("usage")
     common.ok(answer=answer, model=payload["model"], provider=provider,
               profile=profile.get("name"), chat=chat.get("name"),
-              chat_id=chat.get("id"), usage=body.get("usage"),
+              chat_id=chat.get("id"), usage=usage,
               temperature_dropped=temperature_dropped,
               sources=sources, search_source=search_source,
               search_note=search_note)
@@ -485,7 +590,7 @@ def main():
     data = common.params()
     action_keys = ("prompt", "enabled", "voice_enabled", "activate", "delete", "provider", "name", "profile_id",
                    "max_tokens", "system_prompt", "chat_next", "chat_prev", "chat_new", "chat_select",
-                   "chat_delete", "chat_rename", "web_search", "search_url")
+                   "chat_delete", "chat_rename", "web_search", "search_url", "follow_up")
     if common.truthy(data.get("info")) or not any(key in data for key in action_keys):
         common.respond(200, info())
         return
@@ -525,6 +630,12 @@ def main():
                 return
             url = url.rstrip("/")
         config["search_url"] = url
+        save_config(config)
+        common.respond(200, info(config))
+        return
+
+    if data.get("follow_up") is not None:
+        config["follow_up"] = common.truthy(data.get("follow_up"))
         save_config(config)
         common.respond(200, info(config))
         return

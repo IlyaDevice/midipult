@@ -18,10 +18,17 @@ import re
 import sys
 import threading
 import time
+import urllib.parse
 import urllib.request
 
 BASE = "http://127.0.0.1:8055"
 LUNA = "http://127.0.0.1:8099"
+
+sys.path.insert(0, "/data/myweb/cgi-bin")
+try:
+    import alice_cli  # noqa: E402
+except Exception:  # noqa: BLE001
+    alice_cli = None
 
 
 def log(message):
@@ -62,11 +69,93 @@ def set_volume(level):
 
 
 def stop_alice_speech():
-    """Отменить текущую речь Алисы: текстовое «стоп» отменяет TTS-директиву."""
+    """Отменить текущую речь Алисы.
+
+    Сначала локальный `maind --cli` 'c' (быстро, без облака) — идея из
+    yapanel-web; если CLI недоступен, старый путь через текстовое «стоп».
+    """
+    if alice_cli is not None:
+        try:
+            alice_cli.cancel()
+            return
+        except Exception:  # noqa: BLE001
+            pass
     try:
         post(BASE + "/cgi-bin/command.py", {"text": "стоп"}, timeout=10)
     except Exception:
         pass
+
+
+FOLLOW_UP_STOP = ("хватит", "стоп", "спасибо", "пока", "до свидания",
+                  "замолчи", "отмена", "не надо")
+
+
+def follow_up_wanted(text):
+    return normalize(text).strip(" .!?,") in FOLLOW_UP_STOP
+
+
+def _speech_event(timeout_ms=8000):
+    """Одно событие распознавания; cancel=true отменяет диалог Алисы сразу."""
+    url = "%s/api/alice/speech?%s" % (LUNA, urllib.parse.urlencode(
+        {"timeout_ms": timeout_ms, "cancel": "true"}))
+    try:
+        return get(url, timeout=(timeout_ms / 1000.0) + 5)
+    except Exception as exc:  # noqa: BLE001 - таймаут и сеть = тишина
+        return {"error": str(exc)}
+
+
+def listen_for_phrase(timeout=15.0):
+    """Включить микрофон (maind --cli 's') и вернуть финальный текст."""
+    if alice_cli is None:
+        return ""
+    try:
+        alice_cli.listen()
+    except Exception as exc:  # noqa: BLE001
+        log("follow-up: CLI не запустился: %s" % exc)
+        return ""
+    try:
+        text = ""
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            event = _speech_event(8000)
+            if not isinstance(event, dict):
+                continue
+            fragment = str(event.get("transcript") or "").strip()
+            if fragment:
+                text = fragment
+            if event.get("final") and text:
+                return text
+        return text
+    finally:
+        # Закрываем сессию CLI: диалог отменяется, микрофон освобождается.
+        try:
+            alice_cli.close_session()
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def follow_up(system):
+    """Слушать продолжение разговора без «Алисы» (issue #2)."""
+    for turn in range(1, 4):
+        text = listen_for_phrase()
+        if not text:
+            log("follow-up: тишина")
+            return
+        log("follow-up %d: %r" % (turn, text))
+        if follow_up_wanted(text):
+            say("Хорошо.")
+            return
+        payload = {"prompt": text, "system": system}
+        if search_wanted(text):
+            payload["search"] = 1
+        try:
+            answer = post(BASE + "/cgi-bin/llm.py", payload, timeout=90).get("answer")
+        except Exception as exc:  # noqa: BLE001
+            log("follow-up: llm error: %s" % exc)
+            return
+        if not answer:
+            return
+        say(answer)
 
 
 def chunk_text(text, limit=1700):
@@ -643,6 +732,9 @@ def handle(text):
             say(answer)
             log("llm answer: %d символов, генерация %.1f с"
                 % (len(answer), generation))
+            # issue #2: после ответа слушаем продолжение без «Алисы».
+            if info.get("follow_up"):
+                follow_up(system)
             return True
 
     log("без команды: %r" % text)

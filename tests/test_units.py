@@ -28,6 +28,8 @@ import display  # noqa: E402
 import glagol  # noqa: E402
 import llm  # noqa: E402
 import media  # noqa: E402
+import alice_cli  # noqa: E402
+import lyrics  # noqa: E402
 import radio  # noqa: E402
 import speak  # noqa: E402
 import state_daemon  # noqa: E402
@@ -648,101 +650,46 @@ def test_radio_custom_stations():
 #  websearch.py и поиск в llm.py
 # --------------------------------------------------------------------------- #
 
-BING_FIXTURE = (
-    '<li class="b_algo"><h2><a href="https://www.bing.com/ck/a?!&&p=1'
-    '&amp;u=a1aHR0cHM6Ly9leGFtcGxlLmNvbS9wYWdl&amp;ntb=1">Пример страницы</a></h2>'
-    '<p>Короткое описание <b>результата</b>.</p></li>'
-    '<li class="b_algo"><h2><a href="https://example.org/direct">Второй</a></h2>'
-    '<div>Ещё сниппет</div></li>'
+SEARX_FIXTURE = (
+    '{"results": [{"title": "Погода в Екатеринбурге",'
+    ' "url": "https://yandex.ru/pogoda/yekaterinburg", "content": "Малооблачно, +1"},'
+    ' {"title": "<b>GISMETEO</b>", "url": "https://gismeteo.ru/x",'
+    ' "content": "Прогноз на сегодня"}]}'
 )
 
+OPENROUTER_BODY = {
+    "choices": [{"message": {
+        "content": "По данным поиска: +1 °C",
+        "annotations": [{"type": "url_citation", "url_citation": {
+            "url": "https://yandex.ru/pogoda/yekaterinburg",
+            "title": "Яндекс.Погода", "content": "Малооблачно"}}],
+    }}],
+    "usage": {"total_tokens": 10},
+}
 
-BING_RSS_FIXTURE = (
-    "<rss><channel>"
-    "<item><title>Погода в Екатеринбурге</title>"
-    "<link>https://yandex.ru/pogoda/yekaterinburg</link>"
-    "<description>Малооблачно, +1 °C</description></item>"
-    "<item><title>GISMETEO: Погода</title>"
-    "<link>https://www.gismeteo.ru/weather-yekaterinburg-4517/</link>"
-    "<description>Прогноз на сегодня</description></item>"
-    "</channel></rss>"
-)
-
-
-def test_websearch_parsing():
-    import websearch
-
-    check("websearch: bing-редирект раскодирован",
-          websearch._decode_bing(
-              "https://www.bing.com/ck/a?!&&u=a1aHR0cHM6Ly9leGFtcGxlLmNvbS9wYWdl")
-          == "https://example.com/page")
-    check("websearch: обычная ссылка не меняется",
-          websearch._decode_bing("https://example.org/x") == "https://example.org/x")
-
-    old_fetch = websearch._fetch
-    try:
-        websearch._fetch = lambda url, timeout=8: BING_RSS_FIXTURE
-        rss = websearch._bing_rss("погода", 5, 1)
-        websearch._fetch = lambda url, timeout=8: BING_FIXTURE
-        html_only = websearch._bing_html("тест", 5, 1)
-        websearch._fetch = lambda url, timeout=8: BING_RSS_FIXTURE
-        preferred = websearch._bing("тест", 5, 1)
-    finally:
-        websearch._fetch = old_fetch
-    check("websearch: RSS-выдача разобрана", len(rss) == 2, str(rss))
-    check("websearch: RSS отдаёт верный город",
-          rss[0]["url"].endswith("/yekaterinburg"), str(rss[0]))
-    check("websearch: HTML-выдача разобрана", len(html_only) == 2, str(html_only))
-    check("websearch: HTML сниппет без тегов",
-          html_only[0]["snippet"] == "Короткое описание результата.", str(html_only[0]))
-    check("websearch: _bing предпочитает RSS",
-          preferred and preferred[0]["url"].endswith("/yekaterinburg"), str(preferred[:1]))
-    check("websearch: запрос без инструкций и вопросительных слов",
-          websearch.query_from_prompt(
-              "Какая сегодня погода в Екатеринбурге? Ответь одной фразой.")
-          == "погода в Екатеринбурге",
-          repr(websearch.query_from_prompt(
-              "Какая сегодня погода в Екатеринбурге? Ответь одной фразой.")))
-    check("websearch: «что нового в X» → «X»",
-          websearch.query_from_prompt("Что нового в Python 3.13?") == "Python 3.13",
-          repr(websearch.query_from_prompt("Что нового в Python 3.13?")))
-    check("websearch: триггеры поиска убраны из запроса",
-          websearch.query_from_prompt("Алиса, поищи в интернете курс доллара")
-          == "курс доллара",
-          repr(websearch.query_from_prompt("Алиса, поищи в интернете курс доллара")))
-
-    old_bing, old_ddg = websearch._bing, websearch._ddg
-    try:
-        websearch._bing = lambda q, l, t: []
-        websearch._ddg = lambda q, l, t: [{"title": "DDG", "url": "https://d/x",
-                                           "snippet": "s"}]
-        found = websearch.search("вопрос")
-    finally:
-        websearch._bing, websearch._ddg = old_bing, old_ddg
-    check("websearch: fallback на ddg", found.get("source") == "ddg", str(found))
-
-    context = websearch.context([{"title": "T", "url": "https://u", "snippet": "S"}], "q")
-    check("websearch: контекст содержит источник и запрос",
-          "https://u" in context and "q" in context and "Свежие данные" in context, context)
+OPENAI_BODY = {
+    "output": [{"type": "message", "content": [{
+        "type": "output_text", "text": "Сейчас +1 °C",
+        "annotations": [{"type": "url_citation",
+                         "url": "https://gismeteo.ru/x",
+                         "title": "GISMETEO",
+                         "start_index": 0, "end_index": 5}],
+    }]}],
+    "usage": {"total_tokens": 7},
+}
 
 
-def test_llm_search_payload():
+def _llm_ask_with(config, prompt="вопрос", search=None, chat=None, responses=None):
+    """Прогнать ask() с подменёнными сетевыми вызовами и временными файлами."""
     import json
     import tempfile
-    import websearch
 
-    config = {
-        "enabled": False, "active": "p1", "web_search": True, "search_url": "",
-        "profiles": [{"id": "p1", "name": "Test", "provider": "custom",
-                      "model": "m", "base_url": "http://127.0.0.1:1", "key": "k"}],
-        "max_tokens": 260, "system_prompt": "",
-    }
     fd, cfg_path = tempfile.mkstemp(prefix="mypult-llm-", suffix=".json")
     chat_fd, chat_path = tempfile.mkstemp(prefix="mypult-chats-", suffix=".json")
     os.close(fd)
     os.close(chat_fd)
-    old = (llm.CONFIG_PATH, llm.CHATS_PATH, llm._post_chat,
-           common.respond, common.fail, websearch.search)
+    old = (llm.CONFIG_PATH, llm.CHATS_PATH, llm._post_chat, llm._post_responses,
+           common.respond, common.fail)
     payloads, called = [], []
     try:
         with open(cfg_path, "w", encoding="utf-8") as fh:
@@ -752,45 +699,213 @@ def test_llm_search_payload():
                 {"id": "chat-1", "name": "Чат 1", "messages": []}]}, fh)
         llm.CONFIG_PATH = cfg_path
         llm.CHATS_PATH = chat_path
-        websearch.search = lambda query, limit=5, searx_url="", timeout=8: {
-            "results": [{"title": "Новость", "url": "https://news/x",
-                         "snippet": "Что-то случилось"}],
-            "source": "bing", "error": ""}
 
-        def fake_post(base_url, payload, key, timeout=90):
+        def fake_chat(base_url, payload, key, timeout=90):
             payloads.append(dict(payload))
-            return {"choices": [{"message": {"content": "ok"}}], "usage": {"total_tokens": 1}}
+            return chat or {}
 
-        llm._post_chat = fake_post
+        def fake_responses(base_url, payload, key, timeout=120):
+            payloads.append(dict(payload))
+            if responses is None:
+                raise RuntimeError("нет Responses")
+            return responses
+
+        llm._post_chat = fake_chat
+        llm._post_responses = fake_responses
         common.respond = lambda status, payload, headers=None: called.append((status, payload))
-        common.fail = lambda status, message, **extra: called.append((status, {"error": message}))
-        llm.ask("что нового?")
+        common.fail = lambda status, message, **extra: called.append(
+            (status, dict({"error": message}, **extra)))
+        llm.ask(prompt, search=search)
     finally:
-        (llm.CONFIG_PATH, llm.CHATS_PATH, llm._post_chat,
-         common.respond, common.fail, websearch.search) = old
+        (llm.CONFIG_PATH, llm.CHATS_PATH, llm._post_chat, llm._post_responses,
+         common.respond, common.fail) = old
         for path in (cfg_path, chat_path):
             try:
                 os.remove(path)
             except OSError:
                 pass
-
-    system = ""
-    if payloads:
-        system = next((m["content"] for m in payloads[0]["messages"]
-                       if m.get("role") == "system"), "")
-    check("llm: поиск добавил данные в system", "Свежие данные" in system and "https://news/x" in system,
-          system[:200])
-    check("llm: в ответе есть источники",
-          bool(called) and called[-1][1].get("sources") == [
-              {"title": "Новость", "url": "https://news/x", "snippet": "Что-то случилось"}],
-          str(called[-1][1])[:200] if called else "нет ответа")
-    check("llm: источник поиска в ответе",
-          bool(called) and called[-1][1].get("search_source") == "bing")
+    return payloads, called
 
 
-# --------------------------------------------------------------------------- #
-#  discovery.py: ответ UDP-discovery
-# --------------------------------------------------------------------------- #
+def _provider_config(provider, search_url=""):
+    return {
+        "enabled": False, "active": "p1", "web_search": True, "search_url": search_url,
+        "profiles": [{"id": "p1", "name": provider, "provider": provider,
+                      "model": "m", "base_url": "http://127.0.0.1:1", "key": "k"}],
+        "max_tokens": 260, "system_prompt": "",
+    }
+
+
+def test_websearch_parsing():
+    import websearch
+
+    check("websearch: запрос без инструкций и вопросительных слов",
+          websearch.query_from_prompt(
+              "Какая сегодня погода в Екатеринбурге? Ответь одной фразой.")
+          == "погода в Екатеринбурге",
+          repr(websearch.query_from_prompt(
+              "Какая сегодня погода в Екатеринбурге? Ответь одной фразой.")))
+    check("websearch: «что нового в X» → «X»",
+          websearch.query_from_prompt("Что нового в Python 3.13?") == "Python 3.13",
+          repr(websearch.query_from_prompt("Что нового в Python 3.13?")))
+
+    old_fetch = websearch._fetch
+    try:
+        websearch._fetch = lambda url, timeout=8, accept="application/json": SEARX_FIXTURE
+        found = websearch.search_searx("погода", "https://searx.example")
+    finally:
+        websearch._fetch = old_fetch
+    check("websearch: searx разобран", len(found) == 2, str(found))
+    check("websearch: searx заголовок без тегов",
+          found[1]["title"] == "GISMETEO", str(found[1]))
+
+    nested = websearch.annotations([
+        {"type": "url_citation", "url_citation": {
+            "url": "https://a/x", "title": "A", "content": "s"}},
+        {"type": "url_citation", "url": "https://b/y", "title": "B"},
+        {"type": "url_citation", "url_citation": {"url": "https://a/x", "title": "A2"}},
+    ])
+    check("websearch: аннотации OpenRouter разобраны", len(nested) == 2, str(nested))
+    check("websearch: дубликаты источников убраны",
+          [item["url"] for item in nested] == ["https://a/x", "https://b/y"], str(nested))
+    flat = websearch.annotations(
+        OPENAI_BODY["output"][0]["content"][0]["annotations"])
+    check("websearch: плоские аннотации OpenAI разобраны",
+          flat == [{"title": "GISMETEO", "url": "https://gismeteo.ru/x",
+                    "snippet": ""}], str(flat))
+
+
+def test_llm_native_search():
+    payloads, called = _llm_ask_with(_provider_config("openrouter"),
+                                     chat=OPENROUTER_BODY)
+    payload = payloads[0] if payloads else {}
+    check("llm: OpenRouter получает плагин web",
+          payload.get("plugins") == [{"id": "web"}], str(payload.get("plugins")))
+    result = called[-1][1] if called else {}
+    check("llm: источники OpenRouter в ответе", len(result.get("sources") or []) == 1,
+          str(result.get("sources")))
+    check("llm: источник поиска OpenRouter",
+          result.get("search_source") == "openrouter", str(result.get("search_source")))
+
+    payloads, called = _llm_ask_with(_provider_config("openai"), responses=OPENAI_BODY)
+    payload = payloads[0] if payloads else {}
+    check("llm: OpenAI Responses с инструментом web_search",
+          payload.get("tools") == [{"type": "web_search"}], str(payload.get("tools")))
+    result = called[-1][1] if called else {}
+    check("llm: ответ и источники OpenAI",
+          result.get("answer") == "Сейчас +1 °C" and len(result.get("sources") or []) == 1,
+          str(result)[:200])
+    check("llm: источник поиска OpenAI",
+          result.get("search_source") == "openai", str(result.get("search_source")))
+
+    payloads, called = _llm_ask_with(_provider_config("deepseek"),
+                                     chat={"choices": [{"message": {"content": "ok"}}]})
+    payload = payloads[0] if payloads else {}
+    result = called[-1][1] if called else {}
+    check("llm: у DeepSeek нет плагина поиска", "plugins" not in payload, str(payload.keys()))
+    check("llm: DeepSeek получает честную заметку о поиске",
+          "нет встроенного поиска" in str(result.get("search_note") or ""),
+          str(result.get("search_note")))
+    check("llm: вызовов Responses у DeepSeek нет",
+          all("input" not in item for item in payloads), str(payloads))
+
+
+def test_alice_cli_commands():
+    """maind --cli: 'c' — отмена, 's' — слушать, 'q'+текст — запрос."""
+    import alice_cli as cli
+
+    class FakeProc:
+        def __init__(self):
+            self.writes = []
+            self.stdin = self
+
+        def write(self, data):
+            self.writes.append(data.decode("utf-8"))
+
+        def flush(self):
+            pass
+
+        def close(self):
+            pass
+
+        def wait(self, timeout=None):
+            return 0
+
+        def terminate(self):
+            pass
+
+        def kill(self):
+            pass
+
+    procs = []
+    old_popen, old_available = cli.subprocess.Popen, cli.available
+    old_start, old_close = cli.START_DELAY, cli.CLOSE_DELAY
+    try:
+        cli.available = lambda: True
+        cli.START_DELAY = 0
+        cli.CLOSE_DELAY = 0
+        cli.subprocess.Popen = lambda argv, **kw: (procs.append(FakeProc()), procs[-1])[1]
+        cli.cancel()
+        cli.listen()
+        cli.close_session()
+        cli.query("  привет   мир ")
+    finally:
+        cli.subprocess.Popen, cli.available = old_popen, old_available
+        cli.START_DELAY, cli.CLOSE_DELAY = old_start, old_close
+        cli._session = None
+
+    check("alice_cli: три процесса", len(procs) == 3, str(len(procs)))
+    check("alice_cli: отмена — 'c'", procs[0].writes == ["c\n"], str(procs[0].writes))
+    check("alice_cli: слушать — 's', затем 'c' при закрытии",
+          procs[1].writes == ["s\n", "c\n"], str(procs[1].writes))
+    check("alice_cli: запрос — 'q' и текст",
+          procs[2].writes == ["q\n", "привет мир\n"], str(procs[2].writes))
+
+
+def test_voice_follow_up_words():
+    check("follow-up: «хватит» завершает", voice_daemon.follow_up_wanted("Хватит."))
+    check("follow-up: «спасибо» завершает", voice_daemon.follow_up_wanted("спасибо!"))
+    check("follow-up: обычная фраза продолжает",
+          not voice_daemon.follow_up_wanted("а какая погода завтра?"))
+
+
+def test_lyrics_parse():
+    lines = lyrics.parse_lrc(
+        "[00:12.34] Первая строка\n"
+        "[01:02] Вторая строка\n"
+        "не LRC\n"
+        "[00:05.5][00:20.0] Повтор\n")
+    check("текст: LRC разобран", len(lines) == 4, str(lines))
+    check("текст: время в секундах", lines[0] == {"t": 12.34, "text": "Первая строка"},
+          str(lines[0]))
+    check("текст: строка без долей", lines[1] == {"t": 62.0, "text": "Вторая строка"},
+          str(lines[1]))
+    check("текст: повтор с двумя метками", lines[2]["t"] == 5.5 and lines[3]["t"] == 20.0,
+          str(lines[2:4]))
+
+
+def test_ring_animations_list():
+    import shutil
+    import tempfile
+
+    folder = tempfile.mkdtemp(prefix="mypult-anim-")
+    try:
+        for name in ("alice_listening.led", "boot.binscled.zst", "readme.txt"):
+            with open(os.path.join(folder, name), "w", encoding="utf-8") as fh:
+                fh.write("x")
+        old = display.ANIM_DIRS
+        display.ANIM_DIRS = (folder,)
+        try:
+            items = display.ring_animations()
+        finally:
+            display.ANIM_DIRS = old
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+    names = [item["name"] for item in items]
+    check("кольцо: .led попал в список", "alice_listening" in names, str(names))
+    check("кольцо: .binscled.zst попал", "boot" in names, str(names))
+    check("кольцо: посторонние файлы отброшены", "readme" not in names, str(names))
+
 
 def test_discovery_payload():
     import json
@@ -1113,7 +1228,11 @@ def main():
         test_llm_temperature_retry,
         test_radio_custom_stations,
         test_websearch_parsing,
-        test_llm_search_payload,
+        test_llm_native_search,
+        test_alice_cli_commands,
+        test_voice_follow_up_words,
+        test_lyrics_parse,
+        test_ring_animations_list,
         test_media_config_override,
         test_speak_frames,
         test_display_auto,

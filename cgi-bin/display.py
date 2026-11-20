@@ -17,7 +17,10 @@ from __future__ import annotations
 import glob
 import json
 import os
+import signal
+import subprocess
 import sys
+import time
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -25,6 +28,13 @@ import common  # noqa: E402
 
 LED_GLOB = "/sys/class/leds/cucumber:white:clock-*/brightness"
 BACKLIGHT = "/sys/class/backlight/fb0/brightness"
+LED_UTIL = "/system/vendor/quasar/led_util"
+LED_LIBS = "/system/vendor/quasar/libs"
+ANIM_DIRS = (
+    "/system/vendor/quasar/ledpatterns/ring",
+    "/system/vendor/quasar/ledpatterns/oknix",
+)
+ANIM_PID = "/tmp/mypult-ringanim.pid"
 RING_CURRENT = (
     "/sys/bus/i2c/devices/1-0034/current",
     "/sys/bus/i2c/devices/1-0035/current",
@@ -342,8 +352,111 @@ def reset_ring():
     return {"ring_brightness": value, "auto": load_auto()}
 
 
+def ring_animations():
+    """Анимации кольца из прошивки (led_util), как в yapanel-web."""
+    items = []
+    for folder in ANIM_DIRS:
+        try:
+            names = sorted(os.listdir(folder))
+        except OSError:
+            continue
+        for name in names:
+            if name.endswith(".led"):
+                base = name[:-4]
+            elif name.endswith(".binscled.zst"):
+                base = name[: -len(".binscled.zst")]
+            else:
+                continue
+            items.append({"name": base, "path": os.path.join(folder, name)})
+    return items
+
+
+def animation_pid():
+    try:
+        with open(ANIM_PID, "r", encoding="utf-8") as fh:
+            return int(fh.read().strip())
+    except (OSError, ValueError):
+        return None
+
+
+def animation_stop():
+    pid = animation_pid()
+    if pid:
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            try:
+                os.kill(pid, sig)
+            except OSError:
+                break
+            for _ in range(10):
+                if not _pid_alive(pid):
+                    break
+                time.sleep(0.1)
+            if not _pid_alive(pid):
+                break
+        if _pid_alive(pid):
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except OSError:
+                pass
+    try:
+        os.remove(ANIM_PID)
+    except OSError:
+        pass
+    return True
+
+
+def _pid_alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def animation_play(name):
+    """Проиграть анимацию прошивки; имя сверяется со списком файлов."""
+    entries = [item for item in ring_animations() if item["name"] == name]
+    if not entries:
+        raise ValueError("нет такой анимации кольца")
+    if not os.path.isfile(LED_UTIL):
+        raise RuntimeError("нет %s" % LED_UTIL)
+    animation_stop()
+    env = os.environ.copy()
+    env["LD_LIBRARY_PATH"] = LED_LIBS
+    try:
+        proc = subprocess.Popen(
+            [LED_UTIL, entries[0]["path"]],
+            env=env, stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True, close_fds=True,
+        )
+    except OSError as exc:
+        raise RuntimeError("led_util не запустился: %s" % exc) from exc
+    with open(ANIM_PID, "w", encoding="utf-8") as fh:
+        fh.write(str(proc.pid))
+    time.sleep(0.4)
+    if proc.poll() is not None:
+        animation_stop()
+        raise RuntimeError("led_util завершился сразу (файл анимации не подошёл?)")
+    return proc.pid
+
+
 def main():
     data = common.params()
+
+    if data.get("ring_anim") is not None:
+        try:
+            pid = animation_play(str(data.get("ring_anim") or "").strip())
+        except (ValueError, RuntimeError) as exc:
+            common.fail(400, str(exc))
+            return
+        common.ok(playing=True, pid=pid, animations=ring_animations())
+        return
+
+    if common.truthy(data.get("ring_anim_stop")):
+        animation_stop()
+        common.ok(playing=False)
+        return
 
     if common.truthy(data.get("reset_display")):
         # Не восстанавливаем сохранённый рисунок/время: дисплей снова
@@ -461,6 +574,8 @@ def main():
         current=ring_current(),
         auto=load_auto(),
         mode=load_mode(),
+        animations=ring_animations(),
+        animation=animation_pid() if _pid_alive(animation_pid() or 0) else None,
     )
 
 
