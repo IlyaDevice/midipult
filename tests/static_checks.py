@@ -588,6 +588,9 @@ def test_yapanel_features():
           and "mutePlane" in html and "usbPlane" in html
           and os.path.isfile(os.path.join(ROOT, "assets", "scene.gltf"))
           and os.path.isfile(os.path.join(ROOT, "assets", "GLTFLoader.js")))
+    check("главная: быстрый вид без дублей меню",
+          'id="btnHomeExtra"' in html and 'id="homeExtraBody"' in html
+          and "HOME_EXTRAS" in html and "data-goto" not in html)
     check("UI: лайки и оверлей текста",
           all(token in html for token in (
               'id="btnLike"', 'id="btnDislike"', 'id="lyricsDlg"',
