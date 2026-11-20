@@ -45,6 +45,10 @@ SYSTEM_STATE = {}
 SOUNDS_STATE = {}
 PLAYER_STATE = {}
 PLAYER_INTERVAL = 10.0
+HISTORY = "/data/mypult/history.jsonl"
+HISTORY_INTERVAL = 30
+HISTORY_LIMIT = 2880
+LAST_HISTORY = 0.0
 
 
 def player_now(force=False):
@@ -113,6 +117,51 @@ def refresh_loop():
         time.sleep(2)
 
 
+def record_history(value):
+    global LAST_HISTORY
+    now = time.time()
+    if now - LAST_HISTORY < HISTORY_INTERVAL:
+        return
+    LAST_HISTORY = now
+    try:
+        disk = value.get("disk") or []
+        disk_percent = None
+        if isinstance(disk, dict):
+            disk_percent = disk.get("percent")
+        elif isinstance(disk, list):
+            for item in disk:
+                if isinstance(item, dict) and item.get("mount") == "/data":
+                    disk_percent = item.get("percent")
+                    break
+            if disk_percent is None and disk and isinstance(disk[0], dict):
+                disk_percent = disk[0].get("percent")
+        hottest = (value.get("temperature") or {}).get("hottest")
+        if isinstance(hottest, dict):
+            hottest = hottest.get("c")
+        sample = {
+            "t": int(now),
+            "cpu": round(float((value.get("cpu") or {}).get("percent") or 0), 1),
+            "temp": hottest,
+            "mem": (value.get("memory") or {}).get("percent"),
+            "disk": disk_percent,
+            "load": ((value.get("cpu") or {}).get("load") or [0])[0],
+        }
+        line = json.dumps(sample, ensure_ascii=False, separators=(",", ":"))
+        with open(HISTORY, "a", encoding="utf-8") as fh:
+            fh.write(line + "\n")
+        # Раз в сутки при 30-секундном шаге — не даём файлу расти бесконечно.
+        try:
+            with open(HISTORY, "r", encoding="utf-8") as fh:
+                lines = fh.readlines()
+            if len(lines) > HISTORY_LIMIT + 60:
+                with open(HISTORY, "w", encoding="utf-8") as fh:
+                    fh.writelines(lines[-HISTORY_LIMIT:])
+        except OSError:
+            pass
+    except Exception:  # noqa: BLE001 — история не должна ронять демон
+        pass
+
+
 def system_loop():
     global SYSTEM_STATE
     while True:
@@ -122,6 +171,7 @@ def system_loop():
             value = {"error": str(exc)[:200]}
         with LOCK:
             SYSTEM_STATE = value
+        record_history(value)
         time.sleep(10)
 
 

@@ -15,6 +15,7 @@ import os
 import sys
 import threading
 import time
+import urllib.request
 
 sys.path.insert(0, "/data/myweb/cgi-bin")
 import common  # noqa: E402
@@ -273,6 +274,14 @@ class AlarmScheduler(threading.Thread):
                 glagol.send({"command": "sendText",
                              "text": "включи " + (alarm.get("text") or "мою волну")},
                             timeout=20)
+            elif mode == "sound":
+                sound_id = str(alarm.get("text") or "")
+                req = urllib.request.Request(
+                    "http://127.0.0.1:8055/cgi-bin/sounds.py",
+                    data=json.dumps({"play_custom": sound_id}).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                )
+                urllib.request.urlopen(req, timeout=120).read()
             else:
                 glagol.send({"command": "sendText",
                              "text": "включи радио " + (alarm.get("text") or "Европа Плюс")},

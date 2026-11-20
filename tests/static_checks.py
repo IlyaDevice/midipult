@@ -519,6 +519,8 @@ def test_yapanel_features():
     scenarios_py = read(os.path.join(ROOT, "cgi-bin", "scenarios.py"))
     install_sh = read(os.path.join(ROOT, "deploy", "install.sh"))
     preflight_sh = read(os.path.join(ROOT, "deploy", "preflight.sh"))
+    history_py = read(os.path.join(ROOT, "cgi-bin", "history.py"))
+    daemon_py = read(os.path.join(ROOT, "service", "state_daemon.py"))
     check("голос: отмена через maind --cli",
           "alice_cli" in voice and "alice_cli.cancel()" in voice)
     check("плеер: пауза через maind --cli",
@@ -546,6 +548,8 @@ def test_yapanel_features():
     check("будильник: один раз или повторять",
           'data-repeat="0"' in html and "alarmRepeat" in html
           and 'once: !State.alarmRepeat' in html)
+    check("будильник: свой звук", 'data-amode="sound"' in html
+          and 'id="alarmSoundList"' in html and "loadAlarmSounds" in html)
     check("кольцо: превью играющей анимации",
           "State.ringPreview" in html and "animation_name" in display_py)
     check("сценарии: анимация дисплея",
@@ -556,6 +560,9 @@ def test_yapanel_features():
           and "MYPULT_UPDATE_LUNA" in preflight_sh
           and "opkg upgrade" not in preflight_sh
           and "sha256sum -c" in preflight_sh)
+    check("графики: история за сутки",
+          "history.jsonl" in daemon_py and "record_history" in daemon_py
+          and "history.jsonl" in history_py and 'id="chartCpu"' in html)
     check("UI: лайки и оверлей текста",
           all(token in html for token in (
               'id="btnLike"', 'id="btnDislike"', 'id="lyricsDlg"',

@@ -30,7 +30,7 @@ DATA = "/data/mypult/alarms.json"
 STATE = "/tmp/mypult-alarm-state.json"
 CMD = "/tmp/mypult-alarm-cmd.json"
 TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
-MODES = ("radio", "music", "query")
+MODES = ("radio", "music", "sound", "query")
 
 
 def load_data():
@@ -134,6 +134,8 @@ def build(data, current=None):
         "snooze": snooze,
     }
     if not item["text"]:
+        if mode == "sound":
+            raise ValueError("выберите свой звук")
         item["text"] = ("Европа Плюс" if mode == "radio"
                         else "мою волну" if mode == "music" else "доброе утро")
     return item

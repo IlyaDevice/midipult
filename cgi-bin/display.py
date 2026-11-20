@@ -35,6 +35,7 @@ ANIM_DIRS = (
     "/system/vendor/quasar/ledpatterns/ring",
     "/system/vendor/quasar/ledpatterns/oknix",
 )
+CUSTOM_ANIM_DIR = "/data/mypult/ring_anims"
 ANIM_PID = "/tmp/mypult-ringanim.pid"
 ANIM_NAME = "/tmp/mypult-ringanim.name"
 CLOCK_ANIM_PID = "/tmp/mypult-clockanim.pid"
@@ -375,9 +376,9 @@ def reset_ring():
 
 
 def ring_animations():
-    """Анимации кольца из прошивки (led_util), как в yapanel-web."""
+    """Анимации кольца из прошивки и свои из /data/mypult/ring_anims."""
     items = []
-    for folder in ANIM_DIRS:
+    for folder in ANIM_DIRS + (CUSTOM_ANIM_DIR,):
         try:
             names = sorted(os.listdir(folder))
         except OSError:
@@ -389,8 +390,62 @@ def ring_animations():
                 base = name[: -len(".binscled.zst")]
             else:
                 continue
-            items.append({"name": base, "path": os.path.join(folder, name)})
+            items.append({"name": base, "path": os.path.join(folder, name),
+                          "custom": folder == CUSTOM_ANIM_DIR})
     return items
+
+
+def ring_anim_path(name):
+    safe = re.sub(r"[^\w .-]+", "", str(name or ""), flags=re.UNICODE).strip()[:40]
+    if len(safe) < 2:
+        raise ValueError("название анимации: 2–40 символов")
+    return safe, os.path.join(CUSTOM_ANIM_DIR, safe + ".led")
+
+
+def clean_ring_frames(raw):
+    if not isinstance(raw, list) or not 1 <= len(raw) <= 60:
+        raise ValueError("нужно от 1 до 60 кадров")
+    frames = []
+    for frame in raw:
+        if not isinstance(frame, list) or len(frame) != 24:
+            raise ValueError("в кадре должно быть 24 цвета")
+        colors = []
+        for color in frame:
+            value = str(color or "").strip().lstrip("#")
+            if not re.fullmatch(r"[0-9a-fA-F]{6}", value):
+                raise ValueError("цвет должен быть RRGGBB")
+            colors.append(value.lower())
+        frames.append(colors)
+    return frames
+
+
+def save_ring_anim(data):
+    name, path = ring_anim_path(data.get("name"))
+    frames = clean_ring_frames(data.get("frames"))
+    duration = common.to_int(data.get("duration"), 50, 10, 5000)
+    existing = [item for item in ring_animations()
+                if item["name"] == name and not item.get("custom")]
+    if existing:
+        raise ValueError("такая анимация уже есть в прошивке — выберите другое имя")
+    os.makedirs(CUSTOM_ANIM_DIR, exist_ok=True)
+    lines = ["loop"]
+    tail = "%x" % duration
+    for frame in frames:
+        lines.append(" ".join(frame) + " " + tail)
+    with open(path, "w", encoding="ascii") as fh:
+        fh.write("\n".join(lines) + "\n")
+    return {"name": name, "path": path}
+
+
+def delete_ring_anim(name):
+    safe, path = ring_anim_path(name)
+    if not os.path.isfile(path):
+        raise ValueError("нет такой своей анимации")
+    try:
+        os.remove(path)
+    except OSError as exc:
+        raise RuntimeError(str(exc)) from exc
+    return safe
 
 
 def animation_pid():
@@ -607,6 +662,27 @@ def anim_preview(name, limit=24):
 
 def main():
     data = common.params()
+
+    if data.get("ring_anim_save") is not None:
+        try:
+            saved = save_ring_anim(data.get("ring_anim_save"))
+        except (ValueError, OSError) as exc:
+            common.fail(400, str(exc))
+            return
+        common.ok(saved=saved, animations=ring_animations())
+        return
+
+    if data.get("ring_anim_delete") is not None:
+        target = str(data.get("ring_anim_delete") or "")
+        try:
+            delete_ring_anim(target)
+        except (ValueError, RuntimeError) as exc:
+            common.fail(400, str(exc))
+            return
+        if target:
+            animation_stop()
+        common.ok(animations=ring_animations())
+        return
 
     if data.get("ring_anim") is not None:
         try:

@@ -184,6 +184,18 @@ main.grid{
   .radio-picker{position:relative;margin-top:12px;z-index:2}
 .c-radio{overflow:hidden}
 .ring-anim-row{align-items:flex-start}
+.ring-editor-form{display:grid;grid-template-columns:200px minmax(0,1fr);gap:14px;padding:8px 20px 12px}
+.ring-editor-preview{display:flex;align-items:center;justify-content:center;min-height:200px}
+.ring-editor-preview .anim-ring{position:relative;width:200px;height:200px}
+.ring-editor-preview .anim-ring i{position:absolute;left:50%;top:50%;width:14px;height:14px;
+  margin:-7px;border-radius:50%;background:#1b1f2a;cursor:pointer;
+  transition:background .08s linear,box-shadow .08s linear}
+#ringEditorName{width:100%;height:38px}
+#ringEditorDuration{width:86px}
+#ringEditorColor{width:46px;height:32px;padding:3px;border-radius:8px;border:1px solid var(--stroke);
+  background:rgba(255,255,255,.045);cursor:pointer}
+.ring-editor-controls{display:flex;flex-direction:column;gap:8px;min-width:0}
+#ringEditorSaved{padding:0 20px 18px}
 .ring-picker{position:relative;flex:1 1 240px;min-width:0;z-index:2}
 .ring-picker .alarm-select{height:36px}
 .ring-picker .ring-list{position:static;left:auto;right:auto;top:auto;max-height:none;
@@ -324,7 +336,13 @@ main.grid{
   #scType{flex:0 1 260px;max-width:260px}
 
   .sys-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--gap-md);margin-top:12px}
-  .sys-tile{
+.chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px}
+.chart-card{padding:10px 12px 8px;border:1px solid var(--stroke);border-radius:14px;
+  background:rgba(255,255,255,.035);min-width:0}
+.chart-card span{display:block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted)}
+.chart-card canvas{display:block;width:100%;height:110px;margin:6px 0 2px}
+.chart-card b{font-size:15px;font-weight:650;font-variant-numeric:tabular-nums}  .sys-tile{
     padding:12px;border-radius:var(--r16);background:rgba(255,255,255,.04);
     border:1px solid var(--stroke);display:flex;flex-direction:column;gap:var(--gap-xs);
   }
@@ -1288,6 +1306,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         </div>
         <button class="btn ghost sm" id="btnRingAnimPlay">Проиграть</button>
         <button class="btn ghost sm" id="btnRingAnimStop">Стоп</button>
+        <button class="btn ghost sm" id="btnRingEditor">Редактор</button>
       </div>
     </div>
     <div class="row" style="margin-top:12px">
@@ -1480,6 +1499,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         <div class="alarm-modes" id="alarmModes">
           <button type="button" class="chip" data-amode="radio" aria-pressed="true">Радио</button>
           <button type="button" class="chip" data-amode="music" aria-pressed="false">Музыка</button>
+          <button type="button" class="chip" data-amode="sound" aria-pressed="false">Звук</button>
           <button type="button" class="chip" data-amode="query" aria-pressed="false">Фраза</button>
         </div>
       </div>
@@ -1498,6 +1518,15 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
         <input type="text" id="alarmMusicText" maxlength="200" value="мою волну"
                placeholder="Что включить: мою волну, плейлист, исполнитель"
                aria-label="Что включить из Яндекс Музыки">
+      </div>
+      <div id="alarmSoundBox" hidden>
+        <div class="alarm-station">
+          <button type="button" class="alarm-select" id="btnAlarmSound">
+            <span id="alarmSoundName">Выберите свой звук</span>
+            <span class="alarm-caret">▾</span>
+          </button>
+          <div class="alarm-station-list" id="alarmSoundList" hidden></div>
+        </div>
       </div>
       <input type="text" id="alarmText" placeholder="Что сказать Алисе" maxlength="200"
              aria-label="Фраза для Алисы" hidden>
@@ -1868,6 +1897,18 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     </div>
   </section>
 
+  <!-- ───────── графики ───────── -->
+  <section class="card c-sys c-charts" data-group="system" aria-labelledby="h-charts">
+    <h2 id="h-charts"><span class="dot"></span>Графики за сутки</h2>
+    <div class="chart-grid">
+      <div class="chart-card"><span>CPU</span><canvas id="chartCpu"></canvas><b id="chartCpuVal">—</b></div>
+      <div class="chart-card"><span>Температура</span><canvas id="chartTemp"></canvas><b id="chartTempVal">—</b></div>
+      <div class="chart-card"><span>Память</span><canvas id="chartMem"></canvas><b id="chartMemVal">—</b></div>
+      <div class="chart-card"><span>Диск</span><canvas id="chartDisk"></canvas><b id="chartDiskVal">—</b></div>
+    </div>
+    <div class="seg-note" id="chartsStatus" style="margin-top:8px">История собирается каждые 30 секунд.</div>
+  </section>
+
   <!-- ───────── логи ───────── -->
   <section class="card c-sys" data-group="system" aria-labelledby="h-logs">
     <h2 id="h-logs"><span class="dot"></span>Логи</h2>
@@ -2073,6 +2114,40 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     <div class="reboot-time" id="rebootTime">00:00</div>
   </div>
 </dialog>
+
+  <!-- ───────── кольцо: редактор ───────── -->
+  <dialog id="ringEditorDlg" class="alarm-dlg">
+    <div class="alarm-dlg-head">
+      <h3>Анимация кольца</h3>
+      <button type="button" class="btn sm ghost" id="btnRingEditorClose">Закрыть</button>
+    </div>
+    <div class="ring-editor-form">
+      <div class="ring-editor-preview">
+        <div class="anim-ring" id="ringEditorRing"></div>
+      </div>
+      <div class="ring-editor-controls">
+        <div class="row">
+          <label class="anim-num">Цвет
+            <input type="color" id="ringEditorColor" value="#00e676">
+          </label>
+          <button type="button" class="btn sm ghost" id="btnRingEditorAdd">+ кадр</button>
+          <button type="button" class="btn sm ghost" id="btnRingEditorDup">Дублировать</button>
+          <button type="button" class="btn sm ghost" id="btnRingEditorDelFrame">Удалить кадр</button>
+        </div>
+        <div class="anim-frames" id="ringEditorFrames"></div>
+        <input type="text" id="ringEditorName" maxlength="40" placeholder="Название анимации" autocomplete="off">
+        <label class="anim-num">Кадр, мс
+          <input type="number" id="ringEditorDuration" min="10" max="5000" step="10" value="50">
+        </label>
+        <div class="row">
+          <button type="button" class="btn sm" id="btnRingEditorSave">Сохранить</button>
+          <button type="button" class="btn sm ghost" id="btnRingEditorPlay">Играть</button>
+          <button type="button" class="btn sm ghost" id="btnRingEditorDelete" hidden>Удалить</button>
+        </div>
+      </div>
+    </div>
+    <div class="anim-saved" id="ringEditorSaved"></div>
+  </dialog>
 
 <dialog id="confirmDlg" class="confirm-dlg">
   <div class="dlg-head">
@@ -2297,6 +2372,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     ringSpeed: 0,
     ringAnimName: null,
     ringPreview: null,
+    ringAnimations: [],
     blinkTimer: null,
     muted: false,
     llmAnswer: '',
@@ -2330,6 +2406,8 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     alarmMinute: 0,
     alarmStations: [],
     alarmStation: null,
+    alarmSounds: [],
+    alarmSound: null,
     lyricsInline: false,
     lyricsActive: null,
     lyricsLines: [],
@@ -4010,13 +4088,60 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     }
   }
 
+  function loadAlarmSounds() {
+    if (State.alarmSounds.length) {
+      renderAlarmSoundList();
+      updateAlarmSoundName();
+      return Promise.resolve();
+    }
+    return cgi('sounds.py', {}, { timeout: 20000, silent: true }).then(function (data) {
+      State.alarmSounds = data.custom || [];
+      if (!State.alarmSound) State.alarmSound = State.alarmSounds[0] || null;
+      renderAlarmSoundList();
+      updateAlarmSoundName();
+    }).catch(function () {});
+  }
+
+  function updateAlarmSoundName() {
+    if (!el.alarmSoundName) return;
+    el.alarmSoundName.textContent = State.alarmSound
+      ? State.alarmSound.name : 'Выберите свой звук';
+  }
+
+  function renderAlarmSoundList() {
+    if (!el.alarmSoundList) return;
+    el.alarmSoundList.innerHTML = '';
+    (State.alarmSounds || []).forEach(function (sound) {
+      var row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'alarm-station-item';
+      row.textContent = sound.name;
+      row.setAttribute('aria-selected',
+        State.alarmSound && State.alarmSound.id === sound.id ? 'true' : 'false');
+      row.addEventListener('click', function () {
+        State.alarmSound = sound;
+        updateAlarmSoundName();
+        el.alarmSoundList.hidden = true;
+      });
+      el.alarmSoundList.appendChild(row);
+    });
+    if (!State.alarmSounds.length) {
+      var note = document.createElement('div');
+      note.className = 'alarm-station-item';
+      note.textContent = 'Сначала добавьте свой звук во вкладке «Звук»';
+      el.alarmSoundList.appendChild(note);
+    }
+  }
+
   function setAlarmMode(mode) {
-    State.alarmMode = mode === 'query' || mode === 'music' ? mode : 'radio';
+    State.alarmMode = mode === 'query' || mode === 'music' || mode === 'sound'
+      ? mode : 'radio';
     Array.prototype.forEach.call(document.querySelectorAll('[data-amode]'), function (button) {
       button.setAttribute('aria-pressed', button.dataset.amode === State.alarmMode ? 'true' : 'false');
     });
     if (el.alarmRadioBox) el.alarmRadioBox.hidden = State.alarmMode !== 'radio';
     if (el.alarmMusicBox) el.alarmMusicBox.hidden = State.alarmMode !== 'music';
+    if (el.alarmSoundBox) el.alarmSoundBox.hidden = State.alarmMode !== 'sound';
     if (el.alarmText) el.alarmText.hidden = State.alarmMode !== 'query';
   }
 
@@ -4082,8 +4207,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       var what = document.createElement('div');
       what.className = 'alarm-what';
       var prefix = alarm.mode === 'query' ? 'Алиса: '
-        : alarm.mode === 'music' ? 'Музыка: ' : 'Радио: ';
-      what.textContent = prefix + (alarm.text || '');
+        : alarm.mode === 'music' ? 'Музыка: '
+        : alarm.mode === 'sound' ? 'Звук: ' : 'Радио: ';
+      what.textContent = prefix + (alarm.label || alarm.text || '');
       var when = document.createElement('div');
       when.className = 'alarm-when';
       when.textContent = (alarm.once ? 'Один раз' : alarmDaysText(alarm.days)) +
@@ -4172,10 +4298,13 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     var text;
     if (State.alarmMode === 'query') text = phrase;
     else if (State.alarmMode === 'music') text = music || 'мою волну';
-    else text = custom || (State.alarmStation
+    else if (State.alarmMode === 'sound') {
+      text = State.alarmSound ? String(State.alarmSound.id || '') : '';
+    } else text = custom || (State.alarmStation
       && (State.alarmStation.query || State.alarmStation.name)) || '';
     if (!text) {
       toast(State.alarmMode === 'query' ? 'Введите фразу для Алисы'
+        : State.alarmMode === 'sound' ? 'Выберите свой звук'
         : 'Выберите станцию или введите свою', 'warn');
       return;
     }
@@ -4185,6 +4314,8 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       text: text,
       days: State.alarmRepeat ? Array.from(alarmDays) : [],
       once: !State.alarmRepeat,
+      label: State.alarmMode === 'sound' && State.alarmSound
+        ? String(State.alarmSound.name || '') : '',
       volume: parseInt(el.alarmVolume.value, 10) || 40,
       ramp: parseInt(el.alarmRamp.value, 10) || 0,
       stop_after: parseInt(el.alarmStop.value, 10) || 0,
@@ -5900,6 +6031,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       loadLogs();
       loadSounds();
       refreshSystem();
+      loadCharts();
     } else if (name === 'scenarios') {
       loadScenarios();
       loadSounds();
@@ -6606,6 +6738,90 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     el.scActions.innerHTML = '';
   }
 
+  /* ─────────── графики ─────────── */
+  function drawChart(canvas, values, color, fixedMax) {
+    if (!canvas) return;
+    var dpr = window.devicePixelRatio || 1;
+    var width = canvas.clientWidth || 240;
+    var height = canvas.clientHeight || 110;
+    canvas.width = Math.max(1, Math.round(width * dpr));
+    canvas.height = Math.max(1, Math.round(height * dpr));
+    var ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+    if (!values.length) return;
+    var max = fixedMax || Math.max.apply(null, values.concat([1]));
+    var min = fixedMax ? 0 : Math.min.apply(null, values);
+    var span = Math.max(0.01, max - min);
+    var pad = 4;
+    function px(i) {
+      return pad + (width - pad * 2) * i / Math.max(1, values.length - 1);
+    }
+    function py(value) {
+      return height - pad - ((value - min) / span) * (height - pad * 2);
+    }
+    ctx.strokeStyle = 'rgba(255,255,255,.08)';
+    ctx.lineWidth = 1;
+    for (var grid = 0; grid <= 2; grid++) {
+      var y = pad + (height - pad * 2) * grid / 2;
+      ctx.beginPath();
+      ctx.moveTo(pad, y);
+      ctx.lineTo(width - pad, y);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    values.forEach(function (value, index) {
+      if (index === 0) ctx.moveTo(px(index), py(value));
+      else ctx.lineTo(px(index), py(value));
+    });
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+    ctx.lineTo(px(values.length - 1), height - pad);
+    ctx.lineTo(px(0), height - pad);
+    ctx.closePath();
+    ctx.fillStyle = color.replace('rgb', 'rgba').replace(')', ',.12)');
+    if (color.charAt(0) === '#') {
+      ctx.fillStyle = color + '22';
+    }
+    ctx.fill();
+  }
+
+  function loadCharts() {
+    if (!document.getElementById('chartCpu')) return;
+    var status = document.getElementById('chartsStatus');
+    return cgi('history.py', {}, { timeout: 12000, silent: true }).then(function (data) {
+      var points = data.points || [];
+      if (points.length < 2) {
+        if (status) status.textContent = 'История только собирается — нужно пару минут.';
+        return;
+      }
+      function series(key) {
+        return points.map(function (p) { return Number(p[key]); })
+          .map(function (v) { return isNaN(v) ? 0 : v; });
+      }
+      var cpu = series('cpu'), mem = series('mem'), disk = series('disk');
+      var temp = points.map(function (p) {
+        var value = p.temp;
+        if (value && typeof value === 'object') value = value.c;
+        var v = Number(value);
+        return isNaN(v) ? null : v;
+      }).filter(function (v) { return v !== null; });
+      drawChart(document.getElementById('chartCpu'), cpu, '#7c5cff', 100);
+      drawChart(document.getElementById('chartMem'), mem, '#22d3ee', 100);
+      drawChart(document.getElementById('chartDisk'), disk, '#f59e0b', 100);
+      drawChart(document.getElementById('chartTemp'), temp, '#f472b6', 0);
+      document.getElementById('chartCpuVal').textContent = cpu[cpu.length - 1] + '%';
+      document.getElementById('chartMemVal').textContent = mem[mem.length - 1] + '%';
+      document.getElementById('chartDiskVal').textContent = disk[disk.length - 1] + '%';
+      document.getElementById('chartTempVal').textContent = temp.length
+        ? temp[temp.length - 1] + '°C' : '—';
+      if (status) status.textContent = 'Точек: ' + points.length + ' · последние ~24 часа';
+    }).catch(function () {
+      if (status) status.textContent = 'История недоступна.';
+    });
+  }
+
   /* ─────────── логи ─────────── */
   function loadLogs() {
     return cgi('logs.py', { name: el.logName.value, lines: 200 }, { timeout: 10000, silent: true })
@@ -6947,12 +7163,13 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   var ringAnimFrames = {};
   var ringAnimTiles = {};
 
-  function buildRingDots(container, count) {
+  function buildRingDots(container, count, radius) {
     container.innerHTML = '';
     var dots = [];
+    radius = radius || 15;
     for (var i = 0; i < count; i++) {
       var dot = document.createElement('i');
-      dot.style.transform = 'rotate(' + (i * (360 / count)) + 'deg) translate(15px)';
+      dot.style.transform = 'rotate(' + (i * (360 / count)) + 'deg) translate(' + radius + 'px)';
       container.appendChild(dot);
       dots.push(dot);
     }
@@ -7005,6 +7222,166 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     el.ledHint.textContent = 'Анимация: ' + (RING_ANIM_LABELS[name] || name);
     if (el.ringHex) el.ringHex.textContent = RING_ANIM_LABELS[name] || 'Анимация';
     paintMainRingFrame(playback.frames[State.ringPreview.index]);
+  }
+
+  var ringEditorFrames = [];
+  var ringEditorIndex = 0;
+  var ringEditorDots = [];
+  var ringEditorColor = '#00e676';
+  var ringEditorName = null;
+
+  function ringEditorNewFrame() {
+    return new Array(24).fill('000000');
+  }
+
+  function ringEditorPaint() {
+    var frame = ringEditorFrames[ringEditorIndex] || ringEditorNewFrame();
+    for (var i = 0; i < ringEditorDots.length; i++) {
+      var hex = frame[i] || '000000';
+      var color = '#' + hex;
+      ringEditorDots[i].style.background = color;
+      ringEditorDots[i].style.boxShadow = hex === '000000'
+        ? 'none' : '0 0 10px ' + color;
+    }
+  }
+
+  function ringEditorRenderFrames() {
+    if (!el.ringEditorFrames) return;
+    el.ringEditorFrames.innerHTML = '';
+    ringEditorFrames.forEach(function (frame, index) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'anim-frame';
+      button.setAttribute('aria-pressed', index === ringEditorIndex ? 'true' : 'false');
+      var number = document.createElement('b');
+      number.textContent = String(index + 1);
+      var caption = document.createElement('small');
+      caption.textContent = '24';
+      button.appendChild(number);
+      button.appendChild(caption);
+      button.addEventListener('click', function () {
+        ringEditorIndex = index;
+        ringEditorPaint();
+        ringEditorRenderFrames();
+      });
+      el.ringEditorFrames.appendChild(button);
+    });
+  }
+
+  function ringEditorSetFrames(frames, name) {
+    ringEditorFrames = (frames && frames.length ? frames : [ringEditorNewFrame()])
+      .map(function (frame) { return frame.slice(0, 24); });
+    ringEditorIndex = 0;
+    ringEditorName = name || null;
+    if (el.ringEditorName) el.ringEditorName.value = name || '';
+    if (el.btnRingEditorDelete) el.btnRingEditorDelete.hidden = !name;
+    ringEditorPaint();
+    ringEditorRenderFrames();
+  }
+
+  function renderRingEditorSaved() {
+    if (!el.ringEditorSaved) return;
+    el.ringEditorSaved.innerHTML = '';
+    var custom = (State.ringAnimations || []).filter(function (item) {
+      return item.custom;
+    });
+    if (!custom.length) {
+      var empty = document.createElement('div');
+      empty.className = 'anim-saved-empty';
+      empty.textContent = 'Своих анимаций кольца пока нет.';
+      el.ringEditorSaved.appendChild(empty);
+      return;
+    }
+    custom.forEach(function (item) {
+      var row = document.createElement('div');
+      row.className = 'anim-saved-row';
+      var name = document.createElement('b');
+      name.textContent = item.name;
+      var play = document.createElement('button');
+      play.type = 'button';
+      play.className = 'btn sm ghost';
+      play.textContent = 'Играть';
+      play.addEventListener('click', function () { playRingAnim(item.name); });
+      var edit = document.createElement('button');
+      edit.type = 'button';
+      edit.className = 'btn sm ghost';
+      edit.textContent = 'Изменить';
+      edit.addEventListener('click', function () { ringEditorLoad(item.name); });
+      var remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'btn sm ghost';
+      remove.textContent = '×';
+      remove.title = 'Удалить';
+      remove.addEventListener('click', function () {
+        askConfirm('Удалить анимацию кольца «' + item.name + '»?',
+          { yes: 'Удалить' }).then(function (ok) {
+          if (ok) ringEditorDelete(item.name);
+        });
+      });
+      row.appendChild(name);
+      row.appendChild(play);
+      row.appendChild(edit);
+      row.appendChild(remove);
+      el.ringEditorSaved.appendChild(row);
+    });
+  }
+
+  function ringEditorLoad(name) {
+    loadRingFrames(name).then(function (playback) {
+      if (!playback || !playback.frames.length) {
+        toast('Не удалось прочитать кадры анимации', 'bad');
+        return;
+      }
+      ringEditorSetFrames(playback.frames, name);
+    });
+  }
+
+  function openRingEditor() {
+    if (!el.ringEditorDlg) return;
+    ringEditorDots = buildRingDots(el.ringEditorRing, 24, 82);
+    ringEditorDots.forEach(function (dot, index) {
+      dot.addEventListener('click', function () {
+        ringEditorFrames[ringEditorIndex][index] = ringEditorColor.replace('#', '');
+        ringEditorPaint();
+      });
+    });
+    ringEditorSetFrames([ringEditorNewFrame()], null);
+    renderRingEditorSaved();
+    el.ringEditorDlg.showModal();
+  }
+
+  function saveRingEditor() {
+    var name = (el.ringEditorName.value || '').trim();
+    if (name.length < 2) {
+      toast('Название анимации: минимум 2 символа', 'warn');
+      el.ringEditorName.focus();
+      return;
+    }
+    var duration = parseInt(el.ringEditorDuration.value, 10) || 50;
+    cgi('display.py', {
+      ring_anim_save: {
+        name: name,
+        frames: ringEditorFrames,
+        duration: duration
+      }
+    }, { timeout: 15000 }).then(function (data) {
+      State.ringAnimations = data.animations || [];
+      ringEditorName = name;
+      if (el.btnRingEditorDelete) el.btnRingEditorDelete.hidden = false;
+      renderRingEditorSaved();
+      renderRingAnims(State.ringAnimations, State.ringAnimName);
+      toast('Анимация кольца сохранена', 'ok');
+    }).catch(function (err) { toast('Кольцо: ' + err.message, 'bad'); });
+  }
+
+  function ringEditorDelete(name) {
+    cgi('display.py', { ring_anim_delete: name }, { timeout: 10000 }).then(function (data) {
+      State.ringAnimations = data.animations || [];
+      renderRingEditorSaved();
+      renderRingAnims(State.ringAnimations, State.ringAnimName);
+      if (ringEditorName === name) ringEditorSetFrames([ringEditorNewFrame()], null);
+      toast('Анимация кольца удалена', 'ok');
+    }).catch(function (err) { toast('Кольцо: ' + err.message, 'bad'); });
   }
 
   function loadRingFrames(name) {
@@ -7074,6 +7451,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   function renderRingAnims(animations, playingName) {
     if (!el.ringAnimChips) return;
     var list = animations || [];
+    State.ringAnimations = list;
     var names = {};
     list.forEach(function (item) { names[item.name] = true; });
     el.ringAnimChips.innerHTML = '';
@@ -8098,6 +8476,50 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     el.btnRingReset.addEventListener('click', resetRing);
     el.btnRingAnimPlay.addEventListener('click', function () { playRingAnim(); });
     el.btnRingAnimStop.addEventListener('click', stopRingAnim);
+    if (el.btnRingEditor) {
+      el.btnRingEditor.addEventListener('click', openRingEditor);
+      el.btnRingEditorClose.addEventListener('click', function () {
+        if (el.ringEditorDlg) el.ringEditorDlg.close();
+      });
+      el.btnRingEditorAdd.addEventListener('click', function () {
+        ringEditorFrames.splice(ringEditorIndex + 1, 0, ringEditorNewFrame());
+        ringEditorIndex += 1;
+        ringEditorPaint();
+        ringEditorRenderFrames();
+      });
+      el.btnRingEditorDup.addEventListener('click', function () {
+        ringEditorFrames.splice(ringEditorIndex + 1, 0,
+          ringEditorFrames[ringEditorIndex].slice());
+        ringEditorIndex += 1;
+        ringEditorPaint();
+        ringEditorRenderFrames();
+      });
+      el.btnRingEditorDelFrame.addEventListener('click', function () {
+        if (ringEditorFrames.length <= 1) return;
+        ringEditorFrames.splice(ringEditorIndex, 1);
+        ringEditorIndex = Math.max(0, ringEditorIndex - 1);
+        ringEditorPaint();
+        ringEditorRenderFrames();
+      });
+      el.ringEditorColor.addEventListener('input', function () {
+        ringEditorColor = el.ringEditorColor.value || '#00e676';
+      });
+      el.btnRingEditorSave.addEventListener('click', saveRingEditor);
+      el.btnRingEditorPlay.addEventListener('click', function () {
+        if (!ringEditorName) {
+          toast('Сначала сохраните анимацию', 'warn');
+          return;
+        }
+        playRingAnim(ringEditorName);
+      });
+      el.btnRingEditorDelete.addEventListener('click', function () {
+        if (!ringEditorName) return;
+        askConfirm('Удалить анимацию кольца «' + ringEditorName + '»?',
+          { yes: 'Удалить' }).then(function (ok) {
+          if (ok) ringEditorDelete(ringEditorName);
+        });
+      });
+    }
     el.btnRingPick.addEventListener('click', function (ev) {
       ev.stopPropagation();
       toggleRingPick(el.ringPickPop.hidden);
@@ -8227,6 +8649,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       renderAlarmTime();
       closeAlarmTime();
       loadAlarmStations();
+      loadAlarmSounds();
     });
     if (el.btnAlarmTime) el.btnAlarmTime.addEventListener('click', function (event) {
       event.stopPropagation();
@@ -8240,6 +8663,10 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     if (el.btnAlarmStation) el.btnAlarmStation.addEventListener('click', function (event) {
       event.stopPropagation();
       if (el.alarmStationList) el.alarmStationList.hidden = !el.alarmStationList.hidden;
+    });
+    if (el.btnAlarmSound) el.btnAlarmSound.addEventListener('click', function (event) {
+      event.stopPropagation();
+      if (el.alarmSoundList) el.alarmSoundList.hidden = !el.alarmSoundList.hidden;
     });
     Array.prototype.forEach.call(document.querySelectorAll('[data-amode]'), function (button) {
       button.addEventListener('click', function () { setAlarmMode(button.dataset.amode); });
@@ -8741,6 +9168,11 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'ringBrightness', 'ringBrightVal', 'ringSpeed', 'ringSpeedVal',
       'ringAnimStatus', 'ringAnimChips', 'btnRingAnimPlay', 'btnRingAnimStop',
       'btnRingPick', 'ringPickName', 'ringPickPop', 'ringSearch', 'ringAnimList',
+      'btnRingEditor', 'ringEditorDlg', 'ringEditorRing', 'ringEditorColor',
+      'btnRingEditorAdd', 'btnRingEditorDup', 'btnRingEditorDelFrame',
+      'ringEditorFrames', 'ringEditorName', 'ringEditorDuration',
+      'btnRingEditorSave', 'btnRingEditorPlay', 'btnRingEditorDelete',
+      'btnRingEditorClose', 'ringEditorSaved',
       'mediaTitle', 'mediaSub', 'btnPrev', 'btnPlay', 'btnNext', 'mediaCover', 'mediaArtIcon',
       'btnMusic', 'mediaKind', 'mediaSeek', 'mediaPos', 'mediaDur', 'mediaProgress',
       'btnLyrics', 'lyricsStatus', 'lyricsBox',
@@ -8754,6 +9186,8 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'alarmTimeField', 'btnAlarmTime', 'alarmTimeValue', 'alarmTimePop',
       'alarmHours', 'alarmMinutes', 'btnAlarmTimeDone',
       'alarmRadioBox', 'alarmModes', 'btnAlarmStation', 'alarmStationName',
+      'alarmSoundBox', 'btnAlarmSound', 'alarmSoundName', 'alarmSoundList',
+      'alarmSounds',
       'alarmRepeatModes', 'alarmRepeatHint',
       'alarmStationList', 'alarmCustomStation', 'alarmMusicBox', 'alarmMusicText',
       'alarmVolume', 'alarmVolumeVal', 'alarmRamp', 'alarmStop', 'alarmSnooze',

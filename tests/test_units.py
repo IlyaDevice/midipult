@@ -1181,6 +1181,15 @@ def test_alarm_rules():
     once = alarm.build({"time": "09:00", "once": True, "days": [1, 2, 3]})
     check("будильник: одноразовый без дней",
           once["once"] is True and once["days"] == [], str(once))
+    sound = alarm.build({"time": "09:00", "mode": "sound", "text": "morning"})
+    check("будильник: свой звук", sound["mode"] == "sound"
+          and sound["text"] == "morning", str(sound))
+    try:
+        alarm.build({"time": "09:00", "mode": "sound", "text": ""})
+        no_sound = False
+    except ValueError:
+        no_sound = True
+    check("будильник: без звука отклонён", no_sound)
     repeat = alarm.build({"time": "09:00", "once": False, "days": [6, 7]})
     check("будильник: повторяемый с днями",
           repeat["once"] is False and repeat["days"] == [6, 7], str(repeat))
