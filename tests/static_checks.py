@@ -574,8 +574,8 @@ def test_yapanel_features():
           and "history.jsonl" in history_py and 'id="sparkCpu"' in html
           and 'class="sys-spark"' in html)
     check("главная: 3D-станция и мобильное меню",
-          'data-tab="home"' in html and 'id="stationScene"' in html
-          and 'id="homeScreen"' in html and 'id="homeRing"' in html
+          'data-tab="home"' in html and 'id="stationGL"' in html
+          and 'id="homeScreen"' in html
           and 'id="btnMobileTabs"' in html and "initStation3D" in html
           and "buildMobileTabs" in html)
     check("главная: WebGL-станция",
