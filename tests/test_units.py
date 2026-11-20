@@ -907,6 +907,34 @@ def test_ring_animations_list():
     check("кольцо: посторонние файлы отброшены", "readme" not in names, str(names))
 
 
+def test_ring_animation_preview():
+    import shutil
+    import tempfile
+
+    folder = tempfile.mkdtemp(prefix="mypult-anim-prev-")
+    try:
+        tokens = ["%02x%02x%02x" % (i % 256, (i * 3) % 256, (i * 7) % 256)
+                  for i in range(48)]
+        body = "loop\n" + " ".join(tokens) + "\n"
+        with open(os.path.join(folder, "demo.led"), "w", encoding="ascii") as fh:
+            fh.write(body)
+        old = display.ANIM_DIRS
+        display.ANIM_DIRS = (folder,)
+        try:
+            preview = display.anim_preview("demo")
+        finally:
+            display.ANIM_DIRS = old
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+    check("анимация: два кадра по 24 диода", len(preview["frames"]) == 2,
+          str(len(preview.get("frames") or [])))
+    check("анимация: кадр содержит 24 цвета", len(preview["frames"][0]) == 24,
+          str(len(preview["frames"][0])))
+    check("анимация: флаг loop прочитан", preview["loop"] is True)
+    check("анимация: первый цвет совпал", preview["frames"][0][0] == "000000",
+          preview["frames"][0][0])
+
+
 def test_discovery_payload():
     import json
 
@@ -1233,6 +1261,7 @@ def main():
         test_voice_follow_up_words,
         test_lyrics_parse,
         test_ring_animations_list,
+        test_ring_animation_preview,
         test_media_config_override,
         test_speak_frames,
         test_display_auto,

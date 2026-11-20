@@ -833,6 +833,16 @@ body.light .reboot-bar{background:rgba(76,62,48,.1)}
 .lyrics .line{opacity:.55;transition:opacity .2s}
 .lyrics .line.active{opacity:1;font-weight:600}
 .lyrics .plain{white-space:pre-wrap}
+.anim-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;margin-top:8px}
+.anim-tile{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 4px;
+  border:1px solid rgba(255,255,255,.09);border-radius:12px;background:transparent;color:inherit;
+  cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.anim-tile:hover{border-color:rgba(255,255,255,.22)}
+.anim-tile[aria-pressed="true"]{border-color:#7c5cff;box-shadow:0 0 0 1px #7c5cff inset}
+.anim-tile .anim-ring{position:relative;width:40px;height:40px;flex:0 0 auto}
+.anim-tile .anim-ring i{position:absolute;left:50%;top:50%;width:5px;height:5px;margin:-2.5px;
+  border-radius:50%;background:#1b1f2a;transition:background .08s linear}
+.anim-tile .anim-name{font-size:10px;line-height:1.2;opacity:.72;text-align:center}
 
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important}
@@ -976,9 +986,10 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       <input type="range" id="ringSpeed" min="0" max="300" step="10" value="0" aria-label="Скорость анимации и мигания кольца">
     </div>
     <div class="field" style="margin-top:14px">
-      <div class="field-top"><label for="ringAnim">Анимация из прошивки</label><output id="ringAnimStatus">—</output></div>
-      <select id="ringAnim"></select>
+      <div class="field-top"><label>Анимации с колонки</label><output id="ringAnimStatus">—</output></div>
+      <div class="anim-grid" id="ringAnimChips"></div>
       <div class="row" style="margin-top:8px">
+        <select id="ringAnim" aria-label="Все анимации кольца"></select>
         <button class="btn ghost sm" id="btnRingAnimPlay">Проиграть</button>
         <button class="btn ghost sm" id="btnRingAnimStop">Стоп</button>
       </div>
@@ -1789,6 +1800,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     displayOff: false,
     ringBrightness: 255,
     ringSpeed: 0,
+    ringAnimName: null,
     blinkTimer: null,
     muted: false,
     llmAnswer: '',
@@ -1803,6 +1815,8 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     scenarios: [],
     mediaDuration: 0,
     mediaProgress: 0,
+    progressBase: 0,
+    progressAt: 0,
     mediaTitle: '',
     mediaArtist: '',
     lyricsLines: [],
@@ -2841,10 +2855,22 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     return mins + ':' + (secs < 10 ? '0' : '') + secs;
   }
 
+  function currentProgress() {
+    var base = Number(State.progressBase) || 0;
+    var at = Number(State.progressAt) || 0;
+    var extra = (State.playing && !State.seeking && at)
+      ? Math.max(0, Date.now() / 1000 - at) : 0;
+    var value = base + extra;
+    var duration = Number(State.mediaDuration) || 0;
+    if (duration > 0) value = Math.min(value, duration);
+    return Math.max(0, value);
+  }
+
   function updateMediaProgress() {
     if (!el.mediaSeek) return;
     var duration = State.mediaDuration || 0;
-    var progress = State.mediaProgress || 0;
+    var progress = currentProgress();
+    State.mediaProgress = progress;
     var ratio = duration > 0 ? Math.max(0, Math.min(1, progress / duration)) : 0;
     el.mediaSeek.value = String(Math.round(ratio * 1000));
     el.mediaPos.textContent = fmtTime(progress);
@@ -2941,6 +2967,10 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     State.playerKind = data.kind || null;
     State.mediaDuration = Number(data.duration) || 0;
     State.mediaProgress = Number(data.progress) || 0;
+    // Точка отсчёта для локальной интерполяции: progress + сколько он уже
+    // пролежал на сервере (age), дальше клиент сам добавляет время.
+    State.progressBase = State.mediaProgress + (Number(data.age) || 0);
+    State.progressAt = Date.now() / 1000;
     var seekable = State.playerKind === 'Track' && State.mediaDuration > 0;
     if (el.mediaProgress) el.mediaProgress.hidden = !seekable;
     if (!State.seeking) updateMediaProgress();
@@ -3041,13 +3071,17 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     lastPlayerPoll = Date.now();
     refreshPlayer();
     playerTimer = setInterval(function () {
-      if (document.hidden || State.tab !== 'sound') return;
+      if (State.tab !== 'sound') return;
+      // Полоска и текст песни двигаются локально между опросами (как в
+      // yapanel): сервер отдаёт progress + age, а здесь добавляем прошедшее.
+      updateMediaProgress();
+      if (document.hidden) return;
       var active = !!State.playing;
-      var wait = active ? 3000 : 10000;
+      var wait = active ? 2000 : 10000;
       if (Date.now() - lastPlayerPoll < wait) return;
       lastPlayerPoll = Date.now();
       refreshPlayer();
-    }, 3000);
+    }, 500);
   }
 
   function mediaAction(action) {
@@ -5048,15 +5082,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       }
       applyAutoConfig(data.auto || {}, data.mode || {});
       if (el.ringAnim && data.animations) {
-        var current = el.ringAnim.value;
-        el.ringAnim.innerHTML = '';
-        data.animations.forEach(function (item) {
-          var option = document.createElement('option');
-          option.value = item.name;
-          option.textContent = item.name;
-          el.ringAnim.appendChild(option);
-        });
-        if (current) el.ringAnim.value = current;
+        renderRingAnims(data.animations, data.animation ? State.ringAnimName : null);
         if (el.ringAnimStatus) {
           el.ringAnimStatus.textContent = data.animation ? 'играет' : '—';
         }
@@ -5064,12 +5090,138 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     }).catch(function () { /* тихо */ });
   }
 
-  function playRingAnim() {
-    var name = el.ringAnim && el.ringAnim.value;
+  var RING_ANIM_LABELS = {
+    alice_listening: 'Слушает',
+    alice_thinking: 'Думает',
+    alice_speaking: 'Говорит',
+    alice_listening_out: 'Отбой',
+    bluetooth_pairing: 'BT пара',
+    bluetooth_connected: 'BT',
+    boot: 'Загрузка',
+    volume_sound: 'Громкость'
+  };
+  var ringAnimFrames = {};
+  var ringAnimTiles = {};
+
+  function buildRingDots(container, count) {
+    container.innerHTML = '';
+    var dots = [];
+    for (var i = 0; i < count; i++) {
+      var dot = document.createElement('i');
+      dot.style.transform = 'rotate(' + (i * (360 / count)) + 'deg) translate(15px)';
+      container.appendChild(dot);
+      dots.push(dot);
+    }
+    return dots;
+  }
+
+  function paintRingFrame(name, frame) {
+    var tile = ringAnimTiles[name];
+    if (!tile || !frame) return;
+    for (var i = 0; i < tile.dots.length; i++) {
+      var hex = frame[i] || '000000';
+      var r = parseInt(hex.substr(0, 2), 16);
+      var g = parseInt(hex.substr(2, 2), 16);
+      var b = parseInt(hex.substr(4, 2), 16);
+      if (isNaN(r) || isNaN(g) || isNaN(b)) {
+        r = g = b = 0;
+      }
+      tile.dots[i].style.background = 'rgb(' + r + ',' + g + ',' + b + ')';
+      tile.dots[i].style.opacity = (r + g + b) > 12 ? '1' : '.2';
+    }
+  }
+
+  function loadRingFrames(name) {
+    if (ringAnimFrames[name]) return Promise.resolve(ringAnimFrames[name]);
+    return cgi('display.py', { anim_preview: name }, { timeout: 12000, silent: true })
+      .then(function (data) {
+        ringAnimFrames[name] = { frames: data.frames || [], loop: !!data.loop, index: 0 };
+        if (ringAnimFrames[name].frames.length) paintRingFrame(name, 0);
+        return ringAnimFrames[name];
+      }).catch(function () {
+        ringAnimFrames[name] = { frames: [], loop: false, index: 0 };
+      });
+  }
+
+  function markRingAnim(name) {
+    Object.keys(ringAnimTiles).forEach(function (key) {
+      var tile = ringAnimTiles[key];
+      var active = key === name;
+      tile.el.setAttribute('aria-pressed', active ? 'true' : 'false');
+      tile.active = active || tile.hovered;
+    });
+    if (el.ringAnimStatus) el.ringAnimStatus.textContent = name ? 'играет' : '—';
+  }
+
+  function renderRingAnims(animations, playingName) {
+    if (!el.ringAnimChips) return;
+    var list = animations || [];
+    var names = {};
+    list.forEach(function (item) { names[item.name] = true; });
+    el.ringAnimChips.innerHTML = '';
+    ringAnimTiles = {};
+    State.ringAnimName = playingName || null;
+    Object.keys(RING_ANIM_LABELS).forEach(function (name) {
+      if (!names[name]) return;
+      var tile = document.createElement('button');
+      tile.type = 'button';
+      tile.className = 'anim-tile';
+      tile.setAttribute('aria-pressed', playingName === name ? 'true' : 'false');
+      var ring = document.createElement('span');
+      ring.className = 'anim-ring';
+      var dots = buildRingDots(ring, 24);
+      var label = document.createElement('span');
+      label.className = 'anim-name';
+      label.textContent = RING_ANIM_LABELS[name];
+      tile.appendChild(ring);
+      tile.appendChild(label);
+      ringAnimTiles[name] = {
+        el: tile, dots: dots,
+        active: playingName === name,
+        hovered: false
+      };
+      tile.addEventListener('mouseenter', function () {
+        ringAnimTiles[name].hovered = true;
+        ringAnimTiles[name].active = true;
+        loadRingFrames(name);
+      });
+      tile.addEventListener('mouseleave', function () {
+        ringAnimTiles[name].hovered = false;
+        ringAnimTiles[name].active = tile.getAttribute('aria-pressed') === 'true';
+      });
+      tile.addEventListener('click', function () { playRingAnim(name); });
+      el.ringAnimChips.appendChild(tile);
+      loadRingFrames(name);
+    });
+    var current = el.ringAnim.value;
+    el.ringAnim.innerHTML = '';
+    list.forEach(function (item) {
+      var option = document.createElement('option');
+      option.value = item.name;
+      option.textContent = item.name;
+      el.ringAnim.appendChild(option);
+    });
+    if (current) el.ringAnim.value = current;
+  }
+
+  function tickRingAnims() {
+    Object.keys(ringAnimTiles).forEach(function (name) {
+      var tile = ringAnimTiles[name];
+      var playback = ringAnimFrames[name];
+      if (!tile.active || !playback || !playback.frames.length) return;
+      playback.index = (playback.index + 1) % playback.frames.length;
+      paintRingFrame(name, playback.frames[playback.index]);
+    });
+  }
+
+  function playRingAnim(name) {
+    name = name || (el.ringAnim && el.ringAnim.value);
     if (!name) { toast('Анимации не найдены', 'warn'); return; }
     return cgi('display.py', { ring_anim: name }, { timeout: 10000 }).then(function () {
-      if (el.ringAnimStatus) el.ringAnimStatus.textContent = 'играет';
-      toast('Анимация: ' + name, 'ok');
+      State.ringAnimName = name;
+      markRingAnim(name);
+      loadRingFrames(name);
+      toast('Анимация: ' + (RING_ANIM_LABELS[name] || name), 'ok');
     }).catch(function (err) {
       toast('Анимация: ' + err.message, 'bad');
     });
@@ -5077,7 +5229,8 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 
   function stopRingAnim() {
     return cgi('display.py', { ring_anim_stop: 1 }, { timeout: 8000 }).then(function () {
-      if (el.ringAnimStatus) el.ringAnimStatus.textContent = '—';
+      State.ringAnimName = null;
+      markRingAnim(null);
     }).catch(function (err) {
       toast('Анимация: ' + err.message, 'bad');
     });
@@ -6468,7 +6621,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
       'displayText', 'btnDisplayText', 'btnClockBack',
       'ring', 'ringDots', 'ringHex', 'colorPicker', 'colorCode', 'presets', 'btnLedOff', 'btnRingReset', 'ledHint',
       'ringBrightness', 'ringBrightVal', 'ringSpeed', 'ringSpeedVal',
-      'ringAnim', 'ringAnimStatus', 'btnRingAnimPlay', 'btnRingAnimStop',
+      'ringAnim', 'ringAnimStatus', 'ringAnimChips', 'btnRingAnimPlay', 'btnRingAnimStop',
       'mediaTitle', 'mediaSub', 'btnPrev', 'btnPlay', 'btnNext', 'mediaCover', 'mediaArtIcon',
       'btnMusic', 'mediaKind', 'mediaSeek', 'mediaPos', 'mediaDur', 'mediaProgress',
       'btnLyrics', 'lyricsStatus', 'lyricsBox',
@@ -6523,6 +6676,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     bind();
     tickClock();
     setInterval(tickClock, 1000);
+    setInterval(tickRingAnims, 130);
     renderStatus();
     loadVersion();
     loadUpdateInfo(false, false);

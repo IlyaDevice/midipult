@@ -21,6 +21,7 @@ import os
 import re
 import socket
 import ssl
+import threading
 import time
 import urllib.request
 
@@ -202,6 +203,121 @@ def _connect(timeout):
         sslopt={"cert_reqs": ssl.CERT_NONE, "check_hostname": False},
         enable_multithread=False,
     )
+
+
+def _envelope(payload, request_id, access_token):
+    return json.dumps({
+        "conversationToken": access_token,
+        "id": request_id,
+        "payload": payload,
+        "sentTime": int(round(time.time() * 1000)),
+    })
+
+
+# --------------------------------------------------------------------------- #
+#  Постоянный watcher: Glagol сам присылает state при изменениях
+# --------------------------------------------------------------------------- #
+# Один WebSocket на процесс: как в yapanel-web. Панель получает свежий трек,
+# громкость и прогресс без запроса softwareVersion на каждый опрос.
+
+_watch_lock = threading.Lock()
+_watch = {"state": None, "updated": 0.0, "connected": False, "error": None}
+_watcher = None
+
+
+def latest(max_age=None):
+    """Последний state от Glagol (None, если ещё не приходил или устарел)."""
+    with _watch_lock:
+        state = _watch["state"]
+        updated = _watch["updated"]
+    if not isinstance(state, dict):
+        return None
+    if max_age is not None and time.time() - updated > max_age:
+        return None
+    return state
+
+
+def watch_status():
+    with _watch_lock:
+        return dict(_watch)
+
+
+class _Watcher(threading.Thread):
+    def __init__(self):
+        super().__init__(name="glagol-watch", daemon=True)
+        self.stop_event = threading.Event()
+
+    def stop(self):
+        self.stop_event.set()
+
+    def run(self):
+        delay = 1.0
+        while not self.stop_event.is_set():
+            try:
+                self._session()
+                delay = 1.0
+            except Exception as exc:  # noqa: BLE001
+                with _watch_lock:
+                    _watch["connected"] = False
+                    _watch["error"] = str(exc)[:200]
+                self.stop_event.wait(delay)
+                delay = min(delay * 2, 30.0)
+
+    def _session(self):
+        import websocket
+
+        access_token = token()
+        connection = _connect(35.0)
+        try:
+            connection.settimeout(30.0)
+            request_id = "mypult-watch-%d" % int(time.time() * 1000)
+            connection.send(_envelope({"command": "softwareVersion"},
+                                      request_id, access_token))
+            with _watch_lock:
+                _watch["connected"] = True
+                _watch["error"] = None
+            last_ping = time.time()
+            while not self.stop_event.is_set():
+                try:
+                    raw = connection.recv()
+                except websocket.WebSocketTimeoutException:
+                    raw = None
+                if raw:
+                    try:
+                        message = json.loads(raw)
+                    except ValueError:
+                        message = None
+                    if isinstance(message, dict):
+                        state = message.get("state")
+                        if isinstance(state, dict):
+                            with _watch_lock:
+                                _watch.update(state=state, updated=time.time(),
+                                              connected=True, error=None)
+                if time.time() - last_ping > 20:
+                    try:
+                        connection.send(_envelope(
+                            {"command": "ping"},
+                            "mypult-ping-%d" % int(time.time() * 1000),
+                            access_token))
+                    except Exception:  # noqa: BLE001
+                        break
+                    last_ping = time.time()
+        finally:
+            try:
+                connection.close()
+            except Exception:  # noqa: BLE001
+                pass
+
+
+def start_watcher():
+    """Запустить постоянный watcher (идемпотентно)."""
+    global _watcher
+    if _watcher is not None and _watcher.is_alive():
+        return _watcher
+    _watcher = _Watcher()
+    _watcher.start()
+    return _watcher
+
 
 
 def send(payload, timeout=8.0):

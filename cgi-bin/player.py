@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
@@ -32,10 +33,22 @@ def cover_url(extra):
 
 
 def snapshot():
+    """Снимок плеера. Сначала — state от постоянного watcher (пуш от Glagol),
+    иначе один запрос softwareVersion (CGI без демона)."""
     if glagol is None:
         raise RuntimeError("Модуль glagol недоступен")
-    reply = glagol.send({"command": "softwareVersion"}, timeout=6)
-    state = (reply or {}).get("state") or {}
+    state = None
+    age = 0.0
+    latest = getattr(glagol, "latest", None)
+    if callable(latest):
+        state = latest(max_age=15)
+        if isinstance(state, dict):
+            updated = float((glagol.watch_status() or {}).get("updated") or 0)
+            if updated:
+                age = max(0.0, time.time() - updated)
+    if not isinstance(state, dict):
+        reply = glagol.send({"command": "softwareVersion"}, timeout=6)
+        state = (reply or {}).get("state") or {}
     player = state.get("playerState") or {}
     extra = player.get("extra") or {}
     return {
@@ -48,6 +61,7 @@ def snapshot():
         "duration": player.get("duration"),
         "progress": player.get("progress"),
         "kind": player.get("type"),
+        "age": round(age, 2),
     }
 
 

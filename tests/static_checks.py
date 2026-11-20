@@ -419,9 +419,13 @@ def test_p2_hardening():
           and "location.protocol === 'http:'" in html)
     check("P3: автояркость manual показывает паузу",
           "пауза (ручной режим)" in html and "data.mode || {}" in html)
-    check("player: свежий снимок и 3с/10с poll",
-          "?player=1" in html and "active ? 3000 : 10000" in html
+    check("player: watcher, свежий снимок и 2с/10с poll",
+          "?player=1" in html and "active ? 2000 : 10000" in html
           and "refreshPlayer(true)" in html
+          and "currentProgress" in html and "progressAt" in html
+          and "start_watcher" in read(os.path.join(ROOT, "service", "state_daemon.py"))
+          and "def start_watcher" in read(os.path.join(ROOT, "cgi-bin", "glagol.py"))
+          and "latest(" in read(os.path.join(ROOT, "cgi-bin", "player.py"))
           and '"player" in query' in read(
               os.path.join(ROOT, "service", "state_daemon.py")))
     init_py = init
@@ -512,14 +516,15 @@ def test_yapanel_features():
           "listen_for_phrase" in voice and "/api/alice/speech" in voice
           and "follow_up" in voice)
     check("кольцо: анимации прошивки через led_util",
-          "led_util" in display_py and "ring_animations" in display_py)
+          "led_util" in display_py and "ring_animations" in display_py
+          and "anim_preview" in display_py)
     check("плеер: текст песни из LRCLIB",
           os.path.isfile(os.path.join(ROOT, "cgi-bin", "lyrics.py"))
           and "lrclib.net" in lyrics_py and "parse_lrc" in lyrics_py)
     check("UI: follow-up, анимации и текст песни",
           all(token in html for token in (
-              'id="llmFollowUp"', 'id="ringAnim"', 'id="btnLyrics"',
-              'id="lyricsBox"')))
+              'id="llmFollowUp"', 'id="ringAnim"', 'id="ringAnimChips"',
+              'id="btnLyrics"', 'id="lyricsBox"', "currentProgress")))
     check("поиск: без скрейпинга выдачи",
           "_bing" not in search_py and "duckduckgo" not in search_py.lower())
 

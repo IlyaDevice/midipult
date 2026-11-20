@@ -17,6 +17,7 @@ from __future__ import annotations
 import glob
 import json
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -441,6 +442,37 @@ def animation_play(name):
     return proc.pid
 
 
+def anim_preview(name, limit=24):
+    """Кадры .led для превью в панели: текст «RRGGBB» по 24 штуки на кадр."""
+    entries = [item for item in ring_animations() if item["name"] == name]
+    if not entries:
+        raise ValueError("нет такой анимации кольца")
+    path = entries[0]["path"]
+    if not path.endswith(".led"):
+        raise ValueError("предпросмотр есть только у .led")
+    try:
+        with open(path, "r", encoding="ascii", errors="ignore") as fh:
+            text = fh.read(400_000)
+    except OSError as exc:
+        raise RuntimeError("не читается анимация: %s" % exc) from exc
+    tokens = re.findall(r"\b[0-9a-fA-F]{6}\b", text)
+    frames = [tokens[index:index + 24]
+              for index in range(0, len(tokens), 24)]
+    frames = [frame for frame in frames if len(frame) == 24]
+    if not frames:
+        raise ValueError("не удалось разобрать кадры анимации")
+    total = len(frames)
+    if total > limit:
+        step = total / float(limit)
+        frames = [frames[int(index * step)] for index in range(limit)]
+    return {
+        "name": name,
+        "loop": text.lstrip().startswith("loop"),
+        "frames": frames,
+        "total": total,
+    }
+
+
 def main():
     data = common.params()
 
@@ -456,6 +488,13 @@ def main():
     if common.truthy(data.get("ring_anim_stop")):
         animation_stop()
         common.ok(playing=False)
+        return
+
+    if data.get("anim_preview") is not None:
+        try:
+            common.ok(**anim_preview(str(data.get("anim_preview") or "").strip()))
+        except (ValueError, RuntimeError) as exc:
+            common.fail(400, str(exc))
         return
 
     if common.truthy(data.get("reset_display")):

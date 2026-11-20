@@ -23,6 +23,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 # Используем системное время станции, отдельных настроек нет.
 sys.path.insert(0, "/data/myweb/cgi-bin")
 import common  # noqa: E402
+import glagol  # noqa: E402
 import player  # noqa: E402
 import sounds  # noqa: E402
 import status  # noqa: E402
@@ -68,16 +69,15 @@ def cookie_ok(headers):
 
 def refresh_loop():
     global STATE, PLAYER_STATE
-    last_player = 0.0
     while True:
         payload = {"ok": True, "status": {}, "player": {}}
         try:
             payload["status"] = status.build()
         except Exception as exc:  # noqa: BLE001
             payload["status"] = {"ok": False, "error": str(exc)[:200]}
-        if time.time() - last_player >= PLAYER_INTERVAL:
-            PLAYER_STATE = player_now()
-            last_player = time.time()
+        # Watcher держит WS к Glagol и обновляет state пушем, поэтому снимок
+        # дешёвый: берём его каждые 2 с, а не раз в 10.
+        PLAYER_STATE = player_now()
         payload["player"] = PLAYER_STATE
         with LOCK:
             payload["system"] = SYSTEM_STATE
@@ -148,6 +148,10 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
+    try:
+        glagol.start_watcher()
+    except Exception:  # noqa: BLE001 - без watcher плеер работает через запросы
+        pass
     threading.Thread(target=refresh_loop, daemon=True).start()
     threading.Thread(target=system_loop, daemon=True).start()
     threading.Thread(target=sounds_loop, daemon=True).start()
