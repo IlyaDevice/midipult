@@ -473,7 +473,3 @@ LLM-агентом: архитектура, CGI, вёрстка, тесты и �
 ## Лицензия
 
 MIT. См. [LICENSE](LICENSE).
-
-## 3D-модель
-
-Модель станции на главной: [«Яндекс станция миди чёрная»](https://sketchfab.com/3d-models/efff3769f3d54d14863d533473bb64e6) от [lolfeke](https://sketchfab.com/lolfeke), лицензия [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Файлы лежат в assets/; экран и LED-кольцо анимируются панелью.
