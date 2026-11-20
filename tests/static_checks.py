@@ -419,13 +419,17 @@ def test_p2_hardening():
           and "location.protocol === 'http:'" in html)
     check("P3: автояркость manual показывает паузу",
           "пауза (ручной режим)" in html and "data.mode || {}" in html)
-    check("player: watcher, свежий снимок и 2с/10с poll",
+    check("player: watcher, fresh-запрос и 2с/10с poll",
           "?player=1" in html and "active ? 2000 : 10000" in html
-          and "refreshPlayer(true)" in html
+          and "refreshPlayer(true, true)" in html
+          and "fresh=1" in html and "seekUntil" in html
+          and "commandGuard(" in html and "cmdPlaying" in html
           and "currentProgress" in html and "progressAt" in html
           and "start_watcher" in read(os.path.join(ROOT, "service", "state_daemon.py"))
           and "def start_watcher" in read(os.path.join(ROOT, "cgi-bin", "glagol.py"))
           and "latest(" in read(os.path.join(ROOT, "cgi-bin", "player.py"))
+          and '"fresh" in query' in read(
+              os.path.join(ROOT, "service", "state_daemon.py"))
           and '"player" in query' in read(
               os.path.join(ROOT, "service", "state_daemon.py")))
     init_py = init
@@ -512,6 +516,8 @@ def test_yapanel_features():
     lyrics_py = read(os.path.join(ROOT, "cgi-bin", "lyrics.py"))
     check("голос: отмена через maind --cli",
           "alice_cli" in voice and "alice_cli.cancel()" in voice)
+    check("плеер: пауза через maind --cli",
+          "alice_cli.pause()" in read(os.path.join(ROOT, "cgi-bin", "media.py")))
     check("голос: follow-up через CLI и Luna speech",
           "listen_for_phrase" in voice and "/api/alice/speech" in voice
           and "follow_up" in voice)
@@ -534,6 +540,7 @@ def test_ring_pipeline():
     html = read(os.path.join(ROOT, "index.html"))
     daemon = read(os.path.join(ROOT, "service", "state_daemon.py"))
     conf = read(os.path.join(ROOT, "lighttpd", "myweb.conf"))
+    display_py = read(os.path.join(ROOT, "cgi-bin", "display.py"))
     check("кольцо: прокси /ring в lighttpd",
           "^/ring" in conf and "8057" in conf)
     check("кольцо: демон принимает кадры и зовёт Luna",
@@ -542,6 +549,8 @@ def test_ring_pipeline():
     check("кольцо: панель шлёт кадры напрямую (25 fps)",
           "function ringFrame(" in html and "request('/ring'" in html
           and "setInterval(tick, 40)" in html)
+    check("кольцо: сброс и «Стоп» гасят кольцо",
+          "luna_ring_off" in display_py and "paintOff()" in html)
 
 
 def main():

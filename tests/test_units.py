@@ -372,12 +372,18 @@ def test_update_assets():
 
 def test_state_player_fresh():
     old = state_daemon.player.snapshot
+    calls = []
     try:
-        state_daemon.player.snapshot = lambda: {"playing": True, "title": "Трек"}
+        def snapshot(force=False):
+            calls.append(force)
+            return {"playing": True, "title": "Трек"}
+        state_daemon.player.snapshot = snapshot
         check("state: player=1 берёт свежий snapshot",
               state_daemon.player_now().get("title") == "Трек")
+        state_daemon.player_now(force=True)
+        check("state: fresh=1 просит Glagol напрямую", calls[-1] is True, str(calls))
 
-        def boom():
+        def boom(force=False):
             raise RuntimeError("glagol down")
         state_daemon.player.snapshot = boom
         check("state: ошибка snapshot не валит state",
@@ -984,6 +990,62 @@ def test_ring_forward():
           str(connection and connection.sent[2]))
 
 
+def test_ring_reset_and_stop():
+    """Сброс и «Стоп» должны гасить кольцо, а не оставлять последний кадр."""
+    import display
+
+    calls = []
+    state = {"enabled": True, "min": 10, "max": 150,
+             "display_enabled": False, "display_min": 10, "display_max": 170}
+    old = (display.luna_ring_off, display.animation_stop,
+           display.set_ring_brightness, display.load_auto, display.save_auto)
+    try:
+        display.luna_ring_off = lambda: calls.append("off") or True
+        display.animation_stop = lambda: calls.append("stop") or True
+        display.set_ring_brightness = lambda value: (
+            calls.append(("bright", value)) or value)
+        display.load_auto = lambda: dict(state)
+        display.save_auto = lambda config: (state.update(config),
+                                            calls.append("save"))
+        result = display.reset_ring()
+    finally:
+        (display.luna_ring_off, display.animation_stop,
+         display.set_ring_brightness, display.load_auto,
+         display.save_auto) = old
+
+    check("кольцо: сброс сначала останавливает анимацию, потом гасит",
+          calls[:2] == ["stop", "off"], str(calls))
+    check("кольцо: сброс возвращает яркость по умолчанию",
+          ("bright", 255) in calls, str(calls))
+    check("кольцо: сброс снимает автояркость и отдаёт off",
+          result.get("off") is True and result["auto"]["enabled"] is False,
+          str(result))
+
+
+def test_media_pause_via_cli():
+    """Пауза/стоп идут через maind --cli 'o' — Glagol слишком медленный."""
+    import media
+
+    if media.alice_cli is None:
+        check("media: CLI доступен", False)
+        return
+    calls = []
+    old = (media.common.params, media.common.respond, media.alice_cli.pause)
+    try:
+        media.common.params = lambda: {"action": "pause"}
+        media.common.respond = lambda status, payload, headers=None: calls.append(
+            (status, payload))
+        media.alice_cli.pause = lambda: calls.append("pause") or True
+        media.main()
+    finally:
+        media.common.params, media.common.respond = old[0], old[1]
+        media.alice_cli.pause = old[2]
+
+    check("media: пауза через maind --cli", calls and calls[0] == "pause", str(calls))
+    check("media: ответ via=cli",
+          calls and calls[-1][1].get("via") == "cli", str(calls[-1:]))
+
+
 def test_discovery_payload():
     import json
 
@@ -1312,6 +1374,8 @@ def main():
         test_ring_animations_list,
         test_ring_animation_preview,
         test_ring_forward,
+        test_ring_reset_and_stop,
+        test_media_pause_via_cli,
         test_media_config_override,
         test_speak_frames,
         test_display_auto,

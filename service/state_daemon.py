@@ -45,11 +45,11 @@ PLAYER_STATE = {}
 PLAYER_INTERVAL = 10.0
 
 
-def player_now():
-    """Свежий снимок Glagol, не ожидая 10-секундного фонового цикла."""
+def player_now(force=False):
+    """Свежий снимок Glagol: из watcher или прямым запросом (force)."""
     with PLAYER_LOCK:
         try:
-            return player.snapshot()
+            return player.snapshot(force=force)
         except Exception as exc:  # noqa: BLE001
             return {"error": str(exc)[:200]}
 
@@ -150,7 +150,9 @@ class Handler(BaseHTTPRequestHandler):
             query = urllib.parse.parse_qs(parsed.query)
             full = "full" in query
             if "player" in query:
-                fresh = player_now()
+                # fresh=1 — сразу спросить Glagol (после play/pause), иначе
+                # отдаём watcher-состояние, которое обновляется пушем.
+                fresh = player_now(force="fresh" in query)
                 with LOCK:
                     PLAYER_STATE = fresh
                     STATE["player"] = fresh

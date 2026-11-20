@@ -31,9 +31,15 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
+
+try:
+    import alice_cli  # noqa: E402
+except Exception:  # noqa: BLE001
+    alice_cli = None
 
 try:
     import glagol as glagol_client  # noqa: E402
@@ -181,6 +187,17 @@ def main():
     data = common.params()
     action = str(data.get("action") or "").strip()
     action = ALIASES.get(action, action)
+
+    # Пауза/стоп: локальный CLI 'o' гасит звук сразу, Glagol отдаёт state
+    # с задержкой до 4 с (из-за этого кнопка «не сразу» срабатывала).
+    if action in ("pause", "stop") and data.get("raw") is None and alice_cli is not None:
+        try:
+            alice_cli.pause()
+            time.sleep(0.1)
+            common.ok(action=action, via="cli", confirmed=True)
+            return
+        except Exception:  # noqa: BLE001 - откат на Glagol
+            pass
 
     url, payloads, conf = config()
     volume = common.to_int(data.get("volume"), default=50, lo=0, hi=100)

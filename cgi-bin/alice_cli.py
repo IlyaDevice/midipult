@@ -121,6 +121,18 @@ def cancel():
     return True
 
 
+def pause():
+    """Пауза плеера штатной командой CLI 'o' (срабатывает сразу)."""
+    proc = _spawn()
+    try:
+        time.sleep(START_DELAY)
+        _write(proc, "o")
+        time.sleep(CLOSE_DELAY)
+    finally:
+        _close(proc)
+    return True
+
+
 def query(text):
     """Текстовый запрос к Алисе (аналог набора в приложении)."""
     text = " ".join(str(text or "").split())

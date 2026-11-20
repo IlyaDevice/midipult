@@ -342,15 +342,31 @@ def reset_display():
             "mode": load_mode(), "auto": load_auto()}
 
 
+def luna_ring_off():
+    """Погасить кольцо штатным API Luna (без своего framebuffer)."""
+    try:
+        request = urllib.request.Request(
+            common.LUNA_BASE + "/api/led/off/ring",
+            data=b"{}", method="POST",
+            headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(request, timeout=6) as response:
+            response.read(1024)
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def reset_ring():
-    """Сброс только кольца: яркость/автояркость кольца; дисплей не трогаем."""
+    """Сброс только кольца: выключить, вернуть яркость, снять автояркость."""
+    animation_stop()
+    luna_ring_off()
     value = set_ring_brightness(DEFAULT_RING_BRIGHTNESS)
     config = load_auto()
     config["enabled"] = False
     config["min"] = 10
     config["max"] = 150
     save_auto(config)
-    return {"ring_brightness": value, "auto": load_auto()}
+    return {"ring_brightness": value, "auto": load_auto(), "off": True}
 
 
 def ring_animations():
@@ -487,7 +503,9 @@ def main():
 
     if common.truthy(data.get("ring_anim_stop")):
         animation_stop()
-        common.ok(playing=False)
+        # «Стоп» должен гасить кольцо, а не оставлять последний кадр.
+        luna_ring_off()
+        common.ok(playing=False, off=True)
         return
 
     if data.get("anim_preview") is not None:

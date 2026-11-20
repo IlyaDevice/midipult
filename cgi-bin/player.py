@@ -32,15 +32,18 @@ def cover_url(extra):
     return cover.replace("%%", "400x400")
 
 
-def snapshot():
-    """Снимок плеера. Сначала — state от постоянного watcher (пуш от Glagol),
-    иначе один запрос softwareVersion (CGI без демона)."""
+def snapshot(force=False):
+    """Снимок плеера. Из watcher (пуш), либо запрос softwareVersion.
+
+    force=True — всегда спросить Glagol напрямую: нужно сразу после
+    play/pause/stop, когда watcher ещё не получил обновление.
+    """
     if glagol is None:
         raise RuntimeError("Модуль glagol недоступен")
     state = None
     age = 0.0
     latest = getattr(glagol, "latest", None)
-    if callable(latest):
+    if not force and callable(latest):
         state = latest(max_age=15)
         if isinstance(state, dict):
             updated = float((glagol.watch_status() or {}).get("updated") or 0)
@@ -49,6 +52,7 @@ def snapshot():
     if not isinstance(state, dict):
         reply = glagol.send({"command": "softwareVersion"}, timeout=6)
         state = (reply or {}).get("state") or {}
+        age = 0.0
     player = state.get("playerState") or {}
     extra = player.get("extra") or {}
     return {
