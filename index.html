@@ -10196,49 +10196,51 @@ body.light dialog.queue-dlg.ym-look{
       if (!cards.length) return;
       grid.style.gridAutoRows = PACK_UNIT + 'px';
       cards.forEach(function (card) {
-        card.style.gridRowEnd = 'auto';
-        card.style.height = 'auto';
-        card.style.alignSelf = 'start';
-      });
-      var heights = cards.map(function (card) {
-        if (card.classList.contains('is-hidden')) return 0;
-        var height = Math.ceil(card.getBoundingClientRect().height);
-        card.dataset.packH = String(height);
-        return height;
-      });
-      cards.forEach(function (card, index) {
-        if (!heights[index]) {
-          card.style.height = '';
+        if (card.classList.contains('is-hidden')) {
+          if (card.dataset.packBox) {
+            card.style.height = '';
+            delete card.dataset.packBox;
+          }
           return;
         }
-        var span = Math.max(1, Math.ceil((heights[index] + PACK_GAP) / (PACK_UNIT + PACK_GAP)));
+        // Текущий span и высота — чтобы не трогать карточку без нужды:
+        // каждый лишний сброс height вызывал reflow и прыжки прокрутки.
+        var currentSpan = parseInt(String(card.style.gridRowEnd || '').replace(/[^0-9]/g, ''), 10) || 0;
+        var height;
+        if (card.dataset.forceFit) {
+          var prevHeight = card.style.height;
+          var prevAlign = card.style.alignSelf;
+          card.style.height = 'auto';
+          card.style.alignSelf = 'start';
+          height = Math.ceil(card.getBoundingClientRect().height);
+          card.style.height = prevHeight;
+          card.style.alignSelf = prevAlign;
+          delete card.dataset.forceFit;
+        } else {
+          // scrollHeight не меньше текущей высоты: карточка растёт, когда
+          // содержимому становится тесно, и не «дышит» на каждом опросе.
+          height = Math.ceil(card.scrollHeight);
+        }
+        var span = Math.max(1, Math.ceil((height + PACK_GAP) / (PACK_UNIT + PACK_GAP)));
         var wanted = Number(card.dataset.rows || 0);
         if (wanted > span) span = wanted;
+        if (currentSpan && span < currentSpan) span = currentSpan;
         var box = span * (PACK_UNIT + PACK_GAP) - PACK_GAP;
         var before = Number(card.dataset.packBox || 0);
-        card.style.gridRowEnd = 'span ' + span;
-        card.style.height = box + 'px';
-        card.style.alignSelf = '';
-        card.dataset.packBox = String(box);
-        if (before && Math.abs(before - box) > 1 && !cardResizing && card.animate) {
-          card.animate([{ height: before + 'px' }, { height: box + 'px' }],
-            { duration: 180, easing: 'ease-out' });
+        if (currentSpan !== span) card.style.gridRowEnd = 'span ' + span;
+        if (card.dataset.packBox !== String(box)) {
+          card.style.height = box + 'px';
+          card.dataset.packBox = String(box);
+          if (before && Math.abs(before - box) > 1 && card.animate) {
+            card.animate([{ height: before + 'px' }, { height: box + 'px' }],
+              { duration: 180, easing: 'ease-out' });
+          }
         }
+        card.dataset.packH = String(Math.ceil(card.scrollHeight));
       });
     } finally {
       packing = false;
     }
-  }
-
-  function contentChanged() {
-    var cards = document.querySelectorAll('main.grid > .card');
-    for (var i = 0; i < cards.length; i++) {
-      var card = cards[i];
-      if (card.classList.contains('is-hidden')) continue;
-      var stored = Number(card.dataset.packH || 0);
-      if (Math.abs(card.scrollHeight - stored) > 1) return true;
-    }
-    return false;
   }
 
   function schedulePack() {
@@ -10268,7 +10270,7 @@ body.light dialog.queue-dlg.ym-look{
       contentObserver.observe(grid, {
         childList: true,
         subtree: true,
-        characterData: true,
+        characterData: false,
         attributes: true,
         attributeFilter: ['open', 'hidden', 'class']
       });
@@ -13987,6 +13989,7 @@ body.light dialog.queue-dlg.ym-look{
         card.classList.remove('resizing');
         document.body.classList.remove('card-resizing');
         cardResizing = false;
+        card.dataset.forceFit = '1';
         var spans = loadMap(SPANS_KEY);
         spans[card.dataset.cardId] = span;
         saveMap(SPANS_KEY, spans);
