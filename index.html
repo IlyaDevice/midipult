@@ -5981,7 +5981,10 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     if (close) close.addEventListener('click', closeYmDialog);
     dialog.addEventListener('cancel', function (event) {
       event.preventDefault();
-      closeYmDialog();
+      // Esc в развёрнутом плеере сначала сворачивает только плеер;
+      // повторный Esc уже закрывает всю Яндекс Музыку.
+      if (State.ymNowOpen) ymCloseNow();
+      else closeYmDialog();
     });
     dialog.addEventListener('close', function () {
       State.ymSearch = '';
@@ -5993,6 +5996,21 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     if (back) back.addEventListener('click', function () { ymCloseNow(); });
     var closeAll = document.getElementById('ymNowCloseAll');
     if (closeAll) closeAll.addEventListener('click', closeYmDialog);
+
+    // Esc: сначала сворачиваем развёрнутый плеер, второй Esc закрывает
+    // Яндекс Музыку. Перехватываем в capture, чтобы нативный cancel
+    // диалога не закрыл всё окно сразу.
+    document.addEventListener('keydown', function (event) {
+      if (event.key !== 'Escape' || !dialog.open) return;
+      var dialogs = document.querySelectorAll('dialog[open]');
+      if (dialogs.length && dialogs[dialogs.length - 1] !== dialog) return;
+      var now = document.getElementById('ymNow');
+      var nowOpen = now && !now.hidden && !now.classList.contains('now-closing');
+      event.preventDefault();
+      event.stopPropagation();
+      if (nowOpen) ymCloseNow();
+      else closeYmDialog();
+    }, true);
     var barArt = document.getElementById('ymBarArt');
     var barMeta = document.querySelector('.ym-bar-meta');
     [barArt, barMeta].forEach(function (node) {
