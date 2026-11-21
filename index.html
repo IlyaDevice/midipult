@@ -356,7 +356,7 @@ main.grid{
 #ringMusicPop[hidden]{display:none}
 body.light #ringMusicPop{background:#fff}
 .ring-picker .alarm-select{height:36px}
-.ring-picker .ring-list{position:fixed;left:auto;right:auto;top:auto;bottom:auto;
+#ringPickPop{position:fixed;left:auto;right:auto;top:auto;bottom:auto;
   z-index:120;max-height:none;
   margin-top:6px;padding:6px;background:#0f1420;border-radius:12px;overflow:visible}
 .ring-option{display:flex;align-items:center;gap:8px;width:100%;font-size:13px}
@@ -14466,8 +14466,13 @@ body.light dialog.queue-dlg.ym-look{
     });
     el.ringSearch.addEventListener('input', filterRingAnims);
     el.ringPickPop.addEventListener('click', function (ev) { ev.stopPropagation(); });
+    // Попап вне карточки: иначе transform/animation карточки делает fixed
+    // относительным её самой и список «улетает» в сторону.
+    document.body.appendChild(el.ringPickPop);
     document.addEventListener('click', function (ev) {
-      if (!ev.target.closest('.ring-picker')) toggleRingPick(false);
+      if (!ev.target.closest('.ring-picker') && !ev.target.closest('#ringPickPop')) {
+        toggleRingPick(false);
+      }
     });
     document.addEventListener('keydown', function (ev) {
       if (ev.key === 'Escape' && el.ringPickPop && !el.ringPickPop.hidden) {
