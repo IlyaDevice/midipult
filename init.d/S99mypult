@@ -63,6 +63,18 @@ pid_matches() {
     return 0
 }
 
+# Найти процессы по подстроке в cmdline. Нужно, когда pid-файл потерялся
+# или указывает на уже умерший процесс, а старый демон всё ещё держит порт.
+find_pids() {
+    _pattern="$1"
+    for _cmdline in /proc/[0-9]*/cmdline; do
+        _pid=${_cmdline#/proc/}
+        _pid=${_pid%/cmdline}
+        [ -r "$_cmdline" ] || continue
+        tr '\000' ' ' <"$_cmdline" 2>/dev/null | grep -q "$_pattern" && echo "$_pid"
+    done
+}
+
 # Проверка TCP-порта через /proc/net/tcp (без netstat и nc).
 is_listening() {
     _hex=$(printf '%04X' "$1")
@@ -196,6 +208,14 @@ start_state() {
         log "state: уже работает (pid $(cat /tmp/mypult-state.pid 2>/dev/null))"
         return 0
     fi
+    if is_listening 8057; then
+        _state_pid=$(find_pids "state_daemon.py" | head -1)
+        if [ -n "$_state_pid" ]; then
+            echo "$_state_pid" > /tmp/mypult-state.pid
+            log "state: уже слушает 8057 (pid $_state_pid)"
+            return 0
+        fi
+    fi
     nohup /opt/bin/python3 /data/mypult/state_daemon.py >>/tmp/mypult.log 2>&1 &
     echo $! > /tmp/mypult-state.pid
     sleep 1
@@ -210,6 +230,11 @@ stop_state() {
     if pid_matches /tmp/mypult-state.pid "state_daemon.py"; then
         kill "$(cat /tmp/mypult-state.pid 2>/dev/null)" 2>/dev/null
     fi
+    # Если pid-файл потерялся, всё равно не оставляем старый демон на 8057.
+    for _pid in $(find_pids "state_daemon.py"); do
+        [ "$_pid" = "$$" ] && continue
+        kill "$_pid" 2>/dev/null
+    done
     rm -f /tmp/mypult-state.pid
 }
 
