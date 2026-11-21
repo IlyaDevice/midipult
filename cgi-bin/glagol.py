@@ -533,11 +533,23 @@ def probe(argv=None):
         tokens, token_error = [], str(exc)
 
     manual = _override()
-    device_id = args.device_id or (manual[0] if manual else "")
-    platform = args.platform or (manual[1] if manual else "")
+    source = ""
+    device_id = args.device_id
+    platform = args.platform
+    if device_id:
+        source = "arg"
+    if not device_id and manual:
+        device_id, platform = manual
+        source = "glagol_device.json"
     if not device_id and devices:
         device_id = str(devices[0].get("id") or "")
         platform = platform or str(devices[0].get("platform") or "yandexmidi")
+        source = "devices.json"
+    if not device_id:
+        found = _device_from_logs()
+        if found:
+            device_id, platform = found
+            source = "daemons_logs"
     platform = platform or "yandexmidi"
 
     report = {
@@ -548,6 +560,7 @@ def probe(argv=None):
         "devices_json": bool(devices),
         "devices": [{key: item.get(key) for key in ("id", "platform")} for item in devices],
         "override": manual,
+        "device_id_source": source or None,
         "account_tokens": len(tokens),
         "token_error": token_error,
         "checked_device_id": device_id,

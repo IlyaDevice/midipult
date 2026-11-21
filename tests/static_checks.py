@@ -51,7 +51,9 @@ def test_encoding():
             # push-to-station.ps1 намеренно UTF-16LE для Windows PowerShell.
             if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
                 continue
-            if b"\r\n" in raw:
+            # .ps1/.cmd по .gitattributes лежат с CRLF: так их удобнее
+            # открывать в Windows PowerShell, и это осознанное исключение.
+            if b"\r\n" in raw and not name.endswith((".ps1", ".cmd")):
                 bad.append(os.path.relpath(path, ROOT) + " (CRLF)")
             # .ps1 намеренно с BOM: Windows PowerShell 5.1 иначе читает
             # кириллицу как ANSI и ломает разбор скрипта.

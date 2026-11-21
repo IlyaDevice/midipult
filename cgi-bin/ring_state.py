@@ -107,11 +107,21 @@ def main() -> None:
             try:
                 colors = fb_colors(count, step)
             except OSError as exc:
-                common.fail(500, "fb0 недоступен: %s" % exc)
+                common.ok(colors=[], via="framebuffer", count=count,
+                          supported=False, readonly=True,
+                          reason="fb0 недоступен: %s" % exc)
                 return
-            common.ok(colors=colors, via="framebuffer", count=count,
-                      supported=True, readonly=True,
-                      note="панель читает кадр, но не управляет им: им владеет прошивка")
+            if any(color != "000000" for color in colors):
+                common.ok(colors=colors, via="framebuffer", count=count,
+                          supported=True, readonly=True,
+                          note="кадр прочитан, но панель им не управляет")
+                return
+            # На Station 2 кадр всегда нулевой: прошивка отдаёт его только
+            # в контроллер и обратно не читает. Не врём «кольцо погашено».
+            common.ok(colors=[], via="framebuffer", count=count,
+                      supported=False, readonly=True,
+                      reason=("панель Station 2 не отдаёт содержимое кадра; "
+                              "доступна только общая яркость (panel_backlight)"))
             return
 
     colors = sysfs_colors()

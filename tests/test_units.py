@@ -2096,6 +2096,45 @@ def test_glagol_device_from_logs():
             pass
 
 
+def test_panel_backlight():
+    import panel
+
+    check("панель: яркость в пределах", panel.clamp(300, 255) == 255)
+    check("панель: отрицательная — 0", panel.clamp(-5, 255) == 0)
+    check("панель: не число — None", panel.clamp("ярко", 255) is None)
+    check("панель: строка с числом", panel.clamp("83", 255) == 83)
+
+
+def test_glagol_probe_source():
+    import contextlib
+    import io
+    import json
+    import tempfile
+
+    old = (glagol.LOG_FILES, glagol.DEVICES, glagol.OVERRIDE_PATH, glagol._resolve)
+    folder = tempfile.mkdtemp(prefix="mypult-probe-")
+    yiod = os.path.join(folder, "yiod.log")
+    try:
+        with open(yiod, "wb") as fh:
+            fh.write(b"https://quasar.yandex.net/register?device_id=U00QNP100Y59RK"
+                     b"&platform=yandexmidi\n")
+        glagol.LOG_FILES = (yiod,)
+        glagol.DEVICES = os.path.join(folder, "missing.json")
+        glagol.OVERRIDE_PATH = os.path.join(folder, "missing-override.json")
+        glagol._resolve = lambda host: ["1.2.3.4"]
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            glagol.probe([])
+        report = json.loads(out.getvalue())
+        check("probe: id берётся из логов",
+              report.get("device_id_source") == "daemons_logs"
+              and report.get("checked_device_id") == "U00QNP100Y59RK",
+              str(report.get("device_id_source")))
+    finally:
+        (glagol.LOG_FILES, glagol.DEVICES,
+         glagol.OVERRIDE_PATH, glagol._resolve) = old
+
+
 def main():
     for test in (
         test_generic_helpers,
@@ -2148,6 +2187,8 @@ def main():
         test_device_classify,
         test_glagol_device_override,
         test_glagol_device_from_logs,
+        test_glagol_probe_source,
+        test_panel_backlight,
         test_ring_fb_geometry,
     ):
         try:

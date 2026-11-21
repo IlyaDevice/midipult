@@ -3181,6 +3181,21 @@ body.light dialog.queue-dlg.ym-look{
     </div>
   </section>
 
+  <!-- ───────── индикация панели ───────── -->
+  <section class="card c-sys" id="cardPanel" data-group="system" aria-labelledby="h-panel" hidden>
+    <h2 id="h-panel"><span class="dot"></span>Индикация панели</h2>
+    <div class="field">
+      <div class="field-top"><label for="panelBright">Яркость панели</label><output id="panelBrightVal">—</output></div>
+      <input type="range" id="panelBright" min="0" max="255" step="1" value="255" aria-label="Яркость LED-панели">
+    </div>
+    <div class="row" style="margin-top:8px;gap:6px;flex-wrap:wrap">
+      <button class="btn sm" id="btnPanelOff">Погасить</button>
+      <button class="btn sm ghost" id="btnPanelRestore">Вернуть</button>
+      <span class="seg-note" id="panelStatus">—</span>
+    </div>
+    <div class="seg-note" style="margin-top:8px">На этой модели диоды поштучно недоступны, но панель целиком можно приглушить или погасить: например, чтобы не светила ночью или не мигала «слушаю».</div>
+  </section>
+
   <!-- ───────── характеристики ───────── -->
   <section class="card c-sys" data-group="system" aria-labelledby="h-hw">
     <h2 id="h-hw"><span class="dot"></span>Характеристики</h2>
@@ -9699,6 +9714,39 @@ body.light dialog.queue-dlg.ym-look{
     });
   }
 
+  /* ─────────── индикация панели (Station 2) ─────────── */
+  function renderPanel(data) {
+    if (!el.cardPanel) return;
+    var supported = !!(data && data.supported);
+    el.cardPanel.hidden = !supported;
+    if (!supported) return;
+    var max = data.max || 255;
+    var current = data.current == null ? max : data.current;
+    el.panelBright.max = max;
+    el.panelBright.value = current;
+    el.panelBrightVal.textContent = current + ' / ' + max;
+    el.panelStatus.textContent = data.off ? 'панель погашена' : 'светится';
+  }
+
+  function loadPanel() {
+    return cgi('panel.py', {}, { timeout: 8000, silent: true }).then(function (data) {
+      State.panel = data;
+      renderPanel(data);
+    }).catch(function () {
+      if (el.cardPanel) el.cardPanel.hidden = true;
+    });
+  }
+
+  function setPanel(payload) {
+    return cgi('panel.py', payload, { timeout: 8000 }).then(function (data) {
+      State.panel = data;
+      renderPanel(data);
+      return data;
+    }).catch(function (err) {
+      toast('Панель: ' + err.message, 'bad');
+    });
+  }
+
   /* ─────────── ресурсы ─────────── */
   function loadLevel(percent) {
     if (percent == null) return '';
@@ -14297,6 +14345,22 @@ body.light dialog.queue-dlg.ym-look{
       });
     }
 
+    /* индикация панели */
+    if (el.panelBright) {
+      el.panelBright.addEventListener('input', function () {
+        el.panelBrightVal.textContent = this.value + ' / ' + this.max;
+      });
+      el.panelBright.addEventListener('change', function () {
+        setPanel({ brightness: parseInt(this.value, 10) || 0 });
+      });
+    }
+    if (el.btnPanelOff) {
+      el.btnPanelOff.addEventListener('click', function () { setPanel({ off: 1 }); });
+    }
+    if (el.btnPanelRestore) {
+      el.btnPanelRestore.addEventListener('click', function () { setPanel({ restore: 1 }); });
+    }
+
     /* радио */
     el.btnRadioPick.addEventListener('click', function (ev) {
       ev.stopPropagation();
@@ -15780,6 +15844,7 @@ body.light dialog.queue-dlg.ym-look{
       'llmAnswer', 'llmMeta',
       'vpnUrl', 'btnVpnSave', 'btnVpnToggle', 'vpnStatus', 'vpnServer', 'vpnLog', 'vpnAutostart',
       'btnVoiceDaemon', 'voiceDaemonStatus', 'voiceIdleMode', 'voiceIdleNote',
+      'cardPanel', 'panelBright', 'panelBrightVal', 'btnPanelOff', 'btnPanelRestore', 'panelStatus',
       'radioChips', 'btnRadioPrev', 'btnRadioStop', 'btnRadioNext', 'radioStatus',
       'radioName', 'btnRadioAdd', 'radioUrl', 'btnRadioStream',
       'btnRadioPick', 'radioPickName', 'radioPickCount', 'radioPop', 'radioSearch',
@@ -15857,6 +15922,7 @@ body.light dialog.queue-dlg.ym-look{
     renderStatus();
     loadVersion();
     loadCaps();
+    loadPanel();
     loadUpdateInfo(false, false);
     setInterval(function () {
       if (!document.hidden) loadUpdateInfo(false, false);

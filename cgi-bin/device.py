@@ -80,6 +80,30 @@ def _fb_pixels():
         return 0
 
 
+BACKLIGHT = "/sys/class/backlight/fb0"
+
+
+def _read_int(path):
+    try:
+        with open(path, "r", encoding="ascii") as fh:
+            return int(fh.read().strip())
+    except (OSError, ValueError):
+        return None
+
+
+def panel_backlight():
+    """Подсветка всей LED-панели (Station 2): 0 — панель погашена.
+
+    Диоды поштучно недоступны, зато backlight реально управляет панелью:
+    прошивка не перебивает выставленное значение.
+    """
+    current = _read_int(os.path.join(BACKLIGHT, "brightness"))
+    maximum = _read_int(os.path.join(BACKLIGHT, "max_brightness"))
+    if current is None or not maximum:
+        return None
+    return {"current": current, "max": maximum, "off": current == 0}
+
+
 def read_store():
     try:
         with open(STORE, "r", encoding="utf-8") as fh:
@@ -143,10 +167,13 @@ def detect():
 
     note = ""
     if kind == "station2":
-        note = ("Station 2: панель ведёт 88 диодов через /dev/fb0, сегментного "
-                "дисплея нет — карточки дисплея и кольца скрыты.")
-    elif kind == "unknown":
-        note = "Модель не опознана: дисплей и кольцо могут не работать."
+        note = ("Station 2: панель ведёт 88 диодов через Gowin/SPI, кадр /dev/fb0 "
+                "не читается и диоды поштучно недоступны — но панель целиком можно "
+                "приглушить или погасить через подсветку.")
+
+    backlight = None
+    if ring_kind == "framebuffer" and not support_ring:
+        backlight = panel_backlight()
 
     caps = {
         "ok": True,
@@ -157,7 +184,8 @@ def detect():
         "ring": support_ring,
         "ring_count": ring or fb_pixels,
         "ring_kind": ring_kind,
-        "ring_read": bool(support_ring or fb_pixels),
+        "ring_read": bool(support_ring),
+        "panel_backlight": backlight,
         "leds": {"segments": segments, "ring": ring, "fb_pixels": fb_pixels},
         "note": note,
         "detected_at": int(time.time()),
