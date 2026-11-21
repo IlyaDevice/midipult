@@ -311,8 +311,8 @@ select{max-width:100%}
 /* ---------- layout ---------- */
 main.grid{
   max-width:1200px;margin:12px auto 0;padding:0 var(--page-x) 24px;
-  display:grid;column-gap:12px;row-gap:0;grid-template-columns:repeat(12,minmax(0,1fr));
-  align-items:start;
+  display:grid;column-gap:12px;row-gap:12px;grid-auto-rows:36px;
+  grid-template-columns:repeat(12,minmax(0,1fr));align-items:stretch;
 }
 .card{
   grid-column:span 12;position:relative;min-width:0;max-width:100%;padding:var(--pad-card);border-radius:var(--r16);
@@ -1266,7 +1266,7 @@ body.light .np-glow{opacity:.30;filter:blur(60px) saturate(1.2) brightness(.95)}
     background:linear-gradient(135deg,rgba(124,92,255,.62),rgba(34,211,238,.32));
     border-color:transparent;
   }
-  main.grid{padding:0 var(--page-x) 24px;column-gap:var(--gap-md);row-gap:0;align-items:start}
+  main.grid{padding:0 var(--page-x) 24px;column-gap:var(--gap-md);row-gap:12px;grid-auto-rows:36px;align-items:stretch}
   .card{padding:var(--pad-card);border-radius:var(--r16)}
   .row{flex-wrap:wrap}
   .clock-wrap{flex-direction:column;align-items:stretch;gap:var(--gap-md)}
@@ -10162,10 +10162,11 @@ body.light dialog.queue-dlg.ym-look{
     }
   }
 
-  // Карточки в сетке разной высоты: без упаковки под короткой карточкой
-  // остаётся пустая полоса до конца ряда. Строки по 1 px и row-gap:0, а
-  // карточка занимает высоту + 12 строк — тогда отступ между карточками
-  // ровно 12 px, независимо от их высоты.
+  // Фиксированный шаг сетки: строка 36 px, зазор 12 px. Карточка занимает
+  // целое число строк и растягивается на них, поэтому все блоки выровнены
+  // по общей вертикальной сетке.
+  var PACK_UNIT = 36;
+  var PACK_GAP = 12;
   var packTimer = 0;
   var packing = false;
   var packObserver = null;
@@ -10180,19 +10181,39 @@ body.light dialog.queue-dlg.ym-look{
         return node.classList.contains('card');
       });
       if (!cards.length) return;
-      grid.style.gridAutoRows = '1px';
-      cards.forEach(function (card) { card.style.gridRowEnd = 'auto'; });
+      grid.style.gridAutoRows = PACK_UNIT + 'px';
+      cards.forEach(function (card) {
+        card.style.gridRowEnd = 'auto';
+        card.style.height = 'auto';
+        card.style.alignSelf = 'start';
+      });
       var heights = cards.map(function (card) {
-        return card.classList.contains('is-hidden') ? 0 :
-          Math.ceil(card.getBoundingClientRect().height);
+        if (card.classList.contains('is-hidden')) return 0;
+        var height = Math.ceil(card.getBoundingClientRect().height);
+        card.dataset.packH = String(height);
+        return height;
       });
       cards.forEach(function (card, index) {
         if (!heights[index]) return;
-        card.style.gridRowEnd = 'span ' + (heights[index] + 12);
+        var span = Math.max(1, Math.ceil((heights[index] + PACK_GAP) / (PACK_UNIT + PACK_GAP)));
+        card.style.gridRowEnd = 'span ' + span;
+        card.style.height = '';
+        card.style.alignSelf = '';
       });
     } finally {
       packing = false;
     }
+  }
+
+  function contentChanged() {
+    var cards = document.querySelectorAll('main.grid > .card');
+    for (var i = 0; i < cards.length; i++) {
+      var card = cards[i];
+      if (card.classList.contains('is-hidden')) continue;
+      var stored = Number(card.dataset.packH || 0);
+      if (Math.abs(card.scrollHeight - stored) > 1) return true;
+    }
+    return false;
   }
 
   function schedulePack() {
@@ -10204,7 +10225,7 @@ body.light dialog.queue-dlg.ym-look{
     if (!window.ResizeObserver) return;
     if (packObserver) packObserver.disconnect();
     packObserver = new ResizeObserver(function () {
-      if (!packing) schedulePack();
+      if (!packing && contentChanged()) schedulePack();
     });
     Array.prototype.forEach.call(
       document.querySelectorAll('main.grid > .card'),
@@ -13804,12 +13825,20 @@ body.light dialog.queue-dlg.ym-look{
       }
     }
 
+    function minSpan(card) {
+      if (card.classList.contains('c-media')) return 6;
+      if (card.classList.contains('c-radio')) return 4;
+      if (card.classList.contains('c-voice')) return 5;
+      return 3;
+    }
+
     function applySpans() {
       var desktop = window.innerWidth > 760;
       var spans = loadSpans();
       cards.forEach(function (card) {
         var span = desktop ? parseInt(spans[card.dataset.cardId], 10) : 0;
-        card.style.gridColumn = (span >= 3 && span <= 12) ? 'span ' + span : '';
+        var min = minSpan(card);
+        card.style.gridColumn = (span >= min && span <= 12) ? 'span ' + span : '';
       });
     }
 
@@ -13823,7 +13852,8 @@ body.light dialog.queue-dlg.ym-look{
       var gap = parseFloat(gridStyle.columnGap) || 12;
       var columnWidth = (grid.clientWidth - gap * (columns - 1)) / columns;
       var rect = card.getBoundingClientRect();
-      var span = Math.max(3, Math.min(columns,
+      var min = minSpan(card);
+      var span = Math.max(min, Math.min(columns,
         Math.round((rect.width + gap) / (columnWidth + gap))));
       var startX = event.clientX;
       var startSpan = span;
@@ -13831,7 +13861,7 @@ body.light dialog.queue-dlg.ym-look{
       document.body.classList.add('card-resizing');
 
       function onMove(moveEvent) {
-        span = Math.max(3, Math.min(columns,
+        span = Math.max(min, Math.min(columns,
           Math.round(startSpan + (moveEvent.clientX - startX) / (columnWidth + gap))));
         card.style.gridColumn = 'span ' + span;
         schedulePack();
