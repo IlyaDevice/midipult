@@ -327,7 +327,7 @@ def test_button_grids():
     check("обслуживание: сетка равных кнопок",
           'class="row maint-actions"' in html
           and ".maint-actions{display:flex" in html
-          and ".maint-actions .btn{flex:1 1 104px" in html)
+          and ".maint-actions .btn{flex:0 0 auto" in html)
     check("дисплей: чипы цветов и режимов — сетка",
           "#presets{display:grid" in html and ".bright-chips{display:grid" in html)
     check("автояркость перенесена в «Дисплей», не в «Обслуживание»",
