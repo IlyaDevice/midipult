@@ -1808,6 +1808,47 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .c-led .auto-bright{margin-top:6px}
 .c-led .chips{margin-top:4px}
 .c-led .ring-anim-row{margin-top:6px}
+
+/* двухколоночный «Дисплей» */
+.c-clock{display:grid;grid-template-columns:minmax(220px,.8fr) minmax(0,1.25fr);
+  column-gap:18px;row-gap:6px;align-items:start}
+.c-clock>h2{grid-column:1/-1}
+.c-clock>.display-actions{grid-column:1;grid-row:2;margin:0;gap:4px}
+.c-clock>.display-actions .btn{height:32px;padding:0 8px;font-size:12px}
+.c-clock>.display-auto{grid-column:2;grid-row:2;align-self:center;margin:0!important}
+.c-clock>.field.slider-narrow{grid-column:1;grid-row:3;margin-top:4px}
+.c-clock>.display-preview{grid-column:2;grid-row:3 / span 3;margin-top:0}
+.c-clock>.seg7{max-width:100%;padding-bottom:20px}
+.c-clock .display-preview em{display:none}
+.c-clock .bright-chips{grid-template-columns:repeat(2,minmax(0,1fr))}
+.c-clock>.display-extra{grid-column:1;grid-row:4;margin-top:2px}
+.c-clock>.seg-note{grid-column:1;grid-row:5;margin-top:0!important}
+.c-clock>.seg-toolbar{grid-column:1/-1}
+.c-clock>.clock-anims-field{grid-column:1/-1;grid-row:6;margin-top:8px}
+.c-clock>.clock-anims-field .clock-anim-list{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+
+/* двухколоночное «Кольцо» */
+.c-led{display:grid;grid-template-columns:190px minmax(0,1fr);column-gap:18px;row-gap:6px;align-items:start}
+.c-led>h2{grid-column:1/-1}
+.c-led>.ring{grid-column:1;grid-row:2;margin:0 auto}
+.c-led>.led-hint{grid-column:1;grid-row:3;font-size:10px;margin:4px 0 0;text-align:center}
+.c-led>.led-controls{grid-column:1;grid-row:4;margin-top:4px}
+.c-led>#presets{grid-column:1/-1;grid-row:6;margin-top:6px}
+.c-led>.auto-bright{grid-column:2;grid-row:2;margin:0!important;align-self:start}
+.c-led>.led-bright{grid-column:2;grid-row:3;margin-top:2px}
+.c-led>.led-speed{grid-column:2;grid-row:4;margin-top:2px}
+.c-led>.led-logo{grid-column:2;grid-row:5;margin-top:2px}
+.c-led>.led-anims{grid-column:1/-1;grid-row:7;margin-top:6px}
+.c-led>.led-footer{grid-column:1/-1;grid-row:8;margin-top:6px}
+.c-led .logo-modes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
+.c-led .logo-modes .chip{font-size:11px;padding:0 6px;height:26px}
+.c-led .chips{justify-content:flex-start}
+
+@media(max-width:900px){
+  .c-clock,.c-led{display:block}
+  .c-clock>.display-preview{margin-top:8px}
+}
+
 .c-led .led-hint{text-align:center}
 .c-led .led-controls{justify-content:center}
 .c-led .chips{justify-content:center}
@@ -2684,7 +2725,7 @@ body.light dialog.queue-dlg.ym-look{
       <button class="btn sm ghost" id="btnClockBack" hidden title="Вернуть часы">Часы</button>
     </div>
     <div class="seg-note" style="margin-top:6px">До 32 символов: 0–9, A–Y (кроме K, M, V, W, X, Z), «_», «-». Пробел станет «_».</div>
-    <div class="field" style="margin-top:14px">
+    <div class="field clock-anims-field" style="margin-top:14px">
       <div class="field-top"><label>Анимации дисплея</label><output id="clockAnimStatus">—</output></div>
       <div class="row clock-anims">
         <button class="btn sm" id="btnAnimEditor">Новая анимация</button>
@@ -2737,15 +2778,15 @@ body.light dialog.queue-dlg.ym-look{
       <label class="llm-toggle"><input type="checkbox" id="autoBright"><span>Автояркость кольца по свету</span></label>
       <span class="seg-note" id="autoBrightStatus"></span>
     </div>
-    <div class="field slider-narrow" style="margin-top:14px">
+    <div class="field slider-narrow led-bright" style="margin-top:14px">
       <div class="field-top"><label for="ringBrightness">Яркость кольца</label><output id="ringBrightVal">255</output></div>
       <input type="range" id="ringBrightness" min="0" max="255" step="1" value="255" aria-label="Яркость кольца">
     </div>
-    <div class="field slider-narrow" style="margin-top:14px">
+    <div class="field slider-narrow led-speed" style="margin-top:14px">
       <div class="field-top"><label for="ringSpeed">Скорость / дыхание</label><output id="ringSpeedVal">фикс</output></div>
       <input type="range" id="ringSpeed" min="0" max="300" step="10" value="0" aria-label="Скорость анимации и мигания кольца">
     </div>
-    <div class="field" style="margin-top:14px">
+    <div class="field led-logo" style="margin-top:14px">
       <div class="field-top"><label>Логотип</label><output id="logoStatus">как кольцо</output></div>
       <div class="logo-modes" id="logoModes">
         <button type="button" class="chip" data-logo-mode="sync" aria-pressed="true">Как кольцо</button>
@@ -2754,7 +2795,7 @@ body.light dialog.queue-dlg.ym-look{
         <button type="button" class="chip" data-logo-mode="off" aria-pressed="false">Выкл</button>
       </div>
     </div>
-    <div class="field" style="margin-top:14px">
+    <div class="field led-anims" style="margin-top:14px">
       <div class="field-top"><label>Анимации с колонки</label><output id="ringAnimStatus">—</output></div>
       <div class="anim-grid" id="ringAnimChips"></div>
       <div class="row ring-anim-row" style="margin-top:8px">
@@ -2778,7 +2819,7 @@ body.light dialog.queue-dlg.ym-look{
         <button class="chip" id="btnRingRestoreHidden" hidden>Вернуть анимации</button>
       </div>
     </div>
-    <div class="row" style="margin-top:12px">
+    <div class="row led-footer" style="margin-top:12px">
       <button class="btn danger sm" id="btnLedOff">Выключить кольцо</button>
       <button class="btn ghost sm" id="btnRingReset">Сбросить кольцо</button>
     </div>
