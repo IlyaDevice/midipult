@@ -5,6 +5,25 @@
 развивался итерациями `0.0.x`; полная история — в
 [docs/CHANGELOG-dev.md](docs/CHANGELOG-dev.md).
 
+## 0.6.9 — 2026-11-21
+
+Bluetooth-пульт вместо VK-провайдера.
+
+- **VK Музыка удалена:** `vk.py`, `vk_stream.py`, `vk_oauth.html`,
+  `vk_callback.html` и вся вкладка с Client ID/Redirect. VK закрыл публичный
+  audio API и отключил Implicit Flow — эта схема не могла заработать. При
+  обновлении старые файлы удаляются со станции, токен в `/data/mypult`
+  не трогается.
+- **`btplayer.py`:** состояние и команды плеера телефона через
+  `org.bluez.MediaPlayer1` — play/pause, next/prev, ff/rw, трек, позиция.
+  Отдельный `action=probe` показывает `dbus_send`, `players` и устройства.
+- **Плеер панели:** пока играет телефон, показывает «с телефона · Bluetooth»,
+  трек и время, а play/next/prev уходят в AVRCP. Приоритет у станции: если
+  заиграет Яндекс Музыка или радио, телефон её не перебивает. Ползунок в этом
+  режиме скрыт — абсолютной перемотки в AVRCP нет.
+- **Документация:** `docs/BLUETOOTH-REMOTE.md`, обновлены README,
+  ARCHITECTURE и `docs/VK-MUSIC.md`.
+
 ## 0.6.8 — 2026-11-21
 
 Glagol из коробки там, где нет `devices.json`.
