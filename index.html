@@ -2006,6 +2006,17 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .ym-now-volume input{flex:1;min-width:0;accent-color:#ffdb4d}
 .ym-now-volume output{font-size:10px;min-width:34px;text-align:right}
 .ym-now-bottom{margin-top:auto;flex:0 0 auto}
+/* На широком экране плеер заполняет высоту: обложка и текст сверху,
+   управление прижато к нижнему краю, без прокрутки страницы. */
+@media(min-width:761px){
+  .ym-now{display:flex;flex-direction:column;overflow:hidden;
+    padding:22px 30px 20px}
+  .ym-now-content{flex:1 1 auto;min-height:0;width:100%;max-width:1060px;
+    margin:2vh auto 0;align-items:stretch;overflow:hidden}
+  .ym-now-art-wrap{align-self:center}
+  .ym-now-info{height:100%;min-height:0}
+}
+body.ym-open{overflow:hidden!important}
 /* Ползунки громкости и перемотки в плеере Яндекс Музыки и окне текста:
    общая высота, заливка до бегунка и аккуратный thumb вместо тонкой линии. */
 .ym-now-seek input,.ym-now-volume input,.ym-volume-pop input,
@@ -2080,7 +2091,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
     padding:6px 0;overflow-y:auto;overscroll-behavior:contain}
   .ym-now-line{font-size:15px;padding:4px 0}
   .ym-now-line.plain{font-size:14px;line-height:1.45}
-  .ym-now-bottom{margin-top:8px}
+  .ym-now-bottom{margin-top:auto;padding-top:8px}
   .ym-now-seek{margin-top:4px}
   .ym-now-seek span{font-size:9px;min-width:26px}
   .ym-now-controls{margin-top:0;gap:6px}
@@ -5991,11 +6002,15 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
 
   function closeYmDialog() {
     var dialog = document.getElementById('ymDlg');
-    if (!dialog || !dialog.open || dialog.classList.contains('closing')) return;
+    if (!dialog || !dialog.open || dialog.classList.contains('closing')) {
+      document.body.classList.remove('ym-open');
+      return;
+    }
     dialog.classList.add('closing');
     clearTimeout(ymCloseTimer);
     ymCloseTimer = setTimeout(function () {
       if (dialog.open) dialog.close();
+      document.body.classList.remove('ym-open');
     }, 170);
   }
 
@@ -6020,6 +6035,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     clearTimeout(ymCloseTimer);
     dialog.classList.remove('closing');
     if (!dialog.open) dialog.showModal();
+    document.body.classList.add('ym-open');
     store.set('ymOpen', true);
     store.set('ymView', State.ymView);
     ymCloseNow(true);
@@ -6099,6 +6115,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     dialog.addEventListener('close', function () {
       State.ymSearch = '';
       dialog.classList.remove('closing');
+      document.body.classList.remove('ym-open');
       store.set('ymOpen', false);
       ymCloseNow(true);
     });
