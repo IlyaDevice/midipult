@@ -11289,14 +11289,17 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       }
       if (data.hidden_animations) State.hiddenRing = data.hidden_animations;
       if (el.ringAnimChips && data.animations) {
-        var playingName = data.animation
+        // После «Выключить кольцо» запрос состояния мог прийти со старым
+        // animation=test и снова запустить превью. Коротко игнорируем его.
+        var offRecent = State.ringOffAt && Date.now() - State.ringOffAt < 4000;
+        var playingName = data.animation && !offRecent
           ? (State.ringAnimName || data.animation_name || null) : null;
         renderRingAnims(data.animations, playingName);
         if (el.ringAnimStatus) {
-          el.ringAnimStatus.textContent = data.animation ? 'играет' : '—';
+          el.ringAnimStatus.textContent = playingName ? 'играет' : '—';
         }
-        if (data.animation && playingName) startRingPreview(playingName);
-        else if (!data.animation) {
+        if (playingName) startRingPreview(playingName);
+        else if (!data.animation || offRecent) {
           if (State.ringPreview) {
             State.ringPreview = null;
             paintOff();
@@ -11368,6 +11371,9 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   }
 
   function startRingPreview(name) {
+    // Запоздавший ответ загрузки кадров не должен включать превью после
+    // «Выключить кольцо».
+    if (State.ringOffAt && Date.now() - State.ringOffAt < 4000) return;
     var playback = ringAnimFrames[name];
     if (!playback || !playback.frames.length) {
       return loadRingFrames(name).then(function (loaded) {
@@ -11776,6 +11782,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       return;
     }
     stopLedAnimation();
+    State.ringOffAt = 0;
     State.ledMode = 'anim';
     store.set('ledMode', 'anim');
     markActiveChip();
@@ -11818,6 +11825,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     // пользователь не должен остаться с «залипшей» анимацией.
     State.ringPreview = null;
     State.ringAnimName = null;
+    State.ringOffAt = Date.now();
     State.ledMode = 'off';
     State.hwActive = false;
     State.hwLast = '';
@@ -13179,19 +13187,32 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     });
     el.btnLedOff.addEventListener('click', function () {
       withBusy(el.btnLedOff, function () {
-        return luna('/api/led/off/ring', {}).then(function () {
-          stopLedAnimation();
-          State.ledMode = 'off';
-          store.set('ledMode', 'off');
-          State.selected = null;
-          ringDots.forEach(function (dot) { dot.classList.remove('sel'); });
-          el.ledHint.textContent = 'Кольцо выключено';
-          paintOff();
-          markActiveChip();
-          ringOffBurst();
-          toast('Кольцо погашено', 'ok');
-        }).catch(function (err) { toast('Кольцо: ' + err.message, 'bad'); });
-      });
+        // Сначала останавливаем всё локально: JS-волну/свечу, превью
+        // редактора и аппаратный проигрыватель.
+        stopLedAnimation();
+        State.ringPreview = null;
+        State.ringAnimName = null;
+        State.ringOffAt = Date.now();
+        State.hwActive = false;
+        State.hwLast = '';
+        State.hwHoldUntil = Date.now() + 1500;
+        State.ledMode = 'off';
+        store.set('ledMode', 'off');
+        State.selected = null;
+        ringDots.forEach(function (dot) { dot.classList.remove('sel'); });
+        markRingAnim(null);
+        el.ledHint.textContent = 'Кольцо выключено';
+        paintOff();
+        markActiveChip();
+        ringOffBurst();
+        // И только потом гасим led_util и сам слой Luna. ring_anim_stop
+        // обязателен: luna /api/led/off/ring не убивает процесс led_util,
+        // поэтому анимация из редактора продолжала идти.
+        return cgi('display.py', { ring_anim_stop: 1 }, { timeout: 8000, silent: true })
+          .catch(function () { /* уже остановлено / нечего останавливать */ })
+          .then(function () { return luna('/api/led/off/ring', {}); })
+          .then(function () { toast('Кольцо погашено', 'ok'); });
+      }).catch(function (err) { toast('Кольцо: ' + err.message, 'bad'); });
     });
 
     /* плеер */
