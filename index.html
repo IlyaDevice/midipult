@@ -1646,6 +1646,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .home-now img,.home-art{width:54px;height:54px;border-radius:12px;object-fit:cover;flex:0 0 auto;
   background:rgba(255,255,255,.06);padding:14px}
 .home-meta{flex:1 1 auto;min-width:0}
+.home-transport{display:flex;align-items:center;gap:4px;flex:0 0 auto}
 .home-title{font-size:16px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .home-artist{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .home-volume{display:flex;align-items:center;gap:8px;margin-top:16px}
@@ -2312,9 +2313,17 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
         <div class="home-title" id="homeTitle">—</div>
         <div class="home-artist" id="homeArtist"></div>
       </div>
-      <button class="btn icon" id="homePlay" aria-label="Играть/пауза">
-        <svg class="ic"><use href="#i-play"/></svg>
-      </button>
+      <div class="home-transport">
+        <button class="btn icon-sm ghost" id="homePrev" aria-label="Предыдущий трек">
+          <svg class="ic"><use href="#i-prev"/></svg>
+        </button>
+        <button class="btn icon" id="homePlay" aria-label="Играть/пауза">
+          <svg class="ic"><use href="#i-play"/></svg>
+        </button>
+        <button class="btn icon-sm ghost" id="homeNext" aria-label="Следующий трек">
+          <svg class="ic"><use href="#i-next"/></svg>
+        </button>
+      </div>
     </div>
     <div class="home-volume">
       <button class="btn icon-sm ghost" id="homeVolDown" aria-label="Тише">−</button>
@@ -15073,6 +15082,10 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     if (play) play.addEventListener('click', function () {
       mediaAction(State.playing ? 'pause' : 'play');
     });
+    var prev = document.getElementById('homePrev');
+    if (prev) prev.addEventListener('click', function () { mediaAction('prev'); });
+    var next = document.getElementById('homeNext');
+    if (next) next.addEventListener('click', function () { mediaAction('next'); });
     var volume = document.getElementById('homeVolume');
     if (volume) {
       volume.addEventListener('input', function () {
