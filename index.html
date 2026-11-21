@@ -98,6 +98,95 @@ body.light .pin-card input{background:#fffdfa;color:#20242c;border-color:rgba(76
 body.light .ring .core{background:radial-gradient(circle at 50% 35%,#fffdfa,#eee5d9);border-color:rgba(76,62,48,.13)}
 body.light input[type="color"]::-webkit-color-swatch{border-color:rgba(76,62,48,.25)}
 body.light input[type="color"]::-moz-color-swatch{border-color:rgba(76,62,48,.25)}
+
+/* 3D-сцена — часть светлой карточки, а не чёрное окно внутри неё. */
+body.light .station-stage{
+  background:
+    radial-gradient(60% 80% at 50% 18%,rgba(124,92,255,.14),transparent 70%),
+    radial-gradient(70% 60% at 50% 100%,rgba(34,211,238,.10),transparent 70%),
+    linear-gradient(160deg,#fbf6ee,#efe5d8);
+  border:1px solid rgba(76,62,48,.10);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 14px 32px rgba(78,58,38,.08);
+}
+body.light .station-stage::after{
+  background:radial-gradient(ellipse,rgba(78,58,38,.20),transparent 70%);
+}
+body.light .station-color{
+  box-shadow:inset 0 0 0 1px rgba(76,62,48,.16),0 2px 6px rgba(78,58,38,.18);
+}
+body.light .station-color[aria-pressed="true"]{
+  border-color:#20242c;
+  box-shadow:0 0 0 2px rgba(124,92,255,.55),0 2px 6px rgba(78,58,38,.18);
+}
+body.light .home-stats>div{
+  background:rgba(255,255,255,.58);
+  border-color:rgba(76,62,48,.12);
+}
+
+/* Мобильное меню вкладок: в тёмной теме это тёмная плашка, в светлой —
+   такая же бумажная, как остальные карточки. */
+body.light .mobile-tabs-btn{
+  background:rgba(255,252,247,.94);
+  color:#20242c;
+  border-color:rgba(76,62,48,.14);
+  box-shadow:0 12px 32px rgba(78,58,38,.10),inset 0 1px 0 rgba(255,255,255,.9);
+}
+body.light .mobile-tabs-menu{
+  background:linear-gradient(160deg,#fffdf9,#f8f1e8);
+  border-color:rgba(76,62,48,.14);
+  box-shadow:0 18px 40px rgba(78,58,38,.16);
+}
+body.light .mobile-tabs-menu button{color:#20242c}
+body.light .mobile-tabs-menu button[aria-pressed="true"]{background:rgba(124,92,255,.16)}
+
+/* Яндекс Музыка и очередь — фирменные тёмные медиа-поверхности.
+   Общий светлый dialog не должен делать их бежевыми с белым текстом. */
+body.light dialog.ym-dlg{
+  background:#0b0b0d;color:#f5f5f7;border-color:#202024;
+  box-shadow:0 30px 80px rgba(0,0,0,.65);
+}
+body.light dialog.queue-dlg{
+  background:#0b0e16;color:#eef2ff;border-color:rgba(255,255,255,.08);
+  box-shadow:0 30px 80px rgba(0,0,0,.6);
+}
+body.light dialog.lyrics-dlg{
+  background:linear-gradient(160deg,#fffdf9,#f6eee3);color:#20242c;
+  border-color:rgba(76,62,48,.14);box-shadow:0 30px 80px rgba(78,58,38,.22);
+}
+body.light .lyr-bg{opacity:.16;filter:blur(90px) saturate(1.1) brightness(1.2)}
+body.light .lyr-head{
+  background:linear-gradient(180deg,rgba(255,253,249,.97),rgba(255,253,249,.55) 72%,transparent);
+}
+body.light .lyr-title{color:#20242c}
+body.light .lyr-source{color:#8a8175}
+body.light .lyr-lines .line{color:#5f594f;opacity:.62}
+body.light .lyr-lines .line:hover{color:#33302b;opacity:.82}
+body.light .lyr-lines .line.active{color:#15181f;opacity:1;text-shadow:0 0 24px rgba(124,92,255,.24)}
+body.light .lyr-lines .plain{color:#4a4138}
+body.light .lyr-player{
+  background:rgba(255,252,247,.97);border-top-color:rgba(76,62,48,.14);
+}
+body.light .lyr-player-art{background:#e8ded1;color:#6d675e}
+body.light .lyr-player-meta b{color:#20242c}
+body.light .lyr-player-meta span{color:#8a8175}
+body.light .lyr-player-progress span,
+body.light .lyr-player-volume span{color:#8a8175}
+body.light .lyr-icon{color:#5f594f}
+body.light .lyr-icon:hover{background:rgba(76,62,48,.08);color:#20242c}
+body.light .lyr-switch{background:rgba(76,62,48,.05);border-color:rgba(76,62,48,.14);color:#5f594f}
+body.light .lyr-switch-track{background:#ded5c8;border-color:rgba(76,62,48,.22)}
+body.light .lyr-switch-track i{background:#6d675e}
+body.light .lyr-switch input:checked + .lyr-switch-track{background:rgba(124,92,255,.55);border-color:rgba(124,92,255,.75)}
+body.light .lyr-switch input:checked + .lyr-switch-track i{background:#fff}
+body.light .lyrics-dlg input[type="range"]::-webkit-slider-runnable-track{
+  background:linear-gradient(90deg,#c99a1e 0 var(--fill,0%),#ded5c8 var(--fill,0%) 100%);
+}
+body.light .lyrics-dlg input[type="range"]::-webkit-slider-thumb{
+  background:#c99a1e;box-shadow:0 0 0 3px rgba(201,154,30,.18),0 2px 6px rgba(78,58,38,.25);
+}
+body.light .lyrics-dlg input[type="range"]::-moz-range-track{background:#ded5c8}
+body.light .lyrics-dlg input[type="range"]::-moz-range-progress{background:#c99a1e}
+body.light .lyrics-dlg input[type="range"]::-moz-range-thumb{background:#c99a1e}
 *{-webkit-tap-highlight-color:transparent}
 *,*::before,*::after{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
