@@ -87,7 +87,7 @@ Select-String -Path *.md,*.html,*.json,cgi-bin\*.py,service\*.py,deploy\* `
 3. Соберите и загрузите оба файла:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File deploy\publish-release.ps1 -Version 0.6.0
+powershell -ExecutionPolicy Bypass -File deploy\publish-release.ps1 -Version 0.6.1
 ```
 
 `publish-release.ps1` сам вызывает `build-release.ps1`, проверяет, что
