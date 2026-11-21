@@ -67,6 +67,10 @@ def test_html_structure():
     ids = re.findall(r'\bid="([^"]+)"', html)
     dups = sorted({i for i in ids if ids.count(i) > 1})
     check("нет дубликатов id", not dups, ", ".join(dups))
+    check("раскладка: пресеты на станции",
+          'data-card-id="layout-presets"' in html
+          and "initLayoutPresets" in html
+          and "layout_presets.py" in html)
 
     for tag in ("section", "div", "button", "svg", "main", "header", "footer", "dialog"):
         opens = len(re.findall(r"<%s[\s>]" % tag, html))

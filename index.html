@@ -3462,6 +3462,21 @@ body.light dialog.queue-dlg.ym-look{
   </section>
 
   <!-- ───────── обслуживание ───────── -->
+  <section class="card c-sys" data-group="system" data-card-id="layout-presets" aria-labelledby="h-layout-presets">
+    <h2 id="h-layout-presets"><span class="dot"></span>Раскладка</h2>
+    <div class="seg-note">Пресеты порядка и размеров карточек. Для компьютера и телефона — отдельно; хранятся на станции.</div>
+    <div class="row" style="margin-top:12px">
+      <select id="layoutPreset" class="net-input" aria-label="Пресет раскладки"></select>
+      <button class="btn sm" id="btnLayoutApply">Применить</button>
+      <button class="btn sm ghost" id="btnLayoutDelete">Удалить</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <input id="layoutName" class="net-input" maxlength="40" placeholder="Название пресета">
+      <button class="btn sm primary" id="btnLayoutSave">Сохранить текущую</button>
+    </div>
+    <div class="seg-note" id="layoutStatus" style="margin-top:8px">Пресетов пока нет.</div>
+  </section>
+
   <section class="card c-sys" data-group="system" aria-labelledby="h-maint">
     <h2 id="h-maint"><span class="dot"></span>Обслуживание</h2>
     <div class="row maint-actions" style="margin-top:12px">
@@ -14083,6 +14098,45 @@ body.light dialog.queue-dlg.ym-look{
       });
     }
 
+    window.PultLayout = {
+      mode: function () {
+        return window.innerWidth > 760 ? 'wide' : 'phone';
+      },
+      capture: function () {
+        var order = Array.prototype.map.call(
+          document.querySelectorAll('main .card'),
+          function (card) { return card.dataset.cardId; }
+        ).filter(Boolean);
+        return {
+          order: order,
+          spans: loadMap(SPANS_KEY),
+          rows: loadMap(ROWS_KEY)
+        };
+      },
+      apply: function (layout) {
+        if (!layout) return;
+        var byId = {};
+        Array.prototype.forEach.call(cards, function (card) {
+          if (card.dataset.cardId) byId[card.dataset.cardId] = card;
+        });
+        var order = Array.isArray(layout.order) ? layout.order : [];
+        order.forEach(function (id) {
+          var card = byId[id];
+          if (card && card.dataset.cardId !== 'providers') main.appendChild(card);
+        });
+        Array.prototype.forEach.call(cards, function (card) {
+          var id = card.dataset.cardId;
+          if (id && order.indexOf(id) < 0) main.appendChild(card);
+        });
+        saveMap(SPANS_KEY, layout.spans || {});
+        saveMap(ROWS_KEY, layout.rows || {});
+        applySizes();
+        saveCardOrder();
+        updateMoveButtons();
+        schedulePack();
+      }
+    };
+
     function beginResize(card, event) {
       if (window.innerWidth <= 760 || event.button !== 0) return;
       event.preventDefault();
@@ -16506,6 +16560,121 @@ body.light dialog.queue-dlg.ym-look{
     });
   }
 
+  function initLayoutPresets() {
+    var select = document.getElementById('layoutPreset');
+    var nameInput = document.getElementById('layoutName');
+    var status = document.getElementById('layoutStatus');
+    var applyBtn = document.getElementById('btnLayoutApply');
+    var saveBtn = document.getElementById('btnLayoutSave');
+    var deleteBtn = document.getElementById('btnLayoutDelete');
+    if (!select || !status || !window.PultLayout) return;
+
+    var presets = [];
+    var mode = function () { return window.PultLayout.mode(); };
+    var modeLabel = function () { return mode() === 'phone' ? 'телефон' : 'компьютер'; };
+
+    function current() {
+      var id = select.value;
+      for (var i = 0; i < presets.length; i++) {
+        if (presets[i].id === id) return presets[i];
+      }
+      return null;
+    }
+
+    function render() {
+      var list = presets.filter(function (item) { return item.mode === mode(); });
+      var previous = select.value;
+      select.innerHTML = '';
+      if (!list.length) {
+        var empty = document.createElement('option');
+        empty.value = '';
+        empty.textContent = 'Нет пресетов для ' + modeLabel();
+        select.appendChild(empty);
+      } else {
+        list.forEach(function (item) {
+          var option = document.createElement('option');
+          option.value = item.id;
+          option.textContent = item.name;
+          select.appendChild(option);
+        });
+        if (previous && list.some(function (item) { return item.id === previous; })) {
+          select.value = previous;
+        }
+      }
+      var count = list.length;
+      status.textContent = count
+        ? 'Пресетов для ' + modeLabel() + ': ' + count
+        : 'Пресетов для ' + modeLabel() + ' пока нет';
+    }
+
+    function load() {
+      cgi('layout_presets.py', { action: 'list' }, { silent: true })
+        .then(function (data) {
+          presets = (data && data.presets) || [];
+          render();
+        })
+        .catch(function (err) {
+          status.textContent = 'Не удалось загрузить пресеты: ' + err.message;
+        });
+    }
+
+    saveBtn.addEventListener('click', function () {
+      var name = (nameInput.value || '').trim();
+      if (!name) {
+        status.textContent = 'Введите название пресета';
+        nameInput.focus();
+        return;
+      }
+      saveBtn.disabled = true;
+      cgi('layout_presets.py', {
+        action: 'save',
+        name: name,
+        mode: mode(),
+        layout: window.PultLayout.capture()
+      }).then(function (data) {
+        presets = (data && data.presets) || [];
+        nameInput.value = '';
+        render();
+        status.textContent = 'Сохранён пресет «' + name + '» для ' + modeLabel();
+      }).catch(function (err) {
+        status.textContent = 'Ошибка сохранения: ' + err.message;
+      }).then(function () { saveBtn.disabled = false; });
+    });
+
+    applyBtn.addEventListener('click', function () {
+      var preset = current();
+      if (!preset) {
+        status.textContent = 'Нет пресета для применения';
+        return;
+      }
+      window.PultLayout.apply(preset.layout);
+      status.textContent = 'Применён пресет «' + preset.name + '»';
+    });
+
+    deleteBtn.addEventListener('click', function () {
+      var preset = current();
+      if (!preset) return;
+      askConfirm('Удалить пресет «' + preset.name + '»?', { yes: 'Удалить' }).then(function (ok) {
+        if (!ok) return;
+        cgi('layout_presets.py', { action: 'delete', id: preset.id }).then(function (data) {
+          presets = (data && data.presets) || [];
+          render();
+          status.textContent = 'Пресет «' + preset.name + '» удалён';
+        }).catch(function (err) {
+          status.textContent = 'Ошибка удаления: ' + err.message;
+        });
+      });
+    });
+
+    var resizeTimer = 0;
+    window.addEventListener('resize', function () {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(render, 200);
+    });
+
+    load();
+  }
+
   function init() {
     function syncScrollbarPad() {
       var sb = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
@@ -16685,6 +16854,7 @@ body.light dialog.queue-dlg.ym-look{
     enhanceSelects();
     loadAuth();
     initCardDrag();
+    initLayoutPresets();
     schedulePack();
     loadRingSpeed();
     syncVolumeFromDevice();

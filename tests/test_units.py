@@ -30,6 +30,7 @@ import display  # noqa: E402
 import files  # noqa: E402
 import glagol  # noqa: E402
 import llm  # noqa: E402
+import layout_presets  # noqa: E402
 import media  # noqa: E402
 import network  # noqa: E402
 import dnsprobe  # noqa: E402
@@ -2251,6 +2252,26 @@ def test_display_clock_timezone():
           display.format_clock(moment, "Nowhere/Zone") == "20:00")
 
 
+def test_layout_presets_sanitize():
+    layout = layout_presets.clean_layout({
+        "order": ["h-media", "bad id", "h-media", "h-radio"],
+        "spans": {"h-media": 7, "h-radio": 99, "x y": 4},
+        "rows": {"h-media": 10, "h-radio": 0},
+    })
+    check("раскладка: порядок без мусора и дублей",
+          layout["order"] == ["h-media", "h-radio"])
+    check("раскладка: ширина в пределах 1..12",
+          layout["spans"] == {"h-media": 7})
+    check("раскладка: высота в пределах 1..20",
+          layout["rows"] == {"h-media": 10})
+    check("раскладка: режим только wide/phone",
+          layout_presets.clean_mode("phone") == "phone"
+          and layout_presets.clean_mode("hack") == "wide")
+    check("раскладка: имя обрезается и чистится",
+          layout_presets.clean_name("  Мой   дом  ") == "Мой дом"
+          and len(layout_presets.clean_name("x" * 80)) == 40)
+
+
 def main():
     for test in (
         test_generic_helpers,
@@ -2282,6 +2303,7 @@ def main():
         test_speak_frames,
         test_display_auto,
         test_display_clock_timezone,
+        test_layout_presets_sanitize,
         test_display_segment_guard,
         test_display_reset,
         test_auth_guard,
