@@ -1820,7 +1820,10 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .ym-profile{margin-left:auto;display:flex;align-items:center;gap:10px;color:#fff;font-size:13px;flex:0 0 auto}
 .ym-profile-label{white-space:nowrap}
 .ym-avatar{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;
-  background:linear-gradient(140deg,#ffdb4d,#ff9d3d);color:#1a1a1a;font-size:12px;font-weight:800}
+  background:#222228;color:#ffdb4d;font-size:12px;font-weight:800}
+.ym-avatar .ic{width:16px;height:16px}
+.ym-avatar.has-photo{overflow:hidden;background:#222228;padding:0}
+.ym-avatar-img{display:block;width:100%;height:100%;object-fit:cover;border-radius:50%}
 .ym-close{width:30px;height:30px;border:0;background:transparent;color:#777780;font-size:16px;
   border-radius:50%;cursor:pointer}
 .ym-close:hover{background:#222228;color:#fff}
@@ -1904,6 +1907,8 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   .ym-top .ym-search-wrap{width:220px;flex:1 1 220px}
   .ym-tabs{gap:16px}
   .ym-profile-label{display:none}
+  .ym-profile.has-name .ym-profile-label{display:block;max-width:34vw;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;font-size:13px}
 }
 @media(max-width:700px){
   .ym-top{height:auto;min-height:56px;flex-wrap:wrap;padding:9px 12px;gap:8px}
@@ -1948,6 +1953,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .ym-now{overflow-x:hidden!important}
 .ym-now-lyrics{position:relative;max-height:240px;overflow-y:auto;overflow-x:hidden;margin-top:16px;
   padding:10px 0;scrollbar-width:none;
+  display:flex;flex-direction:column;
   mask-image:linear-gradient(180deg,transparent,#000 14%,#000 86%,transparent)}
 .ym-now-lyrics::-webkit-scrollbar{display:none}
 .ym-now-line{font-size:20px;line-height:1.35;font-weight:700;color:#8a8a93;padding:6px 0;
@@ -1958,19 +1964,23 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .ym-now-line.active{color:#fff;opacity:1;transform:scale(1.04);
   text-shadow:0 0 24px rgba(124,92,255,.45)}
 .ym-now-line.plain{color:#b8b8c1;opacity:.82;font-size:16px;line-height:1.55;font-weight:500}
-.ym-now-seek input,.ym-now-volume input,.ym-volume-pop input{
+/* Когда строк мало, блок стоит по центру свободного места; при переполнении
+   auto-поля схлопываются и работает обычная прокрутка. */
+.ym-now-line:first-child{margin-top:auto}
+.ym-now-line:last-child{margin-bottom:auto}
+.ym-now-seek input,.ym-now-volume input,.ym-vol-track input,.ym-volume-pop input{
   -webkit-appearance:none;appearance:none;height:4px;border-radius:4px;
   background:#3d3d44;accent-color:#ffdb4d;outline:none}
-.ym-now-seek input::-webkit-slider-thumb,.ym-now-volume input::-webkit-slider-thumb,
+.ym-now-seek input::-webkit-slider-thumb,.ym-now-volume input,.ym-vol-track input::-webkit-slider-thumb,
 .ym-volume-pop input::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;
   border-radius:50%;background:#ffdb4d;border:2px solid #ffdb4d;box-shadow:0 0 0 3px rgba(255,219,77,.15);
   cursor:pointer;margin-top:-4px}
-.ym-now-seek input::-webkit-slider-runnable-track,.ym-now-volume input::-webkit-slider-runnable-track,
+.ym-now-seek input::-webkit-slider-runnable-track,.ym-now-volume input,.ym-vol-track input::-webkit-slider-runnable-track,
 .ym-volume-pop input::-webkit-slider-runnable-track{height:4px;border-radius:4px;background:#3d3d44}
-.ym-now-seek input::-moz-range-thumb,.ym-now-volume input::-moz-range-thumb,
+.ym-now-seek input::-moz-range-thumb,.ym-now-volume input,.ym-vol-track input::-moz-range-thumb,
 .ym-volume-pop input::-moz-range-thumb{width:12px;height:12px;border:0;border-radius:50%;
   background:#ffdb4d;cursor:pointer}
-.ym-now-seek input::-moz-range-track,.ym-now-volume input::-moz-range-track,
+.ym-now-seek input::-moz-range-track,.ym-now-volume input,.ym-vol-track input::-moz-range-track,
 .ym-volume-pop input::-moz-range-track{height:4px;border-radius:4px;background:#3d3d44}
 @media(max-width:520px){
   .radio-add{grid-template-columns:1fr!important}
@@ -2015,9 +2025,11 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .ym-now-info h2{font-size:clamp(26px,3.2vw,42px);line-height:1.06;letter-spacing:-.045em;margin:0;
   overflow-wrap:anywhere}
 .ym-now-artist{font-size:15px;color:#9a9aa3;margin-top:10px}
-.ym-now-transport{display:flex;align-items:center;justify-content:center;gap:14px;
-  margin-top:10px}
+.ym-now-transport{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+  align-items:center;gap:10px;margin-top:10px}
 .ym-now-side{display:flex;align-items:center;gap:2px;min-width:0}
+.ym-now-side-left{justify-content:flex-end}
+.ym-now-side-right{justify-content:flex-start}
 .ym-now-icon{display:grid;place-items:center;width:38px;height:38px;border:0;border-radius:50%;
   background:transparent;color:#b8b8c1;cursor:pointer;transition:.15s}
 .ym-now-icon:hover{background:#222228;color:#ffdb4d}
@@ -2034,8 +2046,26 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .ym-now-icon#ymNowPrev .ic,.ym-now-icon#ymNowNext .ic{width:20px;height:20px}
 .ym-now-volume{display:flex;align-items:center;gap:10px;margin-top:12px;color:#8d8d96;max-width:300px}
 .ym-now-volume .ic{width:17px;height:17px;flex:0 0 auto}
-.ym-now-volume input{flex:1;min-width:0;accent-color:#ffdb4d}
+.ym-now-volume input,.ym-vol-track input{flex:1;min-width:0;accent-color:#ffdb4d}
 .ym-now-volume output{font-size:10px;min-width:34px;text-align:right}
+/* Громкость в развёрнутом плеере: иконка, а шкала — вертикально в поповере. */
+.ym-vol{position:relative;display:flex;align-items:center}
+.ym-vol-pop{position:absolute;bottom:calc(100% + 10px);left:50%;z-index:40;
+  display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 10px;
+  border:1px solid #34343c;border-radius:14px;background:#1b1b20;
+  box-shadow:0 18px 40px rgba(0,0,0,.55);pointer-events:none;
+  opacity:0;visibility:hidden;transform:translateX(-50%) translateY(6px);
+  transition:opacity .16s ease,transform .16s ease,visibility .16s}
+.ym-vol:hover .ym-vol-pop,.ym-vol:focus-within .ym-vol-pop,.ym-vol.open .ym-vol-pop{
+  opacity:1;visibility:visible;pointer-events:auto;transform:translateX(-50%)}
+@media(max-width:760px){
+  .ym-vol-pop{left:auto;right:-4px;transform:translateY(6px)}
+  .ym-vol:hover .ym-vol-pop,.ym-vol:focus-within .ym-vol-pop,.ym-vol.open .ym-vol-pop{
+    transform:none}
+}
+.ym-vol-track{display:grid;place-items:center;width:34px;height:112px}
+.ym-vol-track input{width:108px;height:16px;transform:rotate(-90deg)}
+.ym-vol-pop output{font-size:12px;color:#b8b8c1;font-variant-numeric:tabular-nums}
 .ym-now-bottom{margin-top:auto;flex:0 0 auto}
 /* На широком экране плеер заполняет высоту: обложка и текст сверху,
    управление прижато к нижнему краю, без прокрутки страницы. */
@@ -2050,14 +2080,14 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 body.ym-open{overflow:hidden!important}
 /* Ползунки громкости и перемотки в плеере Яндекс Музыки и окне текста:
    общая высота, заливка до бегунка и аккуратный thumb вместо тонкой линии. */
-.ym-now-seek input,.ym-now-volume input,.ym-volume-pop input,
+.ym-now-seek input,.ym-now-volume input,.ym-vol-track input,.ym-volume-pop input,
 .lyr-player input[type="range"]{
   --fill:0%;
   -webkit-appearance:none;appearance:none;height:16px;padding:0;border:0;
   background:transparent;border-radius:999px;outline:none;cursor:pointer;
 }
 .ym-now-seek input::-webkit-slider-runnable-track,
-.ym-now-volume input::-webkit-slider-runnable-track,
+.ym-now-volume input,.ym-vol-track input::-webkit-slider-runnable-track,
 .ym-volume-pop input::-webkit-slider-runnable-track,
 .lyr-player input[type="range"]::-webkit-slider-runnable-track{
   height:4px;border-radius:999px;
@@ -2065,7 +2095,7 @@ body.ym-open{overflow:hidden!important}
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.04);
 }
 .ym-now-seek input::-webkit-slider-thumb,
-.ym-now-volume input::-webkit-slider-thumb,
+.ym-now-volume input,.ym-vol-track input::-webkit-slider-thumb,
 .ym-volume-pop input::-webkit-slider-thumb,
 .lyr-player input[type="range"]::-webkit-slider-thumb{
   -webkit-appearance:none;width:14px;height:14px;margin-top:-5px;border:0;border-radius:50%;
@@ -2073,21 +2103,21 @@ body.ym-open{overflow:hidden!important}
   transition:transform .12s ease,box-shadow .12s ease;
 }
 .ym-now-seek input:hover::-webkit-slider-thumb,
-.ym-now-volume input:hover::-webkit-slider-thumb,
+.ym-now-volume input,.ym-vol-track input:hover::-webkit-slider-thumb,
 .ym-volume-pop input:hover::-webkit-slider-thumb,
 .lyr-player input[type="range"]:hover::-webkit-slider-thumb{
   transform:scale(1.12);box-shadow:0 0 0 4px rgba(255,219,77,.22),0 2px 8px rgba(0,0,0,.5);
 }
 .ym-now-seek input::-moz-range-track,
-.ym-now-volume input::-moz-range-track,
+.ym-now-volume input,.ym-vol-track input::-moz-range-track,
 .ym-volume-pop input::-moz-range-track,
 .lyr-player input[type="range"]::-moz-range-track{height:4px;border-radius:999px;background:#3d3d44}
 .ym-now-seek input::-moz-range-progress,
-.ym-now-volume input::-moz-range-progress,
+.ym-now-volume input,.ym-vol-track input::-moz-range-progress,
 .ym-volume-pop input::-moz-range-progress,
 .lyr-player input[type="range"]::-moz-range-progress{height:4px;border-radius:999px;background:#ffdb4d}
 .ym-now-seek input::-moz-range-thumb,
-.ym-now-volume input::-moz-range-thumb,
+.ym-now-volume input,.ym-vol-track input::-moz-range-thumb,
 .ym-volume-pop input::-moz-range-thumb,
 .lyr-player input[type="range"]::-moz-range-thumb{
   width:14px;height:14px;border:0;border-radius:50%;background:#ffdb4d;
@@ -2366,6 +2396,69 @@ body.light .lyrics-dlg:not(.ym-look) input[type="range"]::-webkit-slider-thumb{
 body.light dialog.queue-dlg.ym-look{
   background:#0b0a08;color:#f7f7f5;border-color:rgba(255,219,77,.14);
 }
+/* ─── Крупнее: Яндекс Музыка ─── */
+@media(min-width:801px){.ym-top{height:70px}}
+.ym-logo{font-size:20px}
+.ym-tab{font-size:15px}
+.ym-profile{font-size:15px}
+.ym-avatar{width:34px;height:34px}
+.ym-avatar .ic{width:18px;height:18px}
+.ym-now-top{font-size:14px}
+.ym-now-back{font-size:14px}
+.ym-now-close{width:42px;height:42px}
+.ym-now-close svg{width:24px;height:24px}
+.ym-now-info h2{font-size:clamp(28px,3.4vw,46px)}
+.ym-now-artist{font-size:17px}
+/* Текст занимает свободное место между шапкой трека и ползунком. */
+.ym-now-lyrics{flex:1 1 auto;min-height:0;max-height:none;margin-top:10px}
+.ym-now-line{font-size:26px;line-height:1.34;padding:8px 0}
+.ym-now-line.plain{font-size:20px}
+.ym-now-seek span{font-size:13px;min-width:40px}
+.ym-now-volume .ic{width:20px;height:20px}
+.ym-now-volume output{font-size:13px;min-width:40px}
+.ym-bar-meta b{font-size:14px}
+.ym-bar-meta span{font-size:12px}
+.ym-bar-progress span{font-size:12px}
+.ym-nav-item{font-size:15px}
+.ym-head p{font-size:14px}
+
+@media(max-width:760px){
+  .ym-logo{font-size:19px}
+  .ym-tab{font-size:15px;padding:18px 0}
+  .ym-profile{font-size:15px}
+  .ym-head h2{font-size:34px}
+  .ym-now-top{font-size:15px}
+  .ym-now-back{font-size:15px}
+  .ym-now-info h2{font-size:28px}
+  .ym-now-artist{font-size:16px}
+  .ym-now-line{font-size:22px;line-height:1.38;padding:7px 0}
+  .ym-now-line.plain{font-size:18px}
+  .ym-now-seek span{font-size:13px;min-width:34px}
+  .ym-now-volume output{font-size:14px}
+  .ym-bar-meta b{font-size:15px}
+  .ym-bar-meta span{font-size:13px}
+  .ym-bar-progress span{font-size:13px}
+  .ym-nav-item{font-size:15px;padding:12px}
+  .ym-item .ym-title{font-size:14px}
+  .ym-track-meta b{font-size:15px}
+  .ym-track-meta span{font-size:13px}
+}
+
+/* Мобилка: шапка с поиском больше не наезжает на заголовок раздела. */
+@media(max-width:800px){
+  .ym-shell{grid-template-rows:auto minmax(0,1fr) auto}
+  .ym-top{grid-row:1;grid-column:1}
+  .ym-content{grid-row:2;grid-column:1;min-height:0}
+  .ym-bar{grid-row:3;grid-column:1}
+  .ym-head{padding:14px 16px 4px}
+  .ym-head h2{font-size:24px}
+}
+@media(max-width:520px){
+  .ym-head{padding:12px 14px 2px}
+  .ym-head h2{font-size:22px}
+  .ym-head p{font-size:12px}
+}
+
 </style>
 </head>
 <body class="booting">
@@ -3456,11 +3549,11 @@ body.light dialog.queue-dlg.ym-look{
           <button type="button" class="ym-tab" data-ym-view="liked" aria-pressed="false">Избранное</button>
           <button type="button" class="ym-tab" data-ym-view="wave" aria-pressed="false">Моя волна</button>
           <button type="button" class="ym-tab" data-ym-view="trends" aria-pressed="false">Тренды</button>
-          <button type="button" class="ym-tab" data-ym-view="audio" aria-pressed="false">Аудио</button>
+          <button type="button" class="ym-tab" data-ym-view="audio" aria-pressed="false">Книги</button>
         </nav>
         <div class="ym-profile">
           <span class="ym-profile-label">Моя музыка</span>
-          <span class="ym-avatar">Я</span>
+          <span class="ym-avatar" aria-hidden="true"><svg class="ic"><use href="#i-music"/></svg></span>
           <button type="button" class="ym-close" id="btnYmDlgClose" aria-label="Закрыть" autofocus>✕</button>
         </div>
       </header>
@@ -3531,12 +3624,18 @@ body.light dialog.queue-dlg.ym-look{
                       <button type="button" class="ym-now-icon" id="ymNowQueue" aria-label="Очередь">
                         <svg class="ic" aria-hidden="true"><use href="#i-queue"/></svg>
                       </button>
+                      <div class="ym-vol">
+                        <button type="button" class="ym-now-icon" id="ymNowVolumeBtn" aria-label="Громкость">
+                          <svg class="ic" data-volume-icon aria-hidden="true"><use href="#i-volume"/></svg>
+                        </button>
+                        <div class="ym-vol-pop">
+                          <div class="ym-vol-track">
+                            <input type="range" id="ymNowVolume" min="0" max="100" step="1" value="40" aria-label="Громкость">
+                          </div>
+                          <output id="ymNowVolumeVal">40%</output>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div class="ym-now-volume">
-                    <svg class="ic" data-volume-icon aria-hidden="true"><use href="#i-volume"/></svg>
-                    <input type="range" id="ymNowVolume" min="0" max="100" step="1" value="40" aria-label="Громкость">
-                    <output id="ymNowVolumeVal">40%</output>
                   </div>
                 </div>
               </div>
@@ -5247,6 +5346,7 @@ body.light dialog.queue-dlg.ym-look{
       if (inn) inn.hidden = false;
       if (account) account.textContent = 'Вы вошли как ' + (data.login || 'Яндекс');
       loadYmPlaylists();
+      loadYmProfile();
       restoreYmIfNeeded();
     } else {
       State.ymLoggedIn = false;
@@ -5268,6 +5368,33 @@ body.light dialog.queue-dlg.ym-look{
         if (prov) prov.textContent = 'недоступно';
         setProvDot('yandex', 'bad');
       });
+  }
+
+  function loadYmProfile() {
+    return cgi('ymprofile.py', {}, { timeout: 12000, silent: true }).then(function (data) {
+      if (!data || data.ok === false) return;
+      var profile = document.querySelector('.ym-profile');
+      var label = document.querySelector('.ym-profile-label');
+      var name = String(data.name || data.login || '').trim();
+      if (label && name) {
+        // Вместо «Моя музыка» — имя из аккаунта, рядом с фото.
+        label.textContent = name;
+        label.title = data.login ? '@' + data.login : name;
+        if (profile) profile.classList.add('has-name');
+      }
+      var box = document.querySelector('.ym-avatar');
+      if (!box || !data.avatar) return;
+      var img = new Image();
+      img.className = 'ym-avatar-img';
+      img.alt = name;
+      img.onload = function () {
+        box.textContent = '';
+        box.appendChild(img);
+        box.classList.add('has-photo');
+        box.title = name;
+      };
+      img.src = data.avatar;
+    }).catch(function () { /* без профиля остаётся «Моя музыка» и нота */ });
   }
 
   function loadYmPlaylists() {
@@ -5425,7 +5552,7 @@ body.light dialog.queue-dlg.ym-look{
           : view === 'playlists' ? 'Плейлисты'
             : view === 'wave' ? 'Моя волна'
               : view === 'trends' ? 'Тренды'
-                : view === 'audio' ? 'Аудио' : 'Главное';
+                : view === 'audio' ? 'Книги' : 'Главное';
     }
     if (query.length >= 2) {
       if (pageTitle) pageTitle.textContent = 'Поиск';
@@ -5583,7 +5710,7 @@ body.light dialog.queue-dlg.ym-look{
 
   function ymLoadAudio() {
     if (State.ymAudio.length) { ymRender(); return; }
-    ymRenderMessage('Загружаю аудио…');
+    ymRenderMessage('Загружаю книги…');
     cgi('ymusic.py', { podcasts: 1 }, { timeout: 20000, silent: true })
       .then(function (data) {
         State.ymAudio = (data && data.podcasts) || [];
@@ -5595,7 +5722,7 @@ body.light dialog.queue-dlg.ym-look{
           })
           .catch(function () { /* книги необязательны */ });
       })
-      .catch(function (err) { ymRenderMessage('Аудио: ' + err.message); });
+      .catch(function (err) { ymRenderMessage('Книги: ' + err.message); });
   }
 
   function ymSearchSection(title, node) {
@@ -6262,6 +6389,18 @@ body.light dialog.queue-dlg.ym-look{
     }
     var nowVolume = document.getElementById('ymNowVolume');
     if (nowVolume) {
+      // На телефоне наведения нет: поповер громкости открывается по клику.
+      var volWrap = nowVolume.closest('.ym-vol');
+      var volBtn = document.getElementById('ymNowVolumeBtn');
+      if (volBtn && volWrap) {
+        volBtn.addEventListener('click', function (event) {
+          event.stopPropagation();
+          volWrap.classList.toggle('open');
+        });
+        var volPop = volWrap.querySelector('.ym-vol-pop');
+        if (volPop) volPop.addEventListener('click', function (event) { event.stopPropagation(); });
+        document.addEventListener('click', function () { volWrap.classList.remove('open'); });
+      }
       nowVolume.addEventListener('input', function () {
         State.ymVolumeBusy = true;
         var value = Math.max(0, Math.min(100, parseInt(nowVolume.value, 10) || 0));
@@ -15943,10 +16082,24 @@ body.light dialog.queue-dlg.ym-look{
     setInterval(function () {
       if (State.tab === 'home' && !document.hidden) refreshSystem();
     }, 15000);
+    // Клик мимо поля ввода снимает фокус: на Android WebView каретка иногда
+    // продолжает мигать после закрытия клавиатуры, и это раздражает.
+    document.addEventListener('pointerdown', function (event) {
+      var active = document.activeElement;
+      if (!active) return;
+      var tag = active.tagName;
+      if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') return;
+      var target = event.target;
+      if (!target || target === active) return;
+      if (target.closest && target.closest('input,textarea,select,label')) return;
+      try { active.blur(); } catch (e) { /* ignore */ }
+    }, true);
+
     renderStatus();
     loadVersion();
     loadCaps();
     loadPanel();
+    loadYmProfile();
     loadUpdateInfo(false, false);
     setInterval(function () {
       if (!document.hidden) loadUpdateInfo(false, false);
