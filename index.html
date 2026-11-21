@@ -1868,15 +1868,25 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   .c-clock>.display-extra,
   .c-clock>.seg-note,
   .c-clock>.clock-anims-field,
+  .c-led>.auto-bright,
   .c-led>.ring,
   .c-led>.led-right,
   .c-led>.led-controls,
-  .c-led>#presets{grid-column:1/-1!important;grid-row:auto!important}
+  .c-led>#presets,
+  .c-led>.led-anims,
+  .c-led>.led-footer{grid-column:1/-1!important;grid-row:auto!important}
   .c-clock>.display-actions{flex-wrap:wrap}
   .c-clock>.display-actions .btn{flex:1 1 150px;min-width:0}
   .c-clock>.display-preview{margin-top:4px}
-  .c-led>.ring{margin:0 auto}
-  .c-led>.led-right{grid-template-columns:1fr}
+  .c-led>.auto-bright{order:1}
+  .c-led>.ring{order:2;margin:0 auto;max-width:260px}
+  .c-led>.led-controls{order:3;max-width:260px;margin:0 auto}
+  .c-led>#presets{order:4;max-width:420px;margin:0 auto;
+    grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}
+  .c-led>.led-right{order:5;max-width:420px;margin:0 auto;grid-template-columns:1fr}
+  .c-led>.led-anims{order:6;max-width:560px;margin:4px auto 0}
+  .c-led>.led-footer{order:7;max-width:420px;margin:6px auto 0}
+  .c-led .logo-modes{grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}
 }
 
 @media(max-width:900px){
@@ -2794,6 +2804,10 @@ body.light dialog.queue-dlg.ym-look{
   <!-- ───────── кольцо ───────── -->
   <section class="card c-led" data-group="display" aria-labelledby="h-led">
     <h2 id="h-led"><span class="dot"></span>Кольцо</h2>
+    <div class="row auto-bright" style="margin-top:10px">
+      <label class="llm-toggle"><input type="checkbox" id="autoBright"><span>Автояркость кольца по свету</span></label>
+      <span class="seg-note" id="autoBrightStatus"></span>
+    </div>
     <div class="ring" id="ring">
       <div class="dots" id="ringDots"></div>
       <div class="core"><strong id="ringHex">#00E676</strong><span>24 LED</span></div>
@@ -2803,16 +2817,8 @@ body.light dialog.queue-dlg.ym-look{
       <input type="color" id="colorPicker" value="#00e676" aria-label="Цвет кольца">
       <div class="led-labels"><span>Цвет</span><code id="colorCode">#00E676</code></div>
     </div>
-    <div class="chips" id="presets">
-      <button class="chip" data-mode="rainbow" aria-pressed="false">🌈 Радуга</button>
-      <button class="chip" data-mode="gradient" aria-pressed="false">🎨 Градиент</button>
-      <button class="chip" data-mode="wave" aria-pressed="false">🌊 Волна</button>
-      <button class="chip" data-mode="candle" aria-pressed="false">🕯 Свеча</button>
-    </div>
-    <div class="row auto-bright" style="margin-top:10px">
-      <label class="llm-toggle"><input type="checkbox" id="autoBright"><span>Автояркость кольца по свету</span></label>
-      <span class="seg-note" id="autoBrightStatus"></span>
-    </div>
+    
+    
     <div class="led-right">
     <div class="field slider-narrow led-bright" style="margin-top:0">
       <div class="field-top"><label for="ringBrightness">Яркость кольца</label><output id="ringBrightVal">255</output></div>
@@ -2831,6 +2837,12 @@ body.light dialog.queue-dlg.ym-look{
         <button type="button" class="chip" data-logo-mode="off" aria-pressed="false">Выкл</button>
       </div>
     </div>
+    </div>
+    <div class="chips" id="presets">
+      <button class="chip" data-mode="rainbow" aria-pressed="false">🌈 Радуга</button>
+      <button class="chip" data-mode="gradient" aria-pressed="false">🎨 Градиент</button>
+      <button class="chip" data-mode="wave" aria-pressed="false">🌊 Волна</button>
+      <button class="chip" data-mode="candle" aria-pressed="false">🕯 Свеча</button>
     </div>
     <div class="field led-anims" style="margin-top:14px">
       <div class="field-top"><label>Анимации с колонки</label><output id="ringAnimStatus">—</output></div>

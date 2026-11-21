@@ -335,7 +335,7 @@ def test_button_grids():
     check("дисплей: чипы цветов и режимов — сетка",
           "#presets{display:grid" in html and ".bright-chips{display:grid" in html)
     check("автояркость перенесена в «Дисплей», не в «Обслуживание»",
-          html.index('id="presets"') < html.index('id="autoBright"') < html.index('id="h-maint"')
+          html.index('id="autoBright"') < html.index('id="h-maint"')
           and "autoBrightStatus" in html
           and "el.autoBright.addEventListener" in html)
     check("аудит рядов: Bluetooth, дни, сценарии, звуки, PIN",
