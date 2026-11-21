@@ -51,3 +51,6 @@ dist/
 .release/
 *.apk
 *.apk.sha256
+
+# внутренние исследования, не для публикации
+docs/VK-MUSIC.md
