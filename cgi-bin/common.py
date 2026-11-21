@@ -237,6 +237,11 @@ def same_origin_ok() -> bool:
         return True
     origin = (os.environ.get("HTTP_ORIGIN") or os.environ.get("HTTP_REFERER") or "").strip()
     host = (os.environ.get("HTTP_HOST") or "").strip().lower()
+    xrw = os.environ.get("HTTP_X_REQUESTED_WITH") == "MidiPult"
+    if origin.lower() == "null":
+        # WebView иногда присылает Origin: null. Свой заголовок нельзя
+        # поставить cross-site без CORS-preflight, поэтому этого достаточно.
+        return xrw
     if origin:
         try:
             parsed = urllib.parse.urlsplit(origin)
@@ -244,10 +249,18 @@ def same_origin_ok() -> bool:
             return False
         if parsed.scheme not in ("http", "https"):
             return False
-        return bool(host) and parsed.netloc.lower() == host
+        if bool(host) and parsed.netloc.lower() == host:
+            return True
+        # Обратный прокси/туннель на том же хосте, но с другим портом:
+        # Origin и Host расходятся только портом, а X-Requested-With наш.
+        try:
+            host_name = (urllib.parse.urlsplit("//" + host).hostname or "").lower()
+        except ValueError:
+            host_name = ""
+        return bool(host_name) and xrw and (parsed.hostname or "").lower() == host_name
     # Android WebView/старые движки иногда не шлют Origin; свой заголовок
     # нельзя поставить cross-site формой без CORS-preflight.
-    return os.environ.get("HTTP_X_REQUESTED_WITH") == "MidiPult"
+    return xrw
 
 
 def params() -> dict:

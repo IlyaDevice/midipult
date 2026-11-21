@@ -343,13 +343,32 @@ def reset_display():
     config["display_min"] = 10
     config["display_max"] = 170
     save_auto(config)
-    save_mode(False, "clock")
     try:
         os.remove(SAVE)
     except OSError:
         pass
+    # Важно: просто стереть состояние и вернуть mode=clock мало — если экран
+    # был погашен или на нём остался кадр анимации, он таким и останется.
+    # Рисуем текущее время через Luna, чтобы сброс действительно вернул часы.
+    payload = sync_display(DEFAULT_DISPLAY_BRIGHTNESS)
     return {"brightness": DEFAULT_DISPLAY_BRIGHTNESS,
+            "time": (payload or {}).get("time"),
+            "synced": bool(payload),
             "mode": load_mode(), "auto": load_auto()}
+
+
+def restore_clock(brightness=None):
+    """Вернуть часы Luna с текущим временем и нормальной яркостью.
+
+    Нужен после анимации/рисунка: сохранённый набор сегментов может быть
+    старым кадром (неправильное время) или иметь низкую яркость.
+    """
+    value = load_display_brightness() if brightness is None else int(brightness)
+    value = max(10, min(value, 255))
+    clock_anim_stop()
+    payload = sync_display(value)
+    return {"brightness": value, "time": (payload or {}).get("time"),
+            "synced": bool(payload), "mode": load_mode()}
 
 
 def luna_ring_off():
@@ -806,6 +825,11 @@ def main():
     if common.truthy(data.get("clock_anim_stop")):
         clock_anim_stop()
         common.ok(playing=False)
+        return
+
+    if common.truthy(data.get("restore_clock")):
+        brightness = common.to_int(data.get("brightness"), load_display_brightness(), 10, 255)
+        common.ok(**restore_clock(brightness))
         return
 
     if common.truthy(data.get("reset_display")):

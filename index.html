@@ -6347,11 +6347,14 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     });
   }
 
-  function returnClock() {
+  function returnClock(brightness) {
+    var value = parseInt(brightness, 10) || parseInt(el.brightness.value, 10) || 170;
     withBusy(el.btnClockBack, function () {
       State.modelFrame = null;
       stopDisplayOff();
-      return cgi('display.py', { on: 1 }, { timeout: 8000, silent: true }).then(function () {
+      return cgi('display.py', { restore_clock: 1, brightness: value },
+        { timeout: 8000, silent: true }).then(function (data) {
+        applyBrightness(data.brightness || value, false);
         markOverride(false);
         loadDisplayState();
         toast('Часы возвращены', 'ok');
@@ -6591,6 +6594,9 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   }
 
   function playClockAnim(frames, duration, name) {
+    if (!State.animPlaying) {
+      State.animBrightness = parseInt(el.brightness.value, 10) || 170;
+    }
     stopClockAnim(false);
     frames = (frames && frames.length ? frames : State.animFrames);
     if (!frames || !frames.length) return;
@@ -6651,7 +6657,11 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       State.animTimer = null;
     }
     if (el.clockAnimStatus) el.clockAnimStatus.textContent = '—';
-    if (restore) returnClock();
+    if (restore) {
+      var brightness = State.animBrightness || parseInt(el.brightness.value, 10) || 170;
+      State.animBrightness = null;
+      returnClock(brightness);
+    }
   }
 
   function clockPresetItems() {
@@ -10953,12 +10963,50 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       ? 'Автояркость кольца включена: движение ползунка выключит её' : '';
   }
 
+  // Показать, что именно сейчас измеряет датчик и какую яркость выбрала
+  // автояркость. Без этого «вкл» выглядит как «ничего не происходит».
+  function applyAutoReading(ring) {
+    if (!ring || !State.ringAuto) return;
+    if (typeof ring.level === 'number') {
+      State.ringBrightness = ring.level;
+      if (el.ringBrightness) {
+        el.ringBrightness.value = ring.level;
+        paintRange(el.ringBrightness);
+      }
+      if (el.ringBrightVal) {
+        el.ringBrightVal.textContent = ring.level;
+        el.ringBrightVal.classList.add('is-auto');
+      }
+    }
+    if (el.autoBrightStatus) {
+      var lux = (typeof ring.lux === 'number') ? (Math.round(ring.lux * 10) / 10) : null;
+      el.autoBrightStatus.textContent = 'вкл · ' +
+        (lux === null ? 'датчик…' : lux + ' lux') +
+        (typeof ring.level === 'number' ? ' · ' + ring.level : '');
+    }
+  }
+
+  function refreshAutoBrightness() {
+    if (!State.ringAuto && !State.displayAuto) return Promise.resolve();
+    return cgi('display.py', { auto_tick: 1 }, { timeout: 12000, silent: true })
+      .then(function (data) {
+        applyAutoConfig(data.auto || {}, data.mode || {});
+        applyAutoReading(data.ring);
+        if (data.display && data.display.applied && typeof data.display.level === 'number') {
+          applyBrightness(data.display.level, false);
+        }
+      }).catch(function () { /* тихо: следующий тик повторит */ });
+  }
+
   function loadDisplayState() {
     return cgi('display.py', {}, { timeout: 8000, silent: true }).then(function (data) {
       if (typeof data.display_brightness === 'number') {
         applyBrightness(data.display_brightness, false);
       }
       applyAutoConfig(data.auto || {}, data.mode || {});
+      if (data.auto && (data.auto.enabled || data.auto.display_enabled)) {
+        setTimeout(refreshAutoBrightness, 0);
+      }
       if (data.clock_anims) {
         State.clockAnims = data.clock_anims;
         State.hiddenPresets = data.hidden_presets || [];
@@ -11519,6 +11567,12 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     return cgi('display.py', { auto_brightness: on, min: 10, max: 150 }, { timeout: 10000 })
       .then(function (data) {
         applyAutoConfig(data.auto || {});
+        if (on) {
+          return cgi('display.py', { auto_tick: 1 }, { timeout: 12000, silent: true })
+            .then(function (tick) { applyAutoReading(tick.ring); })
+            .catch(function () { /* датчик/демон ответит позже */ });
+        }
+      }).then(function () {
         toast(on ? 'Автояркость кольца включена' : 'Автояркость кольца выключена', 'ok');
       }).catch(function (err) {
         el.autoBright.checked = !el.autoBright.checked;
@@ -14680,6 +14734,8 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     updateVolumeIcons();
     paintRanges();
     every(1000, paintRanges);
+    every(30000, refreshAutoBrightness);
+    setTimeout(refreshAutoBrightness, 1500);
     document.addEventListener('input', function (event) {
       if (event.target && event.target.type === 'range') paintRange(event.target);
     }, true);
