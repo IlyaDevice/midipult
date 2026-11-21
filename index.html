@@ -1864,23 +1864,31 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 
 .c-clock,.c-led{container-type:inline-size}
 
-@container (max-width:600px){
+@container (max-width:900px){
+  .c-led{grid-template-columns:170px minmax(0,1fr)}
+  .c-led>.ring{width:150px;height:150px;--r:60px}
+}
+
+@container (max-width:620px){
+  .c-led{grid-template-columns:150px minmax(0,1fr)}
+  .c-led>.ring{width:140px;height:140px;--r:56px}
+  .c-clock>.display-actions{grid-column:1/-1;grid-row:2}
+  .c-clock>.display-auto{grid-column:1/-1;grid-row:3;justify-content:flex-start;margin:0!important}
+  .c-clock>.display-preview{grid-column:1/-1;grid-row:4;margin-top:4px}
+  .c-clock>.field.slider-narrow{grid-column:1;grid-row:5}
+  .c-clock>.display-extra{grid-column:2;grid-row:5}
+  .c-clock>.seg-note{grid-column:1/-1;grid-row:6}
+  .c-clock>.clock-anims-field{grid-column:1/-1;grid-row:7}
+}
+
+@container (max-width:460px){
   .c-clock>.display-actions,
   .c-clock>.display-auto,
   .c-clock>.field.slider-narrow,
   .c-clock>.display-preview,
   .c-clock>.display-extra,
   .c-clock>.seg-note,
-  .c-clock>.clock-anims-field{grid-column:1/-1!important;grid-row:auto!important}
-  .c-clock>.display-actions{flex-wrap:wrap}
-  .c-clock>.display-actions .btn{flex:1 1 150px;min-width:0}
-  .c-clock>.display-preview{margin-top:4px}
-  /* средняя ширина: кольцо остаётся двумя колонками, но компактнее */
-  .c-led{grid-template-columns:160px minmax(0,1fr)}
-  .c-led>.ring{width:150px;height:150px;--r:60px}
-}
-
-@container (max-width:480px){
+  .c-clock>.clock-anims-field,
   .c-led>.auto-bright,
   .c-led>.ring,
   .c-led>.led-right,
@@ -1888,6 +1896,8 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   .c-led>#presets,
   .c-led>.led-anims,
   .c-led>.led-footer{grid-column:1/-1!important;grid-row:auto!important}
+  .c-clock>.display-actions{flex-wrap:wrap}
+  .c-clock>.display-actions .btn{flex:1 1 150px;min-width:0}
   .c-led>.auto-bright{order:1}
   .c-led>.ring{order:2;margin:0 auto;max-width:260px}
   .c-led>.led-controls{order:3;max-width:260px;margin:0 auto}
