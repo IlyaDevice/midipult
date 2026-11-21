@@ -349,7 +349,8 @@ def test_button_grids():
           "repeat(auto-fit,minmax(130px,1fr))" in html
           and ".radio-controls{max-width:100%" in html
           and "repeat(2,minmax(0,1fr));max-width:400px" in html
-          and ".radio-player .btn{flex:0 0 120px}" in html)
+          and ".radio-player .btn{flex:0 0 auto;height:32px" in html
+          and ".radio-player #btnRadioStop{min-width:78px}" in html)
 
 
 def test_p1_guards():
