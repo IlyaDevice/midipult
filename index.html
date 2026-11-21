@@ -2509,6 +2509,18 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     <div class="zvuk-results" id="spotifyResults"></div>
   </section>
 
+  <section class="card c-soundcloud" data-group="sound" data-card-id="soundcloud" data-legacy-card-id="SoundCloud" aria-labelledby="h-soundcloud">
+    <h2 id="h-soundcloud"><span class="dot"></span>SoundCloud</h2>
+    <div class="seg-note" style="margin-top:8px">Экспериментально: поиск и поток через yt-dlp. SoundCloud может ограничить поток.</div>
+    <div class="zvuk-search">
+      <input id="soundcloudQuery" class="net-input" placeholder="Трек или исполнитель" autocomplete="off">
+      <button class="btn sm" id="btnSoundcloudSearch">Найти</button>
+    </div>
+    <div class="zvuk-status" id="soundcloudStatus">Экспериментальный режим</div>
+    <div class="zvuk-now" id="soundcloudNow"></div>
+    <div class="zvuk-results" id="soundcloudResults"></div>
+  </section>
+
   <section class="card c-llm" data-group="ai" aria-labelledby="h-llm">
     <h2 id="h-llm"><span class="dot"></span>Нейросеть</h2>
 
@@ -9961,6 +9973,110 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       }).catch(function () { extStatus(el.spotifyStatus, 'Spotify недоступен', 'bad'); });
   }
 
+  function soundcloudRender(tracks) {
+    if (!el.soundcloudResults) return;
+    el.soundcloudResults.textContent = '';
+    if (!tracks || !tracks.length) {
+      var empty = document.createElement('div');
+      empty.className = 'zvuk-empty';
+      empty.textContent = 'Ничего не найдено';
+      el.soundcloudResults.appendChild(empty);
+      return;
+    }
+    tracks.forEach(function (track) {
+      var row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'zvuk-track';
+      var img = document.createElement('img');
+      img.alt = '';
+      img.loading = 'lazy';
+      if (track.cover) img.src = track.cover;
+      var info = document.createElement('div');
+      var title = document.createElement('div');
+      title.className = 'zt-title';
+      title.textContent = track.title || 'SoundCloud';
+      var artist = document.createElement('div');
+      artist.className = 'zt-artist';
+      artist.textContent = track.artist || 'SoundCloud';
+      info.appendChild(title);
+      info.appendChild(artist);
+      var time = document.createElement('span');
+      time.className = 'zt-time';
+      time.textContent = track.duration ? zvukTime(track.duration) : '';
+      var play = document.createElement('span');
+      play.className = 'zt-play';
+      play.textContent = '▶';
+      row.appendChild(img);
+      row.appendChild(info);
+      row.appendChild(time);
+      row.appendChild(play);
+      row.addEventListener('click', function () { soundcloudPlay(track); });
+      el.soundcloudResults.appendChild(row);
+    });
+  }
+
+  function soundcloudNow(track) {
+    if (!el.soundcloudNow) return;
+    el.soundcloudNow.textContent = '';
+    if (!track) return;
+    var b = document.createElement('b');
+    b.textContent = track.title || 'SoundCloud';
+    var artist = document.createElement('div');
+    artist.textContent = track.artist || '';
+    var stop = document.createElement('button');
+    stop.type = 'button';
+    stop.className = 'btn sm ghost';
+    stop.style.marginTop = '8px';
+    stop.textContent = 'Остановить';
+    stop.addEventListener('click', function () {
+      cgi('media.py', { action: 'pause' }, { timeout: 12000 })
+        .then(function () { soundcloudNow(null); extStatus(el.soundcloudStatus, 'Остановлено'); })
+        .catch(function (err) { extStatus(el.soundcloudStatus, 'Ошибка: ' + err.message, 'bad'); });
+    });
+    el.soundcloudNow.appendChild(b);
+    el.soundcloudNow.appendChild(artist);
+    el.soundcloudNow.appendChild(stop);
+  }
+
+  function soundcloudPlay(track) {
+    if (!track || !track.url) return;
+    extStatus(el.soundcloudStatus, 'Получаю поток…');
+    soundcloudNow(track);
+    cgi('soundcloud.py', {
+      action: 'play', id: track.id, url: track.url, title: track.title || '',
+      artist: track.artist || '', cover: track.cover || ''
+    }, { timeout: 120000 })
+      .then(function (data) {
+        extStatus(el.soundcloudStatus, 'Играет: ' + ((data.track && data.track.title) || track.title), 'ok');
+        soundcloudNow(data.track || track);
+      })
+      .catch(function (err) {
+        extStatus(el.soundcloudStatus, 'Ошибка: ' + err.message, 'bad');
+        toast('SoundCloud: ' + err.message, 'bad');
+      });
+  }
+
+  function soundcloudSearch() {
+    var q = (el.soundcloudQuery && el.soundcloudQuery.value || '').trim();
+    if (!q) return;
+    extStatus(el.soundcloudStatus, 'Ищу на SoundCloud…');
+    cgi('soundcloud.py', { action: 'search', q: q, limit: 15 }, { timeout: 60000 })
+      .then(function (data) {
+        soundcloudRender(data.tracks || []);
+        extStatus(el.soundcloudStatus, 'Найдено: ' + ((data.tracks || []).length));
+      })
+      .catch(function (err) { extStatus(el.soundcloudStatus, 'Ошибка: ' + err.message, 'bad'); });
+  }
+
+  function soundcloudLoadStatus() {
+    return cgi('soundcloud.py', { action: 'status' }, { timeout: 12000, silent: true })
+      .then(function (data) {
+        extStatus(el.soundcloudStatus, data.has_ytdlp ? 'yt-dlp готов' : 'yt-dlp не установлен',
+          data.has_ytdlp ? 'ok' : 'bad');
+        if (data.track && data.track.id) soundcloudNow(data.track);
+      }).catch(function () { extStatus(el.soundcloudStatus, 'SoundCloud недоступен', 'bad'); });
+  }
+
   /* ─────────── файлы ─────────── */
   var filesCurrent = '/data/mypult';
   var filesEditing = '';
@@ -12775,9 +12891,14 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     if (el.spotifyQuery) el.spotifyQuery.addEventListener('keydown', function (event) {
       if (event.key === 'Enter') { event.preventDefault(); spotifySearch(); }
     });
+    if (el.btnSoundcloudSearch) el.btnSoundcloudSearch.addEventListener('click', soundcloudSearch);
+    if (el.soundcloudQuery) el.soundcloudQuery.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') { event.preventDefault(); soundcloudSearch(); }
+    });
     zvukLoadStatus();
     youtubeLoadStatus();
     spotifyLoadStatus();
+    soundcloudLoadStatus();
     if (el.btnFilesClose) el.btnFilesClose.addEventListener('click', function () { el.filesDlg.close(); });
     if (el.btnFilesRefresh) el.btnFilesRefresh.addEventListener('click', function () { filesLoad(filesCurrent); });
     if (el.btnFilesUp) el.btnFilesUp.addEventListener('click', function () {
@@ -14258,6 +14379,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       'youtubeQuery', 'btnYoutubeSearch', 'youtubeStatus', 'youtubeNow', 'youtubeResults',
       'spotifyId', 'spotifySecret', 'btnSpotifySave', 'btnSpotifyClear', 'spotifyStatus',
       'spotifyQuery', 'btnSpotifySearch', 'spotifyResults',
+      'soundcloudQuery', 'btnSoundcloudSearch', 'soundcloudStatus', 'soundcloudNow', 'soundcloudResults',
       'btnNetcheck', 'btnCleanup', 'btnReboot', 'btnPoweroff', 'maintBox', 'autoBright', 'autoBrightStatus',
       'displayAuto', 'displayAutoStatus',
       'btnSpeed', 'btnBackup', 'backupFile',

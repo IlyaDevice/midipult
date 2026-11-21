@@ -44,7 +44,7 @@ ROOT_CHOICES = (
 SENSITIVE_NAMES = {
     "auth.json", "yandex_auth.json", "llm.json", "vpn.json",
     "zvuk.json", ".zvuk_auth.json", "glagol.conf", "glagol.json",
-    "spotify.json", "youtube_state.json",
+    "spotify.json", "youtube_state.json", "soundcloud_state.json",
 }
 SENSITIVE_EXT = (".pem", ".key", ".secret")
 
