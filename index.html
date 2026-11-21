@@ -1040,7 +1040,7 @@ body.light .np-glow{opacity:.30;filter:blur(60px) saturate(1.2) brightness(.95)}
 .ym-expand:hover{color:var(--text);border-color:rgba(124,92,255,.5);background:rgba(124,92,255,.15)}
 .ym-auth>summary::after{content:"▾";color:var(--muted);font-size:11px;transition:transform .15s}
 .ym-auth[open]>summary::after{transform:rotate(180deg)}
-.ym-auth-body{padding-top:8px}
+.ym-auth-body{padding-top:8px;max-height:min(300px,50vh);overflow:auto;overscroll-behavior:contain}
 .ym-login-dlg{width:min(560px,94vw);border:0;border-radius:22px;padding:0;
   background:#0b0e16;color:var(--text);box-shadow:0 30px 80px rgba(0,0,0,.6)}
 .ym-login-dlg[open]{display:block}
@@ -10295,6 +10295,18 @@ body.light dialog.queue-dlg.ym-look{
       packing = false;
     }
   }
+
+  // Раскрытие/сворачивание details внутри карточки: разрешаем карточке
+  // и вырасти, и сжаться обратно (forceFit), иначе после сворачивания
+  // оставалась пустая высота.
+  document.addEventListener('toggle', function (event) {
+    var target = event.target;
+    if (!target || target.tagName !== 'DETAILS') return;
+    var card = target.closest('main.grid > .card');
+    if (!card) return;
+    card.dataset.forceFit = '1';
+    schedulePack();
+  }, true);
 
   function schedulePack() {
     clearTimeout(packTimer);
