@@ -2248,6 +2248,16 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
 .prov-pane .zvuk-status{margin-top:8px}
 .prov-pane .zvuk-results{max-height:min(46vh,360px)}
 .prov-ym-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+.vk-oauth{display:flex;flex-direction:column;gap:9px;margin-top:10px;padding:10px;
+  border:1px solid var(--stroke);border-radius:12px;background:rgba(255,255,255,.035)}
+.vk-oauth-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.vk-oauth-row input{flex:1 1 190px;min-width:0}
+.vk-redirect{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  font-size:11px;color:var(--muted)}
+.vk-redirect code{min-width:0;padding:4px 7px;border-radius:7px;background:rgba(255,255,255,.05);
+  border:1px solid var(--stroke);color:var(--text);font-size:10px;
+  overflow-wrap:anywhere;user-select:all}
+.vk-redirect .btn{margin-left:auto}
 .beta-badge{display:inline-flex;align-items:center;height:19px;padding:0 8px;margin-left:8px;
   border-radius:999px;border:1px solid rgba(245,158,11,.4);background:rgba(245,158,11,.14);
   color:#fbbf24;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
@@ -2735,10 +2745,24 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     </div>
 
     <div class="prov-pane" id="provPaneVk" role="tabpanel" data-provider-pane="vk" hidden>
-      <div class="seg-note">Бета: неофициальный VK-провайдер. Нужен токен VK с доступом к аудио; токен хранится только на станции. VK может ограничить API или поток.</div>
+      <div class="seg-note">Бета: неофициальный VK-провайдер. Вход — через своё приложение VK (client_id и redirect URI), токен хранится только на станции. VK может ограничить API или поток.</div>
+      <div class="vk-oauth">
+        <div class="vk-oauth-row">
+          <input id="vkClientId" class="net-input" inputmode="numeric" autocomplete="off"
+                 placeholder="Client ID приложения VK">
+          <button class="btn sm primary" id="btnVkOAuth">Войти через VK</button>
+        </div>
+        <div class="vk-redirect">
+          <span>Redirect URI</span>
+          <code id="vkRedirect">—</code>
+          <button class="btn sm ghost" id="btnVkRedirectCopy" type="button">Копировать</button>
+        </div>
+        <div class="seg-note" id="vkOAuthHint">Укажите этот адрес в настройках Web-приложения VK и включите доступ к аудио.</div>
+      </div>
+      <div class="seg-note" style="margin-top:10px">Если VK не вернул вас в панель, вставьте ниже токен или полную ссылку после входа.</div>
       <div class="zvuk-token-wrap">
         <input id="vkToken" class="net-input" type="password" autocomplete="off"
-               placeholder="Токен VK (audio)">
+               placeholder="Токен VK или ссылка после входа">
         <button class="btn sm" id="btnVkSave">Сохранить</button>
         <button class="btn sm ghost" id="btnVkClear">Убрать</button>
       </div>
@@ -10816,6 +10840,91 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       .catch(function (err) { extStatus(el.vkStatus, 'Ошибка: ' + err.message, 'bad'); });
   }
 
+  var VK_CLIENT_KEY = 'mypult-vk-client-id';
+  var VK_OAUTH_STATE = 'vk_oauth';
+
+  function vkRedirectUri() {
+    return location.origin + '/';
+  }
+
+  function vkInitOAuth() {
+    if (el.vkRedirect) el.vkRedirect.textContent = vkRedirectUri();
+    var clientId = store.get(VK_CLIENT_KEY, '');
+    if (clientId && el.vkClientId) el.vkClientId.value = clientId;
+    vkHandleOAuthReturn();
+  }
+
+  function vkOAuthStart() {
+    var clientId = (el.vkClientId && el.vkClientId.value || '').trim();
+    if (!/^\d{5,}$/.test(clientId)) {
+      extStatus(el.vkStatus, 'Нужен Client ID приложения VK', 'bad');
+      if (el.vkClientId) el.vkClientId.focus();
+      return;
+    }
+    store.set(VK_CLIENT_KEY, clientId);
+    var query = new URLSearchParams({
+      client_id: clientId,
+      display: 'page',
+      redirect_uri: vkRedirectUri(),
+      scope: 'audio,offline',
+      response_type: 'token',
+      state: VK_OAUTH_STATE,
+      v: '5.199'
+    });
+    // VK отдаёт токен во фрагменте; его перехватит vkHandleOAuthReturn()
+    // после возврата на эту же страницу.
+    window.location.href = 'https://oauth.vk.com/authorize?' + query.toString();
+  }
+
+  function vkCopyRedirect() {
+    var text = vkRedirectUri();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        toast('Redirect URI скопирован', 'ok');
+      }).catch(function () {
+        if (el.vkRedirect) window.getSelection().selectAllChildren(el.vkRedirect);
+      });
+      return;
+    }
+    if (el.vkRedirect) {
+      var range = document.createRange();
+      range.selectNodeContents(el.vkRedirect);
+      var selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      toast('Адрес выделен — скопируйте вручную', 'warn');
+    }
+  }
+
+  function vkHandleOAuthReturn() {
+    var hash = location.hash || '';
+    if (hash.indexOf('access_token=') < 0 && hash.indexOf('error=') < 0) return;
+    var params = new URLSearchParams(hash.replace(/^#/, ''));
+    if ((params.get('state') || '') !== VK_OAUTH_STATE) return;
+    var error = params.get('error_description') || params.get('error');
+    var token = params.get('access_token') || '';
+    // Токен не должен оставаться в адресной строке и истории.
+    try {
+      history.replaceState(null, '', location.pathname + location.search);
+    } catch (e) { /* старый WebView */ }
+    if (error) {
+      extStatus(el.vkStatus, 'VK: ' + error, 'bad');
+      return;
+    }
+    if (!token) return;
+    extStatus(el.vkStatus, 'Сохраняю токен VK…');
+    cgi('vk.py', { action: 'token', token: token }, { timeout: 30000 })
+      .then(function (data) {
+        extStatus(el.vkStatus, 'VK подключена' + (data.login ? ' · ' + data.login : ''), 'ok');
+        setProvDot('vk', 'ok');
+        toast('VK Музыка подключена', 'ok');
+      })
+      .catch(function (err) {
+        extStatus(el.vkStatus, 'Ошибка VK: ' + err.message, 'bad');
+        toast('VK Музыка: ' + err.message, 'bad');
+      });
+  }
+
   function vkLoadStatus() {
     return cgi('vk.py', { action: 'status' }, { timeout: 12000, silent: true })
       .then(function (data) {
@@ -13858,6 +13967,12 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       if (event.key === 'Enter') { event.preventDefault(); vkSearch(); }
     });
     if (el.btnVkMine) el.btnVkMine.addEventListener('click', vkMine);
+    if (el.btnVkOAuth) el.btnVkOAuth.addEventListener('click', vkOAuthStart);
+    if (el.btnVkRedirectCopy) el.btnVkRedirectCopy.addEventListener('click', vkCopyRedirect);
+    if (el.vkClientId) el.vkClientId.addEventListener('input', function () {
+      store.set(VK_CLIENT_KEY, (el.vkClientId.value || '').trim());
+    });
+    vkInitOAuth();
     zvukLoadStatus();
     youtubeLoadStatus();
     spotifyLoadStatus();
@@ -15252,6 +15367,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       'spotifyQuery', 'btnSpotifySearch', 'spotifyResults',
       'soundcloudQuery', 'btnSoundcloudSearch', 'soundcloudStatus', 'soundcloudNow', 'soundcloudResults',
       'vkToken', 'btnVkSave', 'btnVkClear', 'vkStatus', 'vkQuery', 'btnVkSearch', 'btnVkMine',
+      'vkClientId', 'btnVkOAuth', 'vkRedirect', 'btnVkRedirectCopy', 'vkOAuthHint',
       'vkNow', 'vkResults',
       'btnNetcheck', 'btnCleanup', 'btnReboot', 'btnPoweroff', 'maintBox', 'autoBright', 'autoBrightStatus',
       'displayAuto', 'displayAutoStatus',

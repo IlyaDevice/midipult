@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.parse
@@ -25,6 +26,16 @@ SELF_URL = "http://127.0.0.1:8055/cgi-bin/vk_stream.py"
 API_URL = "https://api.vk.com/method/"
 API_VERSION = "5.199"
 UA = "MidiPult/0.5 (+local station panel)"
+
+
+def _token_from(value):
+    """Принять сам токен или полную ссылку после OAuth VK."""
+    text = str(value or "").strip()
+    match = re.search(r"access_token=([^&#\s]+)", text)
+    token = match.group(1) if match else text
+    if not re.fullmatch(r"[A-Za-z0-9_\-.]{20,}", token or ""):
+        raise RuntimeError("В ссылке нет access_token VK")
+    return token
 
 
 def _read_token():
@@ -147,7 +158,7 @@ def main():
         return
 
     if action == "token":
-        token = str(data.get("token") or "").strip()
+        token = _token_from(data.get("token"))
         if len(token) < 20:
             raise RuntimeError("Токен VK слишком короткий")
         # users.get проверяет сам токен; доступ к аудио проверится при поиске.
