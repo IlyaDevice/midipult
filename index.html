@@ -5204,6 +5204,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
 
   function playYmPlaylist(item) {
     var title = item && item.title ? item.title : '';
+    extYieldToOther();
     cgi('ymusic.py', { play: title, id: item && item.id || '' }, { timeout: 20000 })
       .then(function () { toast('Включаю: ' + title, 'ok'); })
       .catch(function (err) { toast('Яндекс Музыка: ' + err.message, 'bad'); });
@@ -5277,6 +5278,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   }
 
   function ymPlayTrack(track) {
+    extYieldToOther();
     cgi('ymusic.py', {
       play: track.title || 'трек', id: track.id || '', type: 'track'
     }, { timeout: 20000 })
@@ -5807,6 +5809,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   function ymApplyWave() {
     var chosen = State.ymWaveSettings;
     if (!chosen) return;
+    extYieldToOther();
     cgi('ymusic.py', {
       wave_play: 1, mood: chosen.mood, energy: chosen.energy,
       language: chosen.language, diversity: chosen.diversity
@@ -8107,6 +8110,8 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
         data.cover = ext.cover || '';
       } else if (data.title) {
         extClearPlayer();
+        if (el.extNow) extNow(null);
+        extStopBackends();
       }
     }
     title = data.title || '';
@@ -10828,6 +10833,14 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   function extClearPlayer() {
     State.extTrack = null;
     State.extSource = '';
+  }
+
+  function extYieldToOther() {
+    extClearPlayer();
+    if (el.extNow) extNow(null);
+    cgi('youtube.py', { action: 'stop' }, { timeout: 12000, silent: true }).catch(function () {});
+    cgi('soundcloud.py', { action: 'stop' }, { timeout: 12000, silent: true }).catch(function () {});
+    extSetStatus('Сейчас играет Яндекс Музыка');
   }
 
   function extPlay(track) {
