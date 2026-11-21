@@ -62,6 +62,40 @@ def test_encoding():
     check("файлы без CRLF и BOM", not bad, ", ".join(bad))
 
 
+def test_no_committed_secrets():
+    """Запрещаем реальные токены и ключи в репозитории (в тестах — только фейки)."""
+    patterns = (
+        ("yandex_token", re.compile(r"\by[03]_[A-Za-z0-9_\-]{25,}")),
+        ("github_token", re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}")),
+        ("vk_token", re.compile(r"\bvk1\.a\.[A-Za-z0-9_\-.]{20,}")),
+        ("private_key", re.compile(r"BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY")),
+    )
+    allowed = ("test_only", "fake", "example", "0000000000")
+    bad = []
+    skip_ext = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".ico", ".gz", ".zip", ".tar")
+    for folder, dirs, files in os.walk(ROOT):
+        dirs[:] = [d for d in dirs if d not in (".git", "__pycache__", "node_modules")]
+        for name in files:
+            if name.lower().endswith(skip_ext):
+                continue
+            path = os.path.join(folder, name)
+            rel = os.path.relpath(path, ROOT).replace("\\", "/")
+            try:
+                text = open(path, "r", encoding="utf-8", errors="ignore").read()
+            except OSError:
+                continue
+            if "\x00" in text[:2000]:
+                continue
+            for line_no, line in enumerate(text.splitlines(), 1):
+                for label, rx in patterns:
+                    for match in rx.finditer(line):
+                        value = match.group(0)
+                        if any(word in value.lower() for word in allowed):
+                            continue
+                        bad.append("%s:%s:%s" % (rel, line_no, label))
+    check("нет реальных токенов и ключей в репозитории", not bad, "; ".join(bad[:6]))
+
+
 def test_html_structure():
     html = read(os.path.join(ROOT, "index.html"))
     ids = re.findall(r'\bid="([^"]+)"', html)
@@ -732,6 +766,7 @@ def main():
     for test in (
         test_encoding,
         test_html_structure,
+        test_no_committed_secrets,
         test_js_syntax,
         test_css,
         test_vpn_toggle,
