@@ -118,6 +118,56 @@ def _override():
     return device_id, platform
 
 
+LOG_FILES = (
+    "/data/quasar/daemons_logs/yiod.log",
+    "/data/quasar/daemons_logs/maind.log",
+    "/data/quasar/daemons_logs/updatesd.log",
+    "/data/quasar/daemons_logs/telemetry.log",
+)
+LOG_LIMIT = 4 * 1024 * 1024
+KNOWN_PLATFORMS = ("yandexmidi", "cucumber", "yandexstation", "yandexstation_2", "station_2")
+DEVICE_ID_RE = re.compile(rb"device[_-]?id[=:\"\s]+([A-Z0-9]{8,24})", re.IGNORECASE)
+PLATFORM_RE = re.compile(rb"platform[=:\"\s]+([a-z0-9_]+)", re.IGNORECASE)
+
+
+def _read_log(path, limit=LOG_LIMIT):
+    try:
+        size = os.path.getsize(path)
+        with open(path, "rb") as fh:
+            if size > limit:  # хвост важнее начала: там свежие запросы
+                fh.seek(size - limit)
+            return fh.read()
+    except OSError:
+        return b""
+
+
+def _device_from_logs():
+    """device_id из логов демонов: прошивка сама подставляет его в запросы.
+
+    На Station 2 `devices.json` не создаётся, зато в `yiod.log` есть строка
+    `…/register?device_id=U00…&platform=yandexmidi`. Это единственный
+    локальный источник настоящего id.
+    """
+    for path in LOG_FILES:
+        blob = _read_log(path)
+        if not blob:
+            continue
+        match = DEVICE_ID_RE.search(blob)
+        if not match:
+            continue
+        device_id = match.group(1).decode("ascii", "ignore")
+        window = blob[max(0, match.start() - 200):match.end() + 200]
+        platform_match = PLATFORM_RE.search(window)
+        platform = "yandexmidi"
+        if platform_match:
+            value = platform_match.group(1).decode("ascii", "ignore")
+            # В логах рядом бывает «platform=linux»; берём только станционные имена.
+            if value in KNOWN_PLATFORMS:
+                platform = value
+        return device_id, platform
+    return None
+
+
 def _device():
     manual = _override()
     if manual:
@@ -140,9 +190,15 @@ def _device():
         raise GlagolError(
             "в devices.json нет устройства yandexmidi/cucumber; "
             "проверьте, что колонка привязана к аккаунту")
-    except GlagolError:
-        raise
+    except GlagolError as exc:
+        found = _device_from_logs()
+        if found:
+            return found
+        raise exc
     except (OSError, ValueError, KeyError, IndexError) as exc:
+        found = _device_from_logs()
+        if found:
+            return found
         raise GlagolError("не читается devices.json: %s" % exc)
 
 

@@ -5,6 +5,20 @@
 развивался итерациями `0.0.x`; полная история — в
 [docs/CHANGELOG-dev.md](docs/CHANGELOG-dev.md).
 
+## 0.6.8 — 2026-11-21
+
+Glagol из коробки там, где нет `devices.json`.
+
+- **`device_id` из логов демонов.** Если `glagol_device.json` нет и `devices.json`
+  нет или в нём нет станции, `glagol.py` ищет id в `daemons_logs`
+  (`yiod.log`, `maind.log`, `updatesd.log`, `telemetry.log`): прошивка сама
+  подставляет его в запросы к облаку (`register?device_id=U00…&platform=…`).
+  Порядок: `glagol_device.json` → `devices.json` → логи.
+- **`player.py`:** POST больше не притворяется, что выполнил действие, — отдаёт
+  `400` с подсказкой, что управление живёт в `media.py`
+  (`{"action":"play|pause|stop|next|prev"}`). Раньше `{"action":"stop"}` молча
+  возвращал состояние.
+
 ## 0.6.7 — 2026-11-21
 
 `glagol.py --probe` стал пригоден для диагностики сети.

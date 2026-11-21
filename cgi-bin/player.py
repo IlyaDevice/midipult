@@ -80,6 +80,14 @@ def main():
         common.fail(501, "Модуль glagol недоступен")
         return
 
+    method = (os.environ.get("REQUEST_METHOD") or "GET").upper()
+    if method not in ("GET", "HEAD"):
+        # Раньше POST молча возвращал состояние, и казалось, что действие
+        # применилось. Управление живёт в media.py.
+        common.fail(400, "player.py только читает состояние",
+                    hint='действия: POST /cgi-bin/media.py {"action":"play|pause|stop|next|prev"}')
+        return
+
     try:
         data = snapshot()
     except Exception as exc:  # noqa: BLE001

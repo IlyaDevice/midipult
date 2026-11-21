@@ -2057,6 +2057,45 @@ def test_ring_fb_geometry():
     check("кольцо: нулевая ширина", ring_state.parse_virtual_size("0,1") is None)
 
 
+def test_glagol_device_from_logs():
+    import tempfile
+
+    old_logs = glagol.LOG_FILES
+    old_devices = glagol.DEVICES
+    old_override = glagol.OVERRIDE_PATH
+    folder = tempfile.mkdtemp(prefix="mypult-logs-")
+    yiod = os.path.join(folder, "yiod.log")
+    try:
+        with open(yiod, "wb") as fh:
+            fh.write(b"Backend request: https://quasar.yandex.net/register?"
+                     b"device_id=U00QNP100Y59RK&name=quasar&platform=yandexmidi\n")
+        glagol.LOG_FILES = (yiod,)
+        check("glagol: device_id из логов демона",
+              glagol._device_from_logs() == ("U00QNP100Y59RK", "yandexmidi"))
+
+        glagol.DEVICES = os.path.join(folder, "missing.json")
+        glagol.OVERRIDE_PATH = os.path.join(folder, "missing-override.json")
+        check("glagol: без devices.json id берётся из логов",
+              glagol._device() == ("U00QNP100Y59RK", "yandexmidi"))
+
+        with open(yiod, "wb") as fh:
+            fh.write(b'{"device_id":"U00QNP100Y59RK","device_model":"yandexmidi"}')
+        check("glagol: device_id из JSON-строки лога",
+              glagol._device_from_logs()[0] == "U00QNP100Y59RK")
+
+        with open(yiod, "wb") as fh:
+            fh.write(b"nothing here\n")
+        check("glagol: без id в логах — None", glagol._device_from_logs() is None)
+    finally:
+        glagol.LOG_FILES = old_logs
+        glagol.DEVICES = old_devices
+        glagol.OVERRIDE_PATH = old_override
+        try:
+            os.remove(yiod)
+        except OSError:
+            pass
+
+
 def main():
     for test in (
         test_generic_helpers,
@@ -2108,6 +2147,7 @@ def main():
         test_voice_idle_and_toggle,
         test_device_classify,
         test_glagol_device_override,
+        test_glagol_device_from_logs,
         test_ring_fb_geometry,
     ):
         try:
