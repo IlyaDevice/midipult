@@ -1760,7 +1760,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   border-radius:9px;border:1px solid var(--stroke);background:rgba(255,255,255,.04);
   color:var(--text);font:inherit;font-size:12px;cursor:pointer}
 .home-extra-pick:hover{background:rgba(255,255,255,.07)}
-.home-extra-pop{position:absolute;right:0;top:36px;z-index:30;min-width:180px;padding:5px;
+.home-extra-pop{position:fixed;right:auto;top:auto;z-index:120;min-width:180px;padding:5px;
   border-radius:12px;border:1px solid var(--stroke);background:#121724;
   box-shadow:0 18px 40px rgba(0,0,0,.55)}
 .home-extra-pop button{display:block;width:100%;text-align:left;padding:9px 10px;border:0;
@@ -5222,8 +5222,15 @@ body.light dialog.queue-dlg.ym-look{
         placeRingMusicPop();
       }
       pop.hidden = !pop.hidden;
+      if (!pop.hidden) placeHomeExtraPop();
       button.setAttribute('aria-expanded', pop.hidden ? 'false' : 'true');
     });
+    window.addEventListener('resize', function () {
+      if (!pop.hidden) placeHomeExtraPop();
+    });
+    document.addEventListener('scroll', function () {
+      if (!pop.hidden) placeHomeExtraPop();
+    }, true);
     pop.addEventListener('click', function (event) { event.stopPropagation(); });
     document.addEventListener('click', function (event) {
       if (!event.target.closest('#btnRingMusic') && !event.target.closest('#ringMusicPop')) {
@@ -16158,6 +16165,31 @@ body.light dialog.queue-dlg.ym-look{
       });
       pop.appendChild(item);
     });
+  }
+
+  function placeHomeExtraPop() {
+    var button = document.getElementById('btnHomeExtra');
+    var pop = document.getElementById('homeExtraPop');
+    if (!button || !pop || pop.hidden) return;
+    var rect = button.getBoundingClientRect();
+    var width = Math.max(180, Math.min(260, rect.width));
+    var left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8));
+    var below = window.innerHeight - rect.bottom - 10;
+    var above = rect.top - 10;
+    var up = below < 160 && above > below;
+    var height = Math.max(120, Math.min(300, up ? above : below));
+    pop.style.position = 'fixed';
+    pop.style.width = width + 'px';
+    pop.style.left = left + 'px';
+    pop.style.maxHeight = height + 'px';
+    pop.style.overflow = 'auto';
+    if (up) {
+      pop.style.top = 'auto';
+      pop.style.bottom = (window.innerHeight - rect.top + 6) + 'px';
+    } else {
+      pop.style.top = (rect.bottom + 6) + 'px';
+      pop.style.bottom = 'auto';
+    }
   }
 
   function initHomeExtra() {
