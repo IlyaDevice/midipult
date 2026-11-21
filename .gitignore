@@ -54,3 +54,9 @@ dist/
 
 # внутренние исследования, не для публикации
 docs/VK-MUSIC.md
+
+# данные аккаунтов и плеера
+music.json
+yandex_auth.json
+player.json
+account_storage.dat

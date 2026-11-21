@@ -510,8 +510,8 @@ def test_glagol_token_formats():
         with os.fdopen(fd, "wb") as fh:
             # y0__… — как в хранилище проверенной прошивки;
             # y3_… и y1_Ag… — документированный формат «y + 0–3 + _».
-            fh.write(b"\x00y0__xCg9ZAzGJWuECD4297eFjCEr5K5CDxylYco7LyWhQ05XoMUeee\x00"
-                     b"y3_Vdheub7w9bIut67GHeL345gfb5GAnd3dZnf08FRbvjeUFvetYiohGvc\x00"
+            fh.write(b"\x00y0__TEST_ONLY_TOKEN_0000000000000000000000000000\x00"
+                     b"y3_TEST_ONLY_TOKEN_0000000000000000000000000000\x00"
                      b"y1_AgAAAABmZ0h2AAk9Z1QAAAAA9Xk2Q1p0kR0\x00")
         glagol.ACCOUNT = path
         tokens = glagol._oauth_tokens()

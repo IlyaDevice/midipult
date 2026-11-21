@@ -221,7 +221,7 @@
 ```sh
 curl -X POST -H 'Content-Type: application/json' \
      -H 'X-Requested-With: MidiPult' -d '{"stop":1}' \
-     http://192.168.1.216:8055/cgi-bin/voicectl.py
+     http://192.0.2.10:8055/cgi-bin/voicectl.py
 ```
 
 Без `Content-Length` (его добавляет `-d`, даже пустой) lighttpd ответит
