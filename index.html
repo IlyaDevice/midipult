@@ -1852,6 +1852,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .c-led>#presets .chip{width:100%;height:30px;font-size:13px;padding:0 6px}
 .c-led .logo-modes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
 .c-led .logo-modes .chip{width:100%;height:30px;font-size:13px;padding:0 6px}
+.c-led .led-right .field-top,
+.c-led .led-right #ringBrightness,
+.c-led .led-right #ringSpeed{max-width:100%}
 .c-led>.led-anims{grid-column:1/-1;grid-row:5;margin-top:4px}
 .c-led .ring-anim-row .ring-picker{flex:1 1 160px;min-width:0}
 .c-led .ring-anim-row .btn{flex:0 0 80px;height:30px;padding:0 6px;font-size:13px}
@@ -1882,12 +1885,12 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   .c-led>.auto-bright{order:1}
   .c-led>.ring{order:2;margin:0 auto;max-width:260px}
   .c-led>.led-controls{order:3;max-width:260px;margin:0 auto}
-  .c-led>#presets{order:4;max-width:420px;margin:0 auto;
+  .c-led>#presets{order:4;max-width:none;margin:0;
     grid-template-columns:repeat(2,minmax(0,1fr))}
-  .c-led>.led-right{order:5;max-width:420px;margin:0 auto;grid-template-columns:1fr;gap:6px}
+  .c-led>.led-right{order:5;max-width:none;margin:0;grid-template-columns:1fr;gap:6px}
   .c-led>.led-right .field{margin-top:0!important}
-  .c-led>.led-anims{order:6;max-width:560px;margin:4px auto 0!important}
-  .c-led>.led-footer{order:7;max-width:420px;margin:6px auto 0}
+  .c-led>.led-anims{order:6;max-width:none;margin:4px 0 0!important}
+  .c-led>.led-footer{order:7;max-width:none;margin:6px 0 0}
   .c-led .logo-modes{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 
