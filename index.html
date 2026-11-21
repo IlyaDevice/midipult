@@ -1844,6 +1844,71 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;
     transition-duration:.01ms!important;scroll-behavior:auto!important}
 }
+/* ───────── Сбер Звук ───────── */
+.zvuk-token-wrap{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+.zvuk-token-wrap .net-input{flex:1 1 260px}
+.zvuk-status{margin-top:8px;color:var(--muted);font-size:11px}
+.zvuk-status.ok{color:var(--good,#22c55e)}
+.zvuk-status.bad{color:var(--bad,#ef4444)}
+.zvuk-search{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
+.zvuk-search .net-input{flex:1 1 220px}
+.zvuk-now{display:none;margin-top:12px;padding:10px 12px;border:1px solid var(--stroke);border-radius:12px;
+  background:rgba(124,92,255,.08);font-size:12px}
+.zvuk-now:not(:empty){display:block}
+.zvuk-results{margin-top:10px;display:flex;flex-direction:column;gap:2px;max-height:330px;overflow:auto}
+.zvuk-track{display:grid;grid-template-columns:34px minmax(0,1fr) auto auto;gap:9px;align-items:center;
+  padding:7px 6px;border-radius:8px;border:0;background:transparent;color:var(--text);text-align:left;cursor:pointer}
+.zvuk-track:hover{background:rgba(255,255,255,.055)}
+.zvuk-track img{width:34px;height:34px;border-radius:7px;object-fit:cover;background:rgba(255,255,255,.08)}
+.zvuk-track .zt-title{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.zvuk-track .zt-artist{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.zvuk-track .zt-time{font-size:10px;color:var(--muted)}
+.zvuk-track .zt-play{font-size:15px;color:var(--accent2)}
+.zvuk-empty{padding:14px 4px;color:var(--muted);font-size:12px}
+@media(max-width:620px){.zvuk-track{grid-template-columns:30px minmax(0,1fr) auto}.zvuk-track img{width:30px;height:30px}.zvuk-track .zt-time{display:none}}
+
+/* ───────── файловый менеджер ───────── */
+.files-dlg{width:min(1080px,96vw);max-height:92vh;padding:0;border:1px solid var(--stroke);border-radius:22px;
+  background:linear-gradient(160deg,var(--card-a),var(--card-b));color:var(--text);overflow:hidden}
+.files-dlg::backdrop{background:rgba(4,5,12,.78);backdrop-filter:blur(8px)}
+.files-shell{display:flex;flex-direction:column;max-height:92vh}
+.files-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px 12px}
+.files-head h3{margin:2px 0 0;font-size:20px}
+.files-kicker{color:var(--muted);font-size:10px;letter-spacing:.16em;text-transform:uppercase}
+.files-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:0 20px 10px}
+.files-path{flex:1 1 260px;min-width:180px;height:38px;border:1px solid var(--stroke);border-radius:10px;
+  background:rgba(0,0,0,.18);color:var(--text);padding:0 11px;font:inherit;font-size:13px}
+.files-roots{display:flex;gap:6px;flex-wrap:wrap;padding:0 20px 8px}
+.files-roots button{border:1px solid var(--stroke);background:rgba(255,255,255,.04);color:var(--muted);
+  border-radius:999px;padding:5px 10px;font:inherit;font-size:11px;cursor:pointer}
+.files-roots button:hover{color:var(--text);border-color:var(--accent2)}
+.files-note{padding:0 20px 8px;color:var(--muted);font-size:11px}
+.files-list{overflow:auto;padding:0 12px 12px;min-height:180px;flex:1}
+.files-row{display:grid;grid-template-columns:28px minmax(0,1fr) auto auto;align-items:center;gap:10px;
+  padding:9px 8px;border-radius:9px;border-bottom:1px solid rgba(255,255,255,.04)}
+.files-row:hover{background:rgba(255,255,255,.045)}
+.files-row .files-ico{color:var(--accent2);font-size:16px;text-align:center}
+.files-row .files-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;font-size:13px}
+.files-row .files-name small{display:block;color:var(--muted);font-size:10px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.files-row .files-act{display:flex;gap:3px;opacity:.55}
+.files-row:hover .files-act{opacity:1}
+.files-row .files-act button{border:0;background:transparent;color:var(--muted);cursor:pointer;padding:4px;border-radius:6px}
+.files-row .files-act button:hover{color:var(--text);background:rgba(255,255,255,.08)}
+.files-row .files-lock{color:var(--muted);font-size:10px;padding-right:4px}
+.files-empty{padding:32px 12px;text-align:center;color:var(--muted);font-size:13px}
+.files-editor{border-top:1px solid var(--stroke);padding:12px 20px 16px;background:rgba(0,0,0,.12)}
+.files-editor-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.files-editor-head b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.files-editor textarea{width:100%;height:min(42vh,360px);resize:vertical;border:1px solid var(--stroke);border-radius:10px;
+  background:#0b0d16;color:#e8e9f3;padding:12px;font:12px/1.5 ui-monospace,Consolas,monospace}
+@media(max-width:620px){
+  .files-dlg{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;border-radius:0}
+  .files-shell{max-height:100dvh}
+  .files-head{padding:14px 14px 8px}.files-toolbar,.files-roots,.files-note{padding-left:14px;padding-right:14px}
+  .files-list{padding:0 8px 8px}.files-editor{padding:10px 12px 14px}
+  .files-row{grid-template-columns:24px minmax(0,1fr) auto;gap:7px}
+  .files-row .files-meta{display:none}
+}
 </style>
 </head>
 <body class="booting">
@@ -2263,6 +2328,25 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   </section>
 
   <!-- ───────── озвучка ───────── -->
+  <section class="card c-zvuk" data-group="sound" data-card-id="zvuk" data-legacy-card-id="Сбер Звук" aria-labelledby="h-zvuk">
+    <h2 id="h-zvuk"><span class="dot"></span>Сбер Звук</h2>
+    <div class="seg-note" style="margin-top:8px">Неофициальный провайдер. Токен хранится только на станции, трек играет штатный плеер.</div>
+    <div class="zvuk-token-wrap">
+      <input id="zvukToken" class="net-input" type="password" autocomplete="off"
+             placeholder="Токен из zvuk.com/api/tiny/profile">
+      <button class="btn sm" id="btnZvukSave">Сохранить</button>
+      <button class="btn sm ghost" id="btnZvukClear">Убрать</button>
+    </div>
+    <div class="zvuk-status" id="zvukStatus">Токен не сохранён</div>
+    <div class="zvuk-search">
+      <input id="zvukQuery" class="net-input" placeholder="Трек, альбом или исполнитель" autocomplete="off">
+      <button class="btn sm" id="btnZvukSearch">Найти</button>
+      <button class="btn sm ghost" id="btnZvukWave">Мой поток</button>
+    </div>
+    <div class="zvuk-now" id="zvukNow"></div>
+    <div class="zvuk-results" id="zvukResults"></div>
+  </section>
+
   <section class="card c-alarm" data-group="sound" aria-labelledby="h-alarm">
     <h2 id="h-alarm"><span class="dot"></span>Будильники</h2>
     <div class="alarm-top">
@@ -2717,6 +2801,15 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   </section>
 
   <!-- ───────── логи ───────── -->
+  <section class="card c-sys" data-group="system" data-card-id="files" data-legacy-card-id="Файлы" aria-labelledby="h-files">
+    <h2 id="h-files"><span class="dot"></span>Файлы</h2>
+    <div class="row between" style="margin-top:12px">
+      <span class="seg-note">Просмотр, загрузка и правка файлов станции</span>
+      <button class="btn sm" id="btnFilesOpen">Открыть менеджер</button>
+    </div>
+    <div class="seg-note" style="margin-top:8px">Запись разрешена только в <code>/data/mypult</code> и <code>/tmp</code>.</div>
+  </section>
+
   <section class="card c-sys" data-group="system" aria-labelledby="h-logs">
     <h2 id="h-logs"><span class="dot"></span>Логи</h2>
     <div class="row" style="margin-top:12px">
@@ -9517,6 +9610,362 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     }).catch(function () {});
   }
 
+  /* ─────────── Сбер Звук ─────────── */
+  function zvukTime(seconds) {
+    var s = Math.max(0, Math.round(Number(seconds) || 0));
+    return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  }
+
+  function zvukSetStatus(text, kind) {
+    if (!el.zvukStatus) return;
+    el.zvukStatus.textContent = text;
+    el.zvukStatus.className = 'zvuk-status' + (kind ? ' ' + kind : '');
+  }
+
+  function zvukRender(tracks) {
+    if (!el.zvukResults) return;
+    el.zvukResults.textContent = '';
+    if (!tracks || !tracks.length) {
+      var empty = document.createElement('div');
+      empty.className = 'zvuk-empty';
+      empty.textContent = 'Ничего не найдено';
+      el.zvukResults.appendChild(empty);
+      return;
+    }
+    tracks.forEach(function (track) {
+      var row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'zvuk-track';
+      row.title = 'Включить на станции';
+      var img = document.createElement('img');
+      img.alt = '';
+      img.loading = 'lazy';
+      if (track.cover) img.src = track.cover;
+      var info = document.createElement('div');
+      var title = document.createElement('div');
+      title.className = 'zt-title';
+      title.textContent = track.title || 'Без названия';
+      var artist = document.createElement('div');
+      artist.className = 'zt-artist';
+      artist.textContent = track.artists || track.artist || '';
+      info.appendChild(title);
+      info.appendChild(artist);
+      var time = document.createElement('span');
+      time.className = 'zt-time';
+      time.textContent = track.duration ? zvukTime(track.duration) : '';
+      var play = document.createElement('span');
+      play.className = 'zt-play';
+      play.textContent = '▶';
+      row.appendChild(img);
+      row.appendChild(info);
+      row.appendChild(time);
+      row.appendChild(play);
+      row.addEventListener('click', function () { zvukPlay(track); });
+      el.zvukResults.appendChild(row);
+    });
+  }
+
+  function zvukShowNow(track) {
+    if (!el.zvukNow) return;
+    el.zvukNow.textContent = '';
+    if (!track) return;
+    var b = document.createElement('b');
+    b.textContent = track.title || 'Сбер Звук';
+    var artist = document.createElement('div');
+    artist.textContent = track.artist || '';
+    var stop = document.createElement('button');
+    stop.type = 'button';
+    stop.className = 'btn sm ghost';
+    stop.textContent = 'Остановить';
+    stop.style.marginTop = '8px';
+    stop.addEventListener('click', zvukStop);
+    el.zvukNow.appendChild(b);
+    el.zvukNow.appendChild(artist);
+    el.zvukNow.appendChild(stop);
+  }
+
+  function zvukPlay(track) {
+    if (!track || !track.id) return;
+    zvukSetStatus('Загружаю трек и запускаю на станции…');
+    zvukShowNow({ title: track.title, artist: track.artists || track.artist });
+    cgi('zvuk.py', {
+      action: 'play', id: track.id, title: track.title || '',
+      artist: track.artists || track.artist || '', cover: track.cover || '',
+      duration: track.duration || 0
+    }, { timeout: 120000 })
+      .then(function (data) {
+        zvukSetStatus('Играет: ' + ((data.track && data.track.title) || track.title || ''), 'ok');
+        zvukShowNow(data.track || track);
+      })
+      .catch(function (err) {
+        zvukSetStatus('Ошибка: ' + err.message, 'bad');
+        toast('Сбер Звук: ' + err.message, 'bad');
+      });
+  }
+
+  function zvukStop() {
+    cgi('media.py', { action: 'pause' }, { timeout: 12000 })
+      .then(function () { zvukShowNow(null); zvukSetStatus('Остановлено'); })
+      .catch(function (err) { zvukSetStatus('Ошибка остановки: ' + err.message, 'bad'); });
+  }
+
+  function zvukLoadStatus() {
+    return cgi('zvuk.py', { action: 'status' }, { timeout: 12000, silent: true })
+      .then(function (data) {
+        zvukSetStatus(data.has_token ? 'Токен сохранён' : 'Токен не сохранён', data.has_token ? 'ok' : '');
+        if (data.track && data.track.id) zvukShowNow(data.track);
+      })
+      .catch(function () { zvukSetStatus('Сбер Звук недоступен', 'bad'); });
+  }
+
+  function zvukSaveToken() {
+    var token = (el.zvukToken && el.zvukToken.value || '').trim();
+    if (!token) { zvukSetStatus('Вставьте токен', 'bad'); return; }
+    zvukSetStatus('Проверяю токен…');
+    cgi('zvuk.py', { action: 'token', token: token }, { timeout: 45000 })
+      .then(function () {
+        if (el.zvukToken) el.zvukToken.value = '';
+        zvukSetStatus('Токен сохранён', 'ok');
+        toast('Сбер Звук подключён', 'ok');
+      })
+      .catch(function (err) { zvukSetStatus('Токен не принят: ' + err.message, 'bad'); });
+  }
+
+  function zvukSearch() {
+    var q = (el.zvukQuery && el.zvukQuery.value || '').trim();
+    if (!q) return;
+    zvukSetStatus('Ищу…');
+    cgi('zvuk.py', { action: 'search', q: q, limit: 15 }, { timeout: 30000 })
+      .then(function (data) { zvukRender(data.tracks || []); zvukSetStatus('Найдено: ' + ((data.tracks || []).length)); })
+      .catch(function (err) { zvukSetStatus('Ошибка поиска: ' + err.message, 'bad'); });
+  }
+
+  function zvukWave() {
+    zvukSetStatus('Запускаю «Мой поток»…');
+    cgi('zvuk.py', { action: 'wave', count: 15 }, { timeout: 30000 })
+      .then(function (data) { zvukRender(data.tracks || []); zvukSetStatus('Мой поток готов'); })
+      .catch(function (err) { zvukSetStatus('Ошибка: ' + err.message, 'bad'); });
+  }
+
+  /* ─────────── файлы ─────────── */
+  var filesCurrent = '/data/mypult';
+  var filesEditing = '';
+
+  function filesSize(bytes) {
+    var n = Number(bytes) || 0;
+    if (n < 1024) return n + ' Б';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' КБ';
+    return (n / (1024 * 1024)).toFixed(1) + ' МБ';
+  }
+
+  function filesDate(ts) {
+    try { return new Date(ts * 1000).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); }
+    catch (e) { return ''; }
+  }
+
+  function filesRaw(path, download) {
+    return '/cgi-bin/files.py?action=raw&path=' + encodeURIComponent(path) +
+      (download ? '&download=1' : '');
+  }
+
+  function filesSetNote(text) {
+    if (el.filesNote) el.filesNote.textContent = text || '';
+  }
+
+  function filesLoad(path) {
+    var target = path || filesCurrent || '/data/mypult';
+    filesSetNote('Читаю…');
+    return cgi('files.py', { action: 'list', path: target }, { timeout: 15000, silent: true })
+      .then(function (data) {
+        filesCurrent = data.path || target;
+        if (el.filesPath) el.filesPath.value = filesCurrent;
+        filesSetNote(data.can_write ?
+          'Запись разрешена: /data/mypult и /tmp' :
+          'Только чтение. Запись разрешена в /data/mypult и /tmp.');
+        if (el.filesRoots) {
+          el.filesRoots.textContent = '';
+          (data.roots || []).forEach(function (root) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = root.label || root.path;
+            b.title = root.path;
+            b.addEventListener('click', function () { filesLoad(root.path); });
+            el.filesRoots.appendChild(b);
+          });
+        }
+        if (!el.filesList) return;
+        el.filesList.textContent = '';
+        if (!data.items || !data.items.length) {
+          var empty = document.createElement('div');
+          empty.className = 'files-empty';
+          empty.textContent = 'Пусто';
+          el.filesList.appendChild(empty);
+          return;
+        }
+        data.items.forEach(function (item) {
+          var row = document.createElement('div');
+          row.className = 'files-row';
+          var ico = document.createElement('span');
+          ico.className = 'files-ico';
+          ico.textContent = item.kind === 'dir' ? '▸' : '·';
+          var name = document.createElement('div');
+          name.className = 'files-name';
+          name.textContent = item.name;
+          var meta = document.createElement('span');
+          meta.className = 'files-meta';
+          meta.style.display = 'block';
+          meta.style.color = 'var(--muted)';
+          meta.style.fontSize = '10px';
+          meta.textContent = item.kind === 'dir' ? 'папка' : filesSize(item.size) + ' · ' + filesDate(item.mtime);
+          name.appendChild(meta);
+          if (item.link) {
+            var link = document.createElement('small');
+            link.textContent = 'симлинк';
+            name.appendChild(link);
+          }
+          name.addEventListener('click', function () {
+            if (item.kind === 'dir') filesLoad(item.path);
+            else filesOpenFile(item);
+          });
+          row.appendChild(ico);
+          row.appendChild(name);
+          if (item.locked) {
+            var lock = document.createElement('span');
+            lock.className = 'files-lock';
+            lock.textContent = '🔒';
+            lock.title = 'Секретный файл';
+            row.appendChild(lock);
+          }
+          var actions = document.createElement('div');
+          actions.className = 'files-act';
+          if (item.kind === 'file' && !item.locked) {
+            var dl = document.createElement('button');
+            dl.type = 'button';
+            dl.textContent = '↓';
+            dl.title = 'Скачать';
+            dl.addEventListener('click', function (event) {
+              event.stopPropagation();
+              window.open(filesRaw(item.path, true), '_blank');
+            });
+            actions.appendChild(dl);
+            var edit = document.createElement('button');
+            edit.type = 'button';
+            edit.textContent = '✎';
+            edit.title = 'Открыть / изменить';
+            edit.addEventListener('click', function (event) {
+              event.stopPropagation();
+              filesOpenFile(item);
+            });
+            actions.appendChild(edit);
+          }
+          if (item.writable && !item.locked) {
+            var del = document.createElement('button');
+            del.type = 'button';
+            del.textContent = '×';
+            del.title = 'Удалить';
+            del.addEventListener('click', function (event) {
+              event.stopPropagation();
+              if (!window.confirm('Удалить «' + item.name + '»?')) return;
+              cgi('files.py', { action: 'delete', path: item.path }, { timeout: 15000 })
+                .then(function () { toast('Удалено', 'ok'); filesLoad(filesCurrent); })
+                .catch(function (err) { toast('Файлы: ' + err.message, 'bad'); });
+            });
+            actions.appendChild(del);
+          }
+          row.appendChild(actions);
+          el.filesList.appendChild(row);
+        });
+      })
+      .catch(function (err) {
+        filesSetNote('Ошибка: ' + err.message);
+        if (el.filesList) {
+          el.filesList.textContent = '';
+          var box = document.createElement('div');
+          box.className = 'files-empty';
+          box.textContent = err.message;
+          el.filesList.appendChild(box);
+        }
+        throw err;
+      });
+  }
+
+  function filesOpenFile(item) {
+    cgi('files.py', { action: 'read', path: item.path }, { timeout: 15000, silent: true })
+      .then(function (data) {
+        if (data.binary) {
+          window.open(filesRaw(item.path, false), '_blank');
+          return;
+        }
+        filesEditing = item.path;
+        if (el.filesEditorName) el.filesEditorName.textContent = item.name;
+        if (el.filesText) el.filesText.value = data.text || '';
+        if (el.filesEditor) el.filesEditor.hidden = false;
+        if (el.filesText) el.filesText.focus();
+      })
+      .catch(function (err) { toast('Файлы: ' + err.message, 'bad'); });
+  }
+
+  function filesOpen() {
+    if (!el.filesDlg) return;
+    if (typeof el.filesDlg.showModal === 'function') el.filesDlg.showModal();
+    else el.filesDlg.setAttribute('open', '');
+    if (el.filesEditor) el.filesEditor.hidden = true;
+    filesLoad(filesCurrent);
+  }
+
+  function filesCloseEditor() {
+    filesEditing = '';
+    if (el.filesEditor) el.filesEditor.hidden = true;
+  }
+
+  function filesSave() {
+    if (!filesEditing) return;
+    cgi('files.py', { action: 'write', path: filesEditing, text: el.filesText.value },
+      { timeout: 15000 })
+      .then(function () { toast('Файл сохранён', 'ok'); filesCloseEditor(); filesLoad(filesCurrent); })
+      .catch(function (err) { toast('Файлы: ' + err.message, 'bad'); });
+  }
+
+  function filesUploadFile(file) {
+    if (!file) return;
+    var url = '/cgi-bin/files.py?action=upload&path=' + encodeURIComponent(filesCurrent) +
+      '&name=' + encodeURIComponent(file.name);
+    filesSetNote('Загружаю ' + file.name + '…');
+    fetch(url, {
+      method: 'POST',
+      headers: { 'X-Requested-With': 'MidiPult' },
+      body: file
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+        return data;
+      });
+    }).then(function () {
+      toast('Файл загружен', 'ok');
+      filesLoad(filesCurrent);
+    }).catch(function (err) {
+      filesSetNote('Ошибка: ' + err.message);
+      toast('Файлы: ' + err.message, 'bad');
+    });
+  }
+
+  function filesMkdir() {
+    var name = window.prompt('Имя новой папки');
+    if (!name) return;
+    cgi('files.py', { action: 'mkdir', path: filesCurrent, name: name }, { timeout: 15000 })
+      .then(function () { filesLoad(filesCurrent); })
+      .catch(function (err) { toast('Файлы: ' + err.message, 'bad'); });
+  }
+
+  function filesRename() {
+    if (!filesEditing) return;
+    var name = window.prompt('Новое имя', filesEditing.split('/').pop());
+    if (!name) return;
+    cgi('files.py', { action: 'rename', path: filesEditing, name: name }, { timeout: 15000 })
+      .then(function () { filesCloseEditor(); filesLoad(filesCurrent); })
+      .catch(function (err) { toast('Файлы: ' + err.message, 'bad'); });
+  }
+
   /* ─────────── логи ─────────── */
   function loadLogs() {
     return cgi('logs.py', { name: el.logName.value, lines: 200 }, { timeout: 10000, silent: true })
@@ -10974,9 +11423,10 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     }
 
     function cardPlacement(card, x, y) {
-      var box = layoutRect(card);
-      if (y < box.top + box.height * 0.3) return false;
-      if (y > box.top + box.height * 0.7) return true;
+      var box = card.getBoundingClientRect();
+      var middle = box.top + box.height / 2;
+      if (y < middle) return false;
+      if (y > middle) return true;
       return x > box.left + box.width / 2;
     }
 
@@ -10990,7 +11440,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       var bestDistance = Infinity;
       groupCards(drag).forEach(function (card) {
         if (card === drag) return;
-        var box = layoutRect(card);
+        var box = card.getBoundingClientRect();
         var dx = x < box.left ? box.left - x : (x > box.right ? x - box.right : 0);
         var dy = y < box.top ? box.top - y : (y > box.bottom ? y - box.bottom : 0);
         var distance = dx * dx + dy * dy;
@@ -11007,16 +11457,26 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     function reorderAnimated(drag, target, after) {
       if (!target || target === drag) return;
       var siblings = groupCards(drag);
-      var before = siblings.map(function (card) { return card.dataset.cardId; }).join('|');
+      var order = siblings.filter(function (card) { return card !== drag; });
+      var targetIndex = order.indexOf(target);
+      if (targetIndex < 0) return;
+      var desired = targetIndex + (after ? 1 : 0);
+      var current = siblings.indexOf(drag);
+      if (desired === current) return;
+
       var first = {};
       siblings.forEach(function (card) {
         first[card.dataset.cardId] = card.getBoundingClientRect();
       });
-      main.insertBefore(drag, after ? target.nextSibling : target);
-      var next = groupCards(drag);
-      var afterIds = next.map(function (card) { return card.dataset.cardId; }).join('|');
-      if (before === afterIds) return;
-      next.forEach(function (card) {
+      var reference = order[desired] || null;
+      if (reference) {
+        main.insertBefore(drag, reference);
+      } else {
+        var last = order[order.length - 1];
+        main.insertBefore(drag, last ? last.nextSibling : null);
+      }
+
+      groupCards(drag).forEach(function (card) {
         if (card === drag) return;
         var previous = cardAnimations.get(card);
         if (previous) {
@@ -11053,6 +11513,8 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       var offsetY = 0;
       var frame = 0;
       var latest = null;
+      var lastTarget = null;
+      var lastAfter = false;
 
       function stopFrame() {
         if (frame) {
@@ -11082,8 +11544,19 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
           (latest.y - offsetY) + 'px,0) rotate(.45deg) scale(1.012)';
         if (latest.y < 90) window.scrollBy(0, -16);
         if (latest.y > window.innerHeight - 90) window.scrollBy(0, 16);
-        var target = pointerTarget(latest.x, latest.y, card);
-        if (target) reorderAnimated(card, target.card, target.after);
+        var underNode = document.elementFromPoint(latest.x, latest.y);
+        var under = underNode && underNode.closest ? underNode.closest('.card') : null;
+        var target;
+        if (under === card && lastTarget) {
+          target = { card: lastTarget, after: lastAfter };
+        } else {
+          target = pointerTarget(latest.x, latest.y, card);
+        }
+        if (target && (target.card !== lastTarget || target.after !== lastAfter)) {
+          reorderAnimated(card, target.card, target.after);
+          lastTarget = target.card;
+          lastAfter = target.after;
+        }
       }
 
       function onMove(move) {
@@ -12049,6 +12522,45 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     /* логи */
     el.btnLogs.addEventListener('click', loadLogs);
     el.logName.addEventListener('change', loadLogs);
+
+    if (el.btnFilesOpen) el.btnFilesOpen.addEventListener('click', filesOpen);
+    if (el.btnZvukSave) el.btnZvukSave.addEventListener('click', zvukSaveToken);
+    if (el.btnZvukClear) el.btnZvukClear.addEventListener('click', function () {
+      cgi('zvuk.py', { action: 'clear' }, { timeout: 12000 }).then(function () {
+        zvukSetStatus('Токен удалён'); zvukShowNow(null);
+      }).catch(function (err) { zvukSetStatus('Ошибка: ' + err.message, 'bad'); });
+    });
+    if (el.btnZvukSearch) el.btnZvukSearch.addEventListener('click', zvukSearch);
+    if (el.btnZvukWave) el.btnZvukWave.addEventListener('click', zvukWave);
+    if (el.zvukQuery) el.zvukQuery.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') { event.preventDefault(); zvukSearch(); }
+    });
+    zvukLoadStatus();
+    if (el.btnFilesClose) el.btnFilesClose.addEventListener('click', function () { el.filesDlg.close(); });
+    if (el.btnFilesRefresh) el.btnFilesRefresh.addEventListener('click', function () { filesLoad(filesCurrent); });
+    if (el.btnFilesUp) el.btnFilesUp.addEventListener('click', function () {
+      cgi('files.py', { action: 'list', path: filesCurrent }, { timeout: 15000, silent: true })
+        .then(function (data) { if (data.parent) filesLoad(data.parent); })
+        .catch(function (err) { toast('Файлы: ' + err.message, 'bad'); });
+    });
+    if (el.btnFilesGo) el.btnFilesGo.addEventListener('click', function () { filesLoad(el.filesPath.value.trim()); });
+    if (el.filesPath) el.filesPath.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') { event.preventDefault(); filesLoad(el.filesPath.value.trim()); }
+    });
+    if (el.btnFilesMkdir) el.btnFilesMkdir.addEventListener('click', filesMkdir);
+    if (el.filesUpload) el.filesUpload.addEventListener('change', function () {
+      filesUploadFile(el.filesUpload.files && el.filesUpload.files[0]);
+      el.filesUpload.value = '';
+    });
+    if (el.btnFilesSave) el.btnFilesSave.addEventListener('click', filesSave);
+    if (el.btnFilesRename) el.btnFilesRename.addEventListener('click', filesRename);
+    if (el.btnFilesEditorClose) el.btnFilesEditorClose.addEventListener('click', filesCloseEditor);
+    if (el.filesDlg) el.filesDlg.addEventListener('click', function (event) {
+      if (event.target !== el.filesDlg) return;
+      var rect = el.filesDlg.getBoundingClientRect();
+      if (event.clientX < rect.left || event.clientX > rect.right ||
+          event.clientY < rect.top || event.clientY > rect.bottom) el.filesDlg.close();
+    });
 
     /* обслуживание */
     el.btnNetcheck.addEventListener('click', runNetcheck);
@@ -13495,6 +14007,12 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       'btnDaysWork', 'btnDaysAll', 'btnDaysWeekend',
       'btnScAddAction', 'btnScSave', 'btnScClear',
       'logName', 'btnLogs', 'logsBox',
+      'filesDlg', 'btnFilesOpen', 'btnFilesClose', 'btnFilesUp', 'btnFilesRefresh',
+      'filesPath', 'btnFilesGo', 'btnFilesMkdir', 'filesUpload', 'filesRoots',
+      'filesNote', 'filesList', 'filesEditor', 'filesEditorName', 'filesText',
+      'btnFilesSave', 'btnFilesEditorClose', 'btnFilesRename',
+      'zvukToken', 'btnZvukSave', 'btnZvukClear', 'zvukStatus', 'zvukQuery',
+      'btnZvukSearch', 'btnZvukWave', 'zvukResults', 'zvukNow',
       'btnNetcheck', 'btnCleanup', 'btnReboot', 'btnPoweroff', 'maintBox', 'autoBright', 'autoBrightStatus',
       'displayAuto', 'displayAutoStatus',
       'btnSpeed', 'btnBackup', 'backupFile',
@@ -13580,5 +14098,34 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
 })();
 </script>
 <noscript><p style="text-align:center;color:#f88">Для работы пульта нужен JavaScript.</p></noscript>
+<dialog id="filesDlg" class="files-dlg" aria-labelledby="filesTitle">
+  <div class="files-shell">
+    <div class="files-head">
+      <div><div class="files-kicker">Станция</div><h3 id="filesTitle">Файлы</h3></div>
+      <button class="btn sm ghost" id="btnFilesClose" type="button">Закрыть</button>
+    </div>
+    <div class="files-toolbar">
+      <button class="btn sm ghost" id="btnFilesUp" type="button" title="Наверх">↑</button>
+      <button class="btn sm ghost" id="btnFilesRefresh" type="button" title="Обновить">↻</button>
+      <input id="filesPath" class="files-path" type="text" spellcheck="false" aria-label="Путь">
+      <button class="btn sm" id="btnFilesGo" type="button">Перейти</button>
+      <button class="btn sm ghost" id="btnFilesMkdir" type="button">Папка</button>
+      <label class="btn sm primary" for="filesUpload">Загрузить</label>
+      <input id="filesUpload" type="file" hidden>
+    </div>
+    <div class="files-roots" id="filesRoots"></div>
+    <div class="files-note" id="filesNote"></div>
+    <div class="files-list" id="filesList"><div class="files-empty">Загрузка…</div></div>
+    <div class="files-editor" id="filesEditor" hidden>
+      <div class="files-editor-head">
+        <b id="filesEditorName"></b>
+        <button class="btn sm primary" id="btnFilesSave" type="button">Сохранить</button>
+        <button class="btn sm ghost" id="btnFilesRename" type="button">Переименовать</button>
+        <button class="btn sm ghost" id="btnFilesEditorClose" type="button">Закрыть</button>
+      </div>
+      <textarea id="filesText" spellcheck="false"></textarea>
+    </div>
+  </div>
+</dialog>
 </body>
 </html>

@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import os
 import sys
+import shutil
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CGI_DIR = os.path.normpath(os.path.join(HERE, "..", "cgi-bin"))
@@ -25,6 +27,7 @@ import common  # noqa: E402
 import auth  # noqa: E402
 import discovery  # noqa: E402
 import display  # noqa: E402
+import files  # noqa: E402
 import glagol  # noqa: E402
 import llm  # noqa: E402
 import media  # noqa: E402
@@ -1883,9 +1886,35 @@ def test_voice_chat_actions():
         voice_daemon.llm_info = old_info
 
 
+def test_files_safety():
+    root = tempfile.mkdtemp(prefix="mypult-files-", dir="/tmp")
+    try:
+        path = os.path.join(root, "note.txt")
+        files._write(path, "привет")
+        check("файлы: запись в /tmp", open(path, encoding="utf-8").read() == "привет")
+        check("файлы: чтение в /tmp", files._read(path).get("text") == "привет")
+        check("файлы: список видит файл", any(x["name"] == "note.txt" for x in files._list(root)["items"]))
+        check("файлы: запись в /etc запрещена", not files._can_write("/etc/passwd"))
+        try:
+            files._resolve("/tmp/../etc/passwd", write=True)
+            blocked = False
+        except files.FileError:
+            blocked = True
+        check("файлы: обход пути запрещён", blocked)
+        try:
+            files._new_name("../x")
+            bad_name = False
+        except files.FileError:
+            bad_name = True
+        check("файлы: имя с .. запрещено", bad_name)
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
 def main():
     for test in (
         test_generic_helpers,
+        test_files_safety,
         test_volume_discovery,
         test_volume_parse,
         test_volume_set,
