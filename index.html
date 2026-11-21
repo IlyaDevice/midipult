@@ -10169,10 +10169,11 @@ body.light dialog.queue-dlg.ym-look{
   var PACK_GAP = 12;
   var packTimer = 0;
   var packing = false;
+  var cardResizing = false;
   var packObserver = null;
 
   function packCards() {
-    if (packing) return;
+    if (packing || cardResizing) return;
     var grid = document.querySelector('main.grid');
     if (!grid) return;
     packing = true;
@@ -10196,6 +10197,8 @@ body.light dialog.queue-dlg.ym-look{
       cards.forEach(function (card, index) {
         if (!heights[index]) return;
         var span = Math.max(1, Math.ceil((heights[index] + PACK_GAP) / (PACK_UNIT + PACK_GAP)));
+        var wanted = Number(card.dataset.rows || 0);
+        if (wanted > span) span = wanted;
         card.style.gridRowEnd = 'span ' + span;
         card.style.height = '';
         card.style.alignSelf = '';
@@ -13772,11 +13775,25 @@ body.light dialog.queue-dlg.ym-look{
       var resize = document.createElement('button');
       resize.type = 'button';
       resize.className = 'card-resize';
-      resize.title = 'Потяните, чтобы изменить ширину';
-      resize.setAttribute('aria-label', 'Изменить ширину карточки');
+      resize.title = 'Потяните за угол: ширина и высота (двойной клик — сброс)';
+      resize.setAttribute('aria-label', 'Изменить ширину и высоту карточки');
       card.appendChild(resize);
       resize.addEventListener('pointerdown', function (event) {
-        beginWidthDrag(card, event);
+        beginResize(card, event);
+      });
+      resize.addEventListener('dblclick', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        var spans = loadMap(SPANS_KEY);
+        delete spans[card.dataset.cardId];
+        saveMap(SPANS_KEY, spans);
+        var rowsMap = loadMap(ROWS_KEY);
+        delete rowsMap[card.dataset.cardId];
+        saveMap(ROWS_KEY, rowsMap);
+        delete card.dataset.rows;
+        card.style.gridColumn = '';
+        card.style.gridRowEnd = '';
+        schedulePack();
       });
     });
 
@@ -13814,15 +13831,20 @@ body.light dialog.queue-dlg.ym-look{
     }
     updateMoveButtons();
 
-    /* ---------- ширина карточек: тянем за угол ---------- */
+    /* ---------- размер карточек: тянем за угол ---------- */
     var SPANS_KEY = 'mypult-card-spans';
+    var ROWS_KEY = 'mypult-card-rows';
 
-    function loadSpans() {
+    function loadMap(key) {
       try {
-        return JSON.parse(localStorage.getItem(SPANS_KEY) || '{}') || {};
+        return JSON.parse(localStorage.getItem(key) || '{}') || {};
       } catch (e) {
         return {};
       }
+    }
+
+    function saveMap(key, map) {
+      try { localStorage.setItem(key, JSON.stringify(map)); } catch (e) {}
     }
 
     function minSpan(card) {
@@ -13832,17 +13854,33 @@ body.light dialog.queue-dlg.ym-look{
       return 3;
     }
 
-    function applySpans() {
+    function contentRows(card) {
+      var style = card.style;
+      var prevAlign = style.alignSelf;
+      var prevHeight = style.height;
+      style.alignSelf = 'start';
+      style.height = 'auto';
+      var height = Math.ceil(card.getBoundingClientRect().height);
+      style.alignSelf = prevAlign;
+      style.height = prevHeight;
+      return Math.max(1, Math.ceil((height + PACK_GAP) / (PACK_UNIT + PACK_GAP)));
+    }
+
+    function applySizes() {
       var desktop = window.innerWidth > 760;
-      var spans = loadSpans();
+      var spans = loadMap(SPANS_KEY);
+      var rowsMap = loadMap(ROWS_KEY);
       cards.forEach(function (card) {
-        var span = desktop ? parseInt(spans[card.dataset.cardId], 10) : 0;
         var min = minSpan(card);
+        var span = desktop ? parseInt(spans[card.dataset.cardId], 10) : 0;
         card.style.gridColumn = (span >= min && span <= 12) ? 'span ' + span : '';
+        var rows = desktop ? parseInt(rowsMap[card.dataset.cardId], 10) : 0;
+        if (rows >= 1 && rows <= 20) card.dataset.rows = String(rows);
+        else delete card.dataset.rows;
       });
     }
 
-    function beginWidthDrag(card, event) {
+    function beginResize(card, event) {
       if (window.innerWidth <= 760 || event.button !== 0) return;
       event.preventDefault();
       event.stopPropagation();
@@ -13855,8 +13893,12 @@ body.light dialog.queue-dlg.ym-look{
       var min = minSpan(card);
       var span = Math.max(min, Math.min(columns,
         Math.round((rect.width + gap) / (columnWidth + gap))));
+      var startRows = Math.max(1, Math.round((rect.height + gap) / (PACK_UNIT + PACK_GAP)));
       var startX = event.clientX;
+      var startY = event.clientY;
       var startSpan = span;
+      var rows = startRows;
+      cardResizing = true;
       card.classList.add('resizing');
       document.body.classList.add('card-resizing');
 
@@ -13864,27 +13906,37 @@ body.light dialog.queue-dlg.ym-look{
         span = Math.max(min, Math.min(columns,
           Math.round(startSpan + (moveEvent.clientX - startX) / (columnWidth + gap))));
         card.style.gridColumn = 'span ' + span;
-        schedulePack();
+        var minRows = contentRows(card);
+        rows = Math.max(minRows, Math.min(20, Math.round(startRows +
+          (moveEvent.clientY - startY) / (PACK_UNIT + PACK_GAP))));
+        card.dataset.rows = String(rows);
+        card.style.gridRowEnd = 'span ' + rows;
       }
 
       function onUp() {
         document.removeEventListener('pointermove', onMove);
         document.removeEventListener('pointerup', onUp);
+        document.removeEventListener('pointercancel', onUp);
         card.classList.remove('resizing');
         document.body.classList.remove('card-resizing');
-        var spans = loadSpans();
+        cardResizing = false;
+        var spans = loadMap(SPANS_KEY);
         spans[card.dataset.cardId] = span;
-        try { localStorage.setItem(SPANS_KEY, JSON.stringify(spans)); } catch (e) {}
+        saveMap(SPANS_KEY, spans);
+        var rowsMap = loadMap(ROWS_KEY);
+        rowsMap[card.dataset.cardId] = rows;
+        saveMap(ROWS_KEY, rowsMap);
         schedulePack();
       }
 
       document.addEventListener('pointermove', onMove, { passive: false });
       document.addEventListener('pointerup', onUp);
+      document.addEventListener('pointercancel', onUp);
     }
 
-    applySpans();
+    applySizes();
     window.addEventListener('resize', function () {
-      applySpans();
+      applySizes();
       schedulePack();
     });
     observeCards();
