@@ -8198,8 +8198,10 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     next: function () { mediaAction('next'); },
     prev: function () { mediaAction('prev'); },
     setVolume: function (level) {
+      volumeRemoteAt = Date.now();
       setVolumeUI(parseInt(level, 10) || 0, false);
-      pushVolume();
+      // Станцию уже обновляет нативный StationApi.volume(). Повторный
+      // pushVolume() создавал гонку двух запросов и дёргал ползунок.
       syncSystemMedia(true);
     },
     seek: function (ms) {
@@ -8369,6 +8371,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   var volTimer = null;
   var volPending = false;
   var volDragTimer = null;
+  var volumeRemoteAt = 0;
 
   function endVolumeDrag() {
     if (volDragTimer) clearTimeout(volDragTimer);
@@ -8510,6 +8513,9 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   /* ─────────── нейросеть ─────────── */
   function syncVolumeFromDevice() {
     if (State.volumeDragging || volPending) return Promise.resolve();
+    // Только что громкость меняли аппаратными кнопками Android — не
+    // перебиваем её устаревшим ответом опроса.
+    if (Date.now() - volumeRemoteAt < 1500) return Promise.resolve();
     return cgi('volume.py', {}, { timeout: 6000, silent: true }).then(function (data) {
       if (data && typeof data.level === 'number' && data.level !== State.volume) {
         setVolumeUI(data.level);
