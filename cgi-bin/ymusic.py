@@ -338,10 +338,32 @@ def playlists() -> list:
     return out[:30]
 
 
+def all_playlists() -> list:
+    """Мои плейлисты + умные/созданные, без дублей.
+
+    Свёрнутый блок в карточке «Плеер» раньше показывал только landing-подборки
+    (обычно 3 штуки), поэтому любимые плейлисты из полного окна там
+    отсутствовали.
+    """
+    out = []
+    seen = set()
+    for source in (my_playlists(), playlists()):
+        for item in source:
+            key = item.get("id")
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            out.append(item)
+    return out[:60]
+
+
 def main() -> None:
     data = common.params()
     if data.get("wave"):
         common.ok(**wave_data())
+        return
+    if data.get("all_playlists"):
+        common.ok(playlists=all_playlists())
         return
     if data.get("trends"):
         common.ok(tracks=trend_tracks())

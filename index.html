@@ -4778,7 +4778,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   }
 
   function loadYmPlaylists() {
-    cgi('ymusic.py', {}, { timeout: 20000, silent: true })
+    cgi('ymusic.py', { all_playlists: 1 }, { timeout: 25000, silent: true })
       .then(function (data) { renderYmPlaylists(data && data.playlists); })
       .catch(function () {
         renderYmPlaylists([]);
