@@ -1952,7 +1952,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .ym-now-lyrics::-webkit-scrollbar{display:none}
 .ym-now-line{font-size:20px;line-height:1.35;font-weight:700;color:#8a8a93;padding:6px 0;
   transform-origin:left center;transition:color .3s ease,opacity .3s ease,transform .3s ease;
-  opacity:.32}
+  opacity:.32;cursor:pointer}
+.ym-now-line:hover{color:#d7d7df;opacity:.7}
+.ym-now-line.plain{cursor:default}
 .ym-now-line.active{color:#fff;opacity:1;transform:scale(1.04);
   text-shadow:0 0 24px rgba(124,92,255,.45)}
 .ym-now-line.plain{color:#b8b8c1;opacity:.82;font-size:16px;line-height:1.55;font-weight:500}
@@ -6232,6 +6234,18 @@ body.light dialog.queue-dlg.ym-look{
     });
     var ymNowQueue = document.getElementById('ymNowQueue');
     if (ymNowQueue) ymNowQueue.addEventListener('click', function () { openQueue(true); });
+    var nowLyricsBox = document.getElementById('ymNowLyricsBox');
+    if (nowLyricsBox) {
+      // Клик по строке — перемотка на её время (как в окне текста).
+      nowLyricsBox.addEventListener('click', function (event) {
+        var line = event.target.closest('.ym-now-line');
+        if (!line || line.classList.contains('plain')) return;
+        var moment = parseFloat(line.dataset.t);
+        if (isNaN(moment)) return;
+        ymSeekTo(moment);
+        highlightNowLyrics(true);
+      });
+    }
     var nowSeek = document.getElementById('ymNowSeek');
     if (nowSeek) {
       nowSeek.addEventListener('input', function () {
