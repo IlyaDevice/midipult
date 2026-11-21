@@ -1622,8 +1622,10 @@ body.light .reboot-bar{background:rgba(76,62,48,.1)}
 body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 /* ───────── главная: 3D-станция ───────── */
 .c-home-model{grid-column:span 7}
+.c-home-model{display:flex;flex-direction:column}
+.c-home-model>.station-stage{flex:1 1 auto;height:auto;min-height:clamp(280px,48vh,640px)}
 .c-home-side{grid-column:span 5}
-.station-stage{position:relative;height:500px;margin-top:10px;border-radius:22px;overflow:hidden;
+.station-stage{position:relative;height:clamp(320px,52vh,680px);margin-top:10px;border-radius:22px;overflow:hidden;
   background:radial-gradient(60% 80% at 50% 20%,rgba(124,92,255,.18),transparent 70%),
              radial-gradient(70% 60% at 50% 100%,rgba(34,211,238,.10),transparent 70%),
              #070a12;
