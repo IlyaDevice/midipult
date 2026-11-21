@@ -862,6 +862,25 @@ body.light .np-glow{opacity:.30;filter:blur(60px) saturate(1.2) brightness(.95)}
 .ym-auth>summary::after{content:"▾";color:var(--muted);font-size:11px;transition:transform .15s}
 .ym-auth[open]>summary::after{transform:rotate(180deg)}
 .ym-auth-body{padding-top:8px}
+.ym-login-dlg{width:min(560px,94vw);border:0;border-radius:22px;padding:0;
+  background:#0b0e16;color:var(--text);box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.ym-login-dlg[open]{display:block}
+.ym-login-dlg::backdrop{background:rgba(4,6,12,.72);backdrop-filter:blur(8px)}
+.ym-login-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:16px 18px 8px}
+.ym-login-head b{font-size:16px}
+.ym-login-body{display:grid;grid-template-columns:190px minmax(0,1fr);gap:18px;
+  padding:8px 18px 18px;align-items:start}
+.ym-qr{width:180px;height:180px;padding:8px;border-radius:12px;background:#fff;
+  display:grid;place-items:center;color:#111;overflow:hidden}
+.ym-qr svg{width:100%;height:100%;display:block}
+.ym-login-side{display:flex;flex-direction:column;gap:9px;min-width:0}
+/* .seg-note по умолчанию flex:1 1 160px — в колонке это растягивает диалог. */
+.ym-login-side .seg-note{flex:0 0 auto}
+@media(max-width:560px){
+  .ym-login-body{grid-template-columns:1fr;justify-items:center;text-align:center}
+  .ym-login-side{align-items:stretch;width:100%}
+}
 .ym-playlists{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;
   max-height:260px;overflow:auto;padding:2px}
 .ym-item{display:flex;align-items:center;gap:8px;min-width:0;padding:7px;border-radius:12px;
@@ -3157,6 +3176,25 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       </div>
     </div>
   </dialog>
+
+  <dialog id="ymLoginDlg" class="ym-login-dlg" aria-labelledby="ymLoginTitle">
+    <div class="ym-login-head">
+      <b id="ymLoginTitle">Вход в Яндекс Музыку</b>
+      <button type="button" class="ym-close" id="btnYmLoginClose" aria-label="Закрыть">✕</button>
+    </div>
+    <div class="ym-login-body">
+      <div class="ym-qr" id="ymQrBox"><div class="seg-note">Готовлю QR…</div></div>
+      <div class="ym-login-side">
+        <p class="seg-note" style="margin:0">Отсканируйте QR камерой телефона, где уже выполнен вход в Яндекс, и подтвердите. Панель подключится сама — ссылку вставлять не нужно.</p>
+        <a class="btn sm primary" id="ymQrPhoneLink" href="#" target="_blank" rel="noopener" hidden>Открыть ссылку входа</a>
+        <div class="seg-note" id="ymQrStatus">Запрашиваю ссылку…</div>
+        <div class="row" style="gap:6px;flex-wrap:wrap">
+          <button type="button" class="btn sm ghost" id="btnYmQrRetry">Новый QR</button>
+          <button type="button" class="btn sm ghost" id="btnYmQrFallback">Войти по ссылке</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
 </main>
 
 <footer>
@@ -3483,6 +3521,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
 
 <script src="assets/three.min.js"></script>
 <script src="assets/GLTFLoader.js"></script>
+<script src="assets/qrcode.js"></script>
 <script>
 (function () {
   'use strict';
@@ -5784,24 +5823,100 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     setInterval(function () { if (dialog.open) ymSyncBar(); }, 1000);
   }
 
+  var ymQrTimer = null;
+
+  function stopYmQr() {
+    if (ymQrTimer) clearInterval(ymQrTimer);
+    ymQrTimer = null;
+  }
+
+  function setYmQrStatus(text, kind) {
+    var node = document.getElementById('ymQrStatus');
+    if (!node) return;
+    node.textContent = text || '';
+    node.className = 'seg-note' + (kind ? ' ' + kind : '');
+  }
+
+  function startYmQr() {
+    stopYmQr();
+    var box = document.getElementById('ymQrBox');
+    var phone = document.getElementById('ymQrPhoneLink');
+    if (box) box.innerHTML = '<div class="seg-note">Готовлю QR…</div>';
+    if (phone) { phone.hidden = true; phone.href = '#'; }
+    setYmQrStatus('Запрашиваю ссылку входа…');
+    cgi('yandex_auth.py', { qr_start: 1 }, { timeout: 30000 })
+      .then(function (data) {
+        if (!data || !data.link) throw new Error('Яндекс не выдал ссылку');
+        if (phone) { phone.href = data.link; phone.hidden = false; }
+        if (box && typeof qrcode === 'function') {
+          try {
+            var qr = qrcode(0, 'M');
+            qr.addData(data.link);
+            qr.make();
+            box.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+          } catch (e) {
+            box.innerHTML = '<div class="seg-note">QR не построился — используйте ссылку</div>';
+          }
+        }
+        setYmQrStatus('Ждём подтверждения на телефоне…');
+        ymQrTimer = setInterval(pollYmQr, 2000);
+      })
+      .catch(function (err) {
+        setYmQrStatus('QR недоступен: ' + err.message + '. Войдите по ссылке.', 'bad');
+      });
+  }
+
+  function pollYmQr() {
+    cgi('yandex_auth.py', { qr_status: 1 }, { timeout: 20000, silent: true })
+      .then(function (data) {
+        if (!data || data.state === 'waiting') return;
+        if (data.state === 'done') {
+          stopYmQr();
+          setYmQrStatus('Готово: ' + (data.login || 'Яндекс') + ' подключён', 'ok');
+          var dlg = document.getElementById('ymLoginDlg');
+          if (dlg && dlg.open) dlg.close();
+          toast('Яндекс Музыка подключена', 'ok');
+          loadYmAuth();
+          return;
+        }
+        if (data.state === 'expired' || data.state === 'none') {
+          stopYmQr();
+          setYmQrStatus('QR устарел — нажмите «Новый QR».', 'bad');
+        }
+      })
+      .catch(function (err) {
+        stopYmQr();
+        setYmQrStatus('Не удалось проверить вход: ' + err.message, 'bad');
+      });
+  }
+
+  function openYmLogin() {
+    var dlg = document.getElementById('ymLoginDlg');
+    if (!dlg) return;
+    if (!dlg.open) dlg.showModal();
+    startYmQr();
+  }
+
   function initYandexMusic() {
     var login = document.getElementById('btnYmLogin');
     var save = document.getElementById('btnYmSave');
     var logout = document.getElementById('btnYmLogout');
     var input = document.getElementById('ymTokenUrl');
     if (!login || !save || !logout) return;
-    login.addEventListener('click', function () {
-      if (State.ymOauthUrl) {
-        var win = window.open(State.ymOauthUrl, '_blank', 'noopener');
-        if (!win) toast('Разрешите всплывающие окна для входа', 'warn');
-        return;
-      }
-      loadYmAuth().then(function () {
-        if (!State.ymOauthUrl) { toast('Ссылка входа недоступна', 'bad'); return; }
-        var popup = window.open(State.ymOauthUrl, '_blank', 'noopener');
-        if (!popup) toast('Разрешите всплывающие окна для входа', 'warn');
-      });
+    login.addEventListener('click', openYmLogin);
+    var dlg = document.getElementById('ymLoginDlg');
+    var close = document.getElementById('btnYmLoginClose');
+    var retry = document.getElementById('btnYmQrRetry');
+    var fallback = document.getElementById('btnYmQrFallback');
+    if (close) close.addEventListener('click', function () { if (dlg) dlg.close(); });
+    if (retry) retry.addEventListener('click', startYmQr);
+    if (fallback) fallback.addEventListener('click', function () {
+      if (dlg) dlg.close();
+      var auth = document.getElementById('ymAuth');
+      if (auth) auth.open = true;
+      if (input) input.focus();
     });
+    if (dlg) dlg.addEventListener('close', stopYmQr);
     save.addEventListener('click', function () {
       var value = (input && input.value || '').trim();
       if (!value) { toast('Вставьте адрес после входа', 'warn'); return; }

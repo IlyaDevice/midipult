@@ -19,7 +19,7 @@
 На главной — интерактивная **3D-модель станции**: живой экран, LED-кольцо,
 подсветка в углублении, выбор цвета корпуса и быстрый обзор состояния.
 
-Текущая версия — **0.5.68**. Работает на самой колонке: `lighttpd` на порту **8055** + CGI на Python.
+Текущая версия — **0.5.69**. Работает на самой колонке: `lighttpd` на порту **8055** + CGI на Python.
 Интерфейс — один `index.html` на чистом HTML/CSS/JS, без React, Node и внешних CDN.
 
 [Репозиторий приложения Android](https://github.com/RoBiN19666/midipult-android)
@@ -472,6 +472,10 @@ API-шлюз для LED, дисплея, датчиков и микрофона.
 **lolfeke** — автор 3D-модели Станции Миди на Sketchfab
 ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)). Спасибо за модель,
 на которой построена главная страница.
+
+**Kazuhiko Arase** — QR Code Generator for JavaScript
+([MIT](https://github.com/kazuhikoarase/qrcode-generator)),
+`assets/qrcode.js` для входа в Яндекс по QR.
 
 **DeepSeek Harness** — среда, в которой проект разрабатывался вместе с
 LLM-агентом: архитектура, CGI, вёрстка, тесты и релизная сборка. Спасибо
