@@ -551,12 +551,12 @@ body.light #ringMusicPop{background:#fff}
   @media(min-width:760px){
     .c-clock{grid-column:span 7}
     .c-led{grid-column:span 5}
-    .c-media{grid-column:span 5}
+    .c-media{grid-column:span 7}
     .c-voice{grid-column:span 7}
     .c-tts{grid-column:span 12}
     .c-llm{grid-column:span 12}
     .c-radio{grid-column:span 5}
-    .c-alarm{grid-column:span 7}
+    .c-alarm{grid-column:span 12}
     .c-vpn{grid-column:span 12}
     .c-sys{grid-column:span 12}
     .c-bt,.c-net{grid-column:span 6}
@@ -2813,69 +2813,7 @@ body.light dialog.queue-dlg.ym-look{
     </div>
   </section>
 
-  <!-- ───────── голос ───────── -->
-  <section class="card c-voice" data-group="sound" aria-labelledby="h-voice">
-    <h2 id="h-voice"><span class="dot"></span>Голос</h2>
-    <div class="voice-grid">
-      <div class="mic-wrap">
-        <button class="mic" id="btnMic" aria-label="Распознать фразу" title="Записать фразу для распознавания">
-          <svg aria-hidden="true"><use href="#i-mic"/></svg>
-        </button>
-        <div class="mic-hint" id="micHint">Запись фразы · скажите «Алиса, …»</div>
-        <div class="mic-timer" id="micTimer"></div>
-      </div>
-      <div class="voice-side">
-        <div class="transcript empty" id="transcript" aria-live="polite">Скажите фразу с обращением «Алиса» — без него распознавание пустое.</div>
-        <div class="row">
-          <button class="btn sm" id="btnRepeat" disabled>Повторить Алисе</button>
-          <button class="btn sm ghost" id="btnCancelListen" hidden>Отменить</button>
-        </div>
-        <div class="field">
-          <div class="field-top"><label for="command">Текстовая команда</label></div>
-          <div class="row" style="flex-wrap:nowrap">
-            <input type="text" id="command" placeholder="Алиса, какая погода?" autocomplete="off">
-            <button class="btn primary sm" id="btnSendCmd">Отправить</button>
-          </div>
-        </div>
-        <div class="voice-panel" id="voicePanel">
-          <div class="voice-panel-head">
-            <div class="voice-panel-title">
-              <b>Голосовой пульт</b>
-              <span class="seg-note" id="voiceDaemonStatus">голосовой пульт выключен</span>
-            </div>
-            <button class="btn sm" id="btnVoiceDaemon"
-                    title="Полностью выключить или включить голосовой пульт">Включить голосовой пульт</button>
-          </div>
-          <div class="voice-settings">
-            <label class="voice-setting">
-              <span>Когда слушать</span>
-              <select id="voiceIdleMode" aria-label="Когда слушать">
-                <option value="always">Слушать постоянно</option>
-                <option value="auto">Только при сценариях и нейросети</option>
-              </select>
-              <small class="seg-note" id="voiceIdleNote">если сценариев и нейросети нет — микрофон не открывается</small>
-            </label>
-            <label class="voice-setting">
-              <span>Режим микрофона</span>
-              <select id="voiceMicMode" aria-label="Режим микрофона">
-                <option value="continuous">Непрерывно</option>
-                <option value="econom">Экономно (короткие сессии)</option>
-              </select>
-              <small class="seg-note" id="voiceMicNote">сессия не закрывается: Алиса может отвечать медленнее</small>
-            </label>
-          </div>
-          <div class="voice-help" id="voiceHelp">
-            Пульт и штатная Алиса делят один микрофон. По умолчанию
-            «только при сценариях и нейросети»: если обрабатывать нечего, микрофон
-            не открывается и Алиса отвечает как обычно. «Слушать постоянно» —
-            осознанный выбор в пользу команд, но Алиса может отвечать медленнее.
-            «Экономно» оставляет ей окна, зато команда иногда не попадает в паузу.
-            Кнопка выше выключает пульт полностью — микрофон он тогда не трогает.
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
+
 
   <!-- ───────── радио ───────── -->
   <section class="card c-radio" data-group="sound" aria-labelledby="h-radio">
@@ -3579,6 +3517,58 @@ body.light dialog.queue-dlg.ym-look{
     <div class="seg-note" id="pinInsecure" hidden style="margin-top:6px;color:#ffb86b">PIN передаётся по HTTP — используйте доверенную сеть или VPN.</div>
   </section>
 
+  <!-- ───────── голосовой пульт (настройки) ───────── -->
+  <section class="card c-sys" data-group="system" data-card-id="voice" aria-labelledby="h-voice-settings">
+    <h2 id="h-voice-settings"><span class="dot"></span>Голосовой пульт</h2>
+    <div class="seg-note" style="margin-top:6px">
+      Здесь только настройки и текстовая команда. Распознавание по кнопке и фразе
+      «Алиса, …» убрано из «Звука», чтобы не мешать штатной Алисе.
+    </div>
+<div class="voice-panel" id="voicePanel">
+          <div class="voice-panel-head">
+            <div class="voice-panel-title">
+              <b>Голосовой пульт</b>
+              <span class="seg-note" id="voiceDaemonStatus">голосовой пульт выключен</span>
+            </div>
+            <button class="btn sm" id="btnVoiceDaemon"
+                    title="Полностью выключить или включить голосовой пульт">Включить голосовой пульт</button>
+          </div>
+          <div class="voice-settings">
+            <label class="voice-setting">
+              <span>Когда слушать</span>
+              <select id="voiceIdleMode" aria-label="Когда слушать">
+                <option value="always">Слушать постоянно</option>
+                <option value="auto">Только при сценариях и нейросети</option>
+              </select>
+              <small class="seg-note" id="voiceIdleNote">если сценариев и нейросети нет — микрофон не открывается</small>
+            </label>
+            <label class="voice-setting">
+              <span>Режим микрофона</span>
+              <select id="voiceMicMode" aria-label="Режим микрофона">
+                <option value="continuous">Непрерывно</option>
+                <option value="econom">Экономно (короткие сессии)</option>
+              </select>
+              <small class="seg-note" id="voiceMicNote">сессия не закрывается: Алиса может отвечать медленнее</small>
+            </label>
+          </div>
+          <div class="voice-help" id="voiceHelp">
+            Пульт и штатная Алиса делят один микрофон. По умолчанию
+            «только при сценариях и нейросети»: если обрабатывать нечего, микрофон
+            не открывается и Алиса отвечает как обычно. «Слушать постоянно» —
+            осознанный выбор в пользу команд, но Алиса может отвечать медленнее.
+            «Экономно» оставляет ей окна, зато команда иногда не попадает в паузу.
+            Кнопка выше выключает пульт полностью — микрофон он тогда не трогает.
+          </div>
+        </div>
+    <div class="field" style="margin-top:12px">
+      <div class="field-top"><label for="command">Текстовая команда</label></div>
+      <div class="row" style="flex-wrap:nowrap">
+        <input type="text" id="command" placeholder="Алиса, какая погода?" autocomplete="off">
+        <button class="btn primary sm" id="btnSendCmd">Отправить</button>
+      </div>
+    </div>
+  </section>
+
   <section class="card c-sys" data-group="system" data-card-id="files" data-legacy-card-id="Файлы" aria-labelledby="h-files">
     <h2 id="h-files"><span class="dot"></span>Файлы</h2>
     <div class="row between" style="margin-top:12px">
@@ -3864,7 +3854,7 @@ body.light dialog.queue-dlg.ym-look{
     </details>
     <details>
       <summary>Как включить голосовые команды?</summary>
-      <p>В карточке «Голос» нажмите «Голосовой пульт: вкл». После перезагрузки
+      <p>Во вкладке «Система» → «Голосовой пульт» нажмите «Включить голосовой пульт». После перезагрузки
       он запускается сам. Фразы начинайте с «Алиса», например «Алиса, включи
       VPN».</p>
     </details>
@@ -8931,11 +8921,13 @@ body.light dialog.queue-dlg.ym-look{
   }
 
   function setTranscript(text, isEmpty) {
+    if (!el.transcript) return;
     el.transcript.textContent = text;
     el.transcript.classList.toggle('empty', !!isEmpty);
   }
 
   function listen() {
+    if (!el.btnMic || !el.transcript) return;
     if (listening) {
       if (listenCtrl) listenCtrl.abort();
       return;
@@ -14487,22 +14479,15 @@ body.light dialog.queue-dlg.ym-look{
       });
     });
 
-    /* голос */
-    el.btnMic.addEventListener('click', listen);
-    el.btnCancelListen.addEventListener('click', function () {
-      if (listenCtrl) listenCtrl.abort();
-    });
-    el.btnRepeat.addEventListener('click', function () {
-      sendCommand(el.transcript.textContent);
-    });
-    el.btnSendCmd.addEventListener('click', function () {
+    /* голос: настройки и текстовая команда */
+    if (el.btnSendCmd) el.btnSendCmd.addEventListener('click', function () {
       var value = el.command.value;
       sendCommand(value).then(function () { el.command.value = ''; });
     });
-    el.command.addEventListener('keydown', function (ev) {
+    if (el.command) el.command.addEventListener('keydown', function (ev) {
       if (ev.key === 'Enter') {
         ev.preventDefault();
-        el.btnSendCmd.click();
+        if (el.btnSendCmd) el.btnSendCmd.click();
       }
     });
 
@@ -16134,8 +16119,7 @@ body.light dialog.queue-dlg.ym-look{
       'btnClockAnimStop',
       'btnAnimAdd', 'btnAnimDup', 'btnAnimDel', 'btnAnimText',
       'volume', 'volumeVal', 'btnVolDown', 'btnVolUp', 'btnMute',
-      'btnMic', 'micHint', 'micTimer', 'transcript', 'btnRepeat', 'btnCancelListen',
-      'command', 'btnSendCmd', 'ttsText', 'ttsCount', 'btnTtsClear', 'btnSay', 'ttsChips',
+        'command', 'btnSendCmd', 'ttsText', 'ttsCount', 'btnTtsClear', 'btnSay', 'ttsChips',
       'toasts', 'debugDlg', 'btnDebug', 'btnTheme', 'btnFaq', 'faqDlg', 'btnCloseFaq', 'btnCloseDebug', 'svcState', 'logBox', 'btnRefreshStatus',
       'btnDiag', 'diagBox',
       'verTag', 'verLine', 'capsBanner',
