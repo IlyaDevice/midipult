@@ -109,6 +109,8 @@ rm -f "$STAGE/assets/station-midi.fbx" "$STAGE/assets/FBXLoader.js" "$STAGE/asse
 for f in "$SRC"/cgi-bin/*.py; do
     cp -f "$f" "$STAGE/cgi-bin/" || die "не скопировался $f"
 done
+[ -f "$SRC/cgi-bin/default_layout_presets.json" ] && \
+    cp -f "$SRC/cgi-bin/default_layout_presets.json" "$STAGE/cgi-bin/default_layout_presets.json"
 chmod 755 "$STAGE"/cgi-bin/*.py 2>/dev/null
 if [ -f "$SRC/bin/yt-dlp" ]; then
     mkdir -p /data/mypult/bin
