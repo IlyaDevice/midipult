@@ -343,6 +343,9 @@ def reset_display():
     config["display_min"] = 10
     config["display_max"] = 170
     save_auto(config)
+    # Снимаем ручной режим: иначе после «сброса» панель продолжает считать,
+    # что дисплеем управляет пользователь, и не возвращает часы Алисе.
+    save_mode(False, "clock")
     try:
         os.remove(SAVE)
     except OSError:

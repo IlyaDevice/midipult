@@ -320,6 +320,55 @@ def draw_probes(restore_time: str):
 
 
 # --------------------------------------------------------------------------- #
+#  Время станции
+# --------------------------------------------------------------------------- #
+
+DATA_ROOT = "/data/mypult"
+
+
+def station_tz():
+    """Пояс станции берём из alarms.json — им же пользуются будильники.
+
+    Системные часы станции идут в UTC (`$TZ` в окружении CGI не выставлен),
+    поэтому `time.strftime()` без пояса показывал в диагностике UTC под видом
+    местного времени. Панель в шапке берёт пояс браузера, а тут нужен именно
+    пояс станции.
+    """
+    try:
+        with open(os.path.join(DATA_ROOT, "alarms.json"), "r", encoding="utf-8") as fh:
+            name = str((json.load(fh) or {}).get("timezone") or "").strip()
+    except (OSError, ValueError, TypeError):
+        name = ""
+    if not name:
+        return ""
+    try:
+        from zoneinfo import ZoneInfo  # noqa: PLC0415
+        ZoneInfo(name)
+    except Exception:  # noqa: BLE001
+        return ""
+    return name
+
+
+def time_info():
+    now = time.time()
+    name = station_tz()
+    local = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(now))
+    if name:
+        try:
+            from datetime import datetime  # noqa: PLC0415
+            from zoneinfo import ZoneInfo  # noqa: PLC0415
+            local = datetime.fromtimestamp(now, ZoneInfo(name)).strftime("%Y-%m-%d %H:%M:%S")
+        except Exception:  # noqa: BLE001
+            name = ""
+    return {
+        "local": local,
+        "utc": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(now)),
+        "epoch": int(now),
+        "tz": name or None,
+    }
+
+
+# --------------------------------------------------------------------------- #
 #  Точка входа
 # --------------------------------------------------------------------------- #
 
@@ -340,12 +389,7 @@ def main():
         "ok": True,
         "version": version,
         "build": build_date,
-        "time": {
-            "local": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "utc": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()),
-            "epoch": int(time.time()),
-            "tz": os.environ.get("TZ"),
-        },
+        "time": time_info(),
         "ports": ports_info(),
         "processes": processes(),
         "unix_sockets": unix_sockets(),

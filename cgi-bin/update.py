@@ -173,7 +173,12 @@ def check(force=False):
     cache = load_cache()
     now = int(time.time())
     cached_at = int(cache.get("checked_at") or 0)
-    if cache and not force and now - cached_at < CACHE_TTL:
+    # Кэш протухает не только по времени. Если установленная версия уже новее
+    # той, что кэш считает последней, значит проверка была до выхода текущего
+    # релиза (обычный случай: заливка на колонку сразу после публикации).
+    # Без этого панель до суток уверяет, что новее прошлого релиза ничего нет.
+    stale = now - cached_at >= CACHE_TTL or newer(current, cache.get("version"))
+    if cache and not force and not stale:
         cached = dict(cache)
         cached["current"] = current
         cached["cached"] = True
