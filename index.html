@@ -10183,6 +10183,32 @@ body.light dialog.queue-dlg.ym-look{
   var cardResizing = false;
   var packObserver = null;
 
+
+  var INNER_CAPS = { '.log': 300, '.sound-list': 430 };
+
+  function resetInnerCaps(cards) {
+    cards.forEach(function (card) {
+      Object.keys(INNER_CAPS).forEach(function (selector) {
+        Array.prototype.forEach.call(card.querySelectorAll(selector), function (el) {
+          el.style.maxHeight = INNER_CAPS[selector] + 'px';
+        });
+      });
+    });
+  }
+
+  function fitInnerHeights() {
+    Array.prototype.forEach.call(document.querySelectorAll('main.grid > .card'), function (card) {
+      if (card.classList.contains('is-hidden')) return;
+      var box = card.getBoundingClientRect();
+      Array.prototype.forEach.call(card.querySelectorAll('.log, .sound-list'), function (el) {
+        var rect = el.getBoundingClientRect();
+        var available = Math.max(120, Math.round(box.bottom - rect.top - 16));
+        el.style.maxHeight = available + 'px';
+      });
+      card.dataset.packH = String(Math.ceil(card.scrollHeight));
+    });
+  }
+
   function packCards() {
     if (packing || cardResizing) return;
     if (document.body.classList.contains('card-dragging')) return;
@@ -10195,6 +10221,7 @@ body.light dialog.queue-dlg.ym-look{
       });
       if (!cards.length) return;
       grid.style.gridAutoRows = PACK_UNIT + 'px';
+      resetInnerCaps(cards);
       cards.forEach(function (card) {
         if (card.classList.contains('is-hidden')) {
           if (card.dataset.packBox) {
@@ -10238,6 +10265,7 @@ body.light dialog.queue-dlg.ym-look{
         }
         card.dataset.packH = String(Math.ceil(card.scrollHeight));
       });
+      fitInnerHeights();
     } finally {
       packing = false;
     }
