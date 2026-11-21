@@ -25,6 +25,7 @@ except ImportError:  # pragma: no cover - Windows/тесты
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
+import voicecfg  # noqa: E402
 
 DAEMON = "/data/mypult/voice_daemon.py"
 PIDFILE = "/data/mypult/voice.pid"
@@ -117,19 +118,43 @@ def stop():
 def status():
     pid = read_pid()
     running = pid_matches(pid)
+    config = voicecfg.load()
     return {
         "ok": True,
         "running": running,
         "pid": pid if running else None,
         "daemon_present": os.path.isfile(DAEMON),
         "log": None,
+        "enabled": voicecfg.is_enabled(config),
+        "idle": voicecfg.resolve_idle(config),
+        "device": voicecfg.device_model(),
     }
+
+
+def set_enabled(value):
+    config = voicecfg.load()
+    config["enabled"] = bool(value)
+    voicecfg.save(config)
+
+
+def ensure():
+    """Поднять демон, только если пользователь его не выключал.
+
+    Возвращает False, если пульт выключен пользователем.
+    """
+    if not voicecfg.is_enabled(voicecfg.load()):
+        return False
+    start()
+    return True
 
 
 def main():
     data = common.params()
 
     if common.truthy(data.get("start")):
+        # Пользователь нажал «включить»: запоминаем желание, иначе watchdog
+        # поднимет демон обратно через минуту.
+        set_enabled(True)
         try:
             start()
         except Exception as exc:  # noqa: BLE001
@@ -139,7 +164,25 @@ def main():
         return
 
     if common.truthy(data.get("stop")):
+        # Пользователь нажал «выключить»: состояние переживает перезагрузку.
+        set_enabled(False)
         stop()
+        common.respond(200, status())
+        return
+
+    if common.truthy(data.get("kill")):
+        # Только процесс (S99mypult stop): выбор пользователя не трогаем.
+        stop()
+        common.respond(200, status())
+        return
+
+    if common.truthy(data.get("ensure")):
+        # Вызов watchdog/init: поднимаем, только если пользователь не выключал.
+        try:
+            ensure()
+        except Exception as exc:  # noqa: BLE001
+            common.fail(500, "Не удалось запустить голосовой пульт: %s" % exc)
+            return
         common.respond(200, status())
         return
 

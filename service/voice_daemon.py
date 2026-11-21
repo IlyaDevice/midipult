@@ -33,6 +33,10 @@ try:
     import alarmd  # noqa: E402
 except Exception:  # noqa: BLE001
     alarmd = None
+try:
+    import voicecfg  # noqa: E402
+except Exception:  # noqa: BLE001
+    voicecfg = None
 
 
 def log(message):
@@ -809,6 +813,55 @@ def should_silence(text):
     return llm_enabled()
 
 
+VOICE_CONFIG = "/data/mypult/voice.json"
+_IDLE_CACHE = {"at": 0.0, "ok": True, "why": ""}
+
+
+def voice_config():
+    try:
+        with open(VOICE_CONFIG, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def scenario_count():
+    """Сколько сценариев настроено. При ошибке CGI считаем, что есть."""
+    try:
+        data = get(BASE + "/cgi-bin/scenarios.py", timeout=6) or {}
+        items = data.get("scenarios")
+        return len(items) if isinstance(items, list) else 0
+    except Exception:  # noqa: BLE001
+        return 1
+
+
+def listen_allowed():
+    """Открывать ли сейчас сессию распознавания.
+
+    `idle=always` — как на Миди: слушаем постоянно, сессия кольцо не трогает.
+    `idle=auto` — на Station 2 и подобных: сессия подсвечивает кольцо «слушаю»,
+    поэтому в простое без сценариев и нейросети микрофон не открываем.
+    """
+    now = time.time()
+    if now - _IDLE_CACHE["at"] < 15:
+        return _IDLE_CACHE["ok"], _IDLE_CACHE["why"]
+    ok, why = True, ""
+    try:
+        config = voice_config()
+        if config.get("enabled") is False:
+            ok, why = False, "выключен пользователем"
+        else:
+            mode = voicecfg.resolve_idle(config) if voicecfg else "always"
+            if mode == "auto" and not scenario_count() and not llm_enabled():
+                ok, why = False, "нет сценариев и нейросети"
+    except Exception as exc:  # noqa: BLE001
+        log("idle: %s" % exc)
+        ok, why = True, ""
+    _IDLE_CACHE.update(at=now, ok=ok, why=why)
+    return ok, why
+
+
 def main():
     log("голосовой пульт запущен")
     if alarmd is not None:
@@ -823,7 +876,18 @@ def main():
     threading.Thread(target=disk_cleanup_loop, daemon=True).start()
     last_text = ""
     last_ts = 0.0
+    idle_reason = ""
     while True:
+        allowed, why = listen_allowed()
+        if not allowed:
+            if why != idle_reason:
+                log("простой: %s — микрофон не открываю" % why)
+                idle_reason = why
+            time.sleep(5)
+            continue
+        if idle_reason:
+            log("снова слушаю")
+            idle_reason = ""
         if native_alice_busy():
             time.sleep(0.6)
             continue

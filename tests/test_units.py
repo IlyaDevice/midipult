@@ -1971,6 +1971,35 @@ def test_security_fixes():
     check("сеть: dns_reset требует POST", "dns_reset" in common.WRITE_ACTIONS)
 
 
+def test_voice_idle_and_toggle():
+    import voicectl
+    import voicecfg
+
+    check("голос: Миди слушает постоянно", voicecfg.default_idle("yandexmidi") == "always")
+    check("голос: Station 2 не слушает вхолостую",
+          voicecfg.default_idle("yandexstation_2") == "auto")
+    check("голос: неизвестная модель — как Миди", voicecfg.default_idle("") == "always")
+    check("голос: явный режим важнее модели",
+          voicecfg.resolve_idle({"idle": "always"}, "yandexstation_2") == "always")
+    check("голос: по умолчанию включён", voicecfg.is_enabled({}) is True)
+    check("голос: выключение уважается", voicecfg.is_enabled({"enabled": False}) is False)
+
+    started = []
+    old_load = voicecfg.load
+    old_start = voicectl.start
+    try:
+        voicectl.start = lambda: started.append(True)
+        voicecfg.load = lambda: {"enabled": False}
+        check("голос: watchdog не поднимает выключенный пульт",
+              voicectl.ensure() is False and not started)
+        voicecfg.load = lambda: {"enabled": True}
+        check("голос: watchdog поднимает включённый пульт",
+              voicectl.ensure() is True and started == [True])
+    finally:
+        voicecfg.load = old_load
+        voicectl.start = old_start
+
+
 def main():
     for test in (
         test_generic_helpers,
@@ -2019,6 +2048,7 @@ def main():
         test_llm_anthropic_ask,
         test_voice_chat_commands,
         test_voice_chat_actions,
+        test_voice_idle_and_toggle,
     ):
         try:
             test()

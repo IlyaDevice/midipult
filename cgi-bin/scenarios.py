@@ -46,7 +46,7 @@ except Exception:  # noqa: BLE001
 STORE = "/data/mypult/scenarios.json"
 LUNA = "http://127.0.0.1:8099"
 BASE = "http://127.0.0.1:8055"
-ACTION_TYPES = ("speak", "led", "led_off", "radio", "play_sound", "volume",
+ACTION_TYPES = ("speak", "led", "led_off", "radio", "play_sound", "play_url", "volume",
                 "clock_text", "clock_anim", "clock_anim_stop", "vpn", "llm",
                 "pause", "sleep", "http")
 
@@ -121,6 +121,13 @@ def run_action(action):
     elif kind == "play_sound":
         post_cgi("sounds.py", {"play_custom": str(action.get("name") or "")},
                  timeout=130)
+    elif kind == "play_url":
+        url = str(action.get("url") or "").strip()
+        if not url.startswith(("http://", "https://")):
+            raise RuntimeError("нужен http(s)-адрес")
+        url = common.url_guard(url, allow_http=True, allow_private=True,
+                               allow_loopback=False)
+        post_cgi("sounds.py", {"play_url": url}, timeout=400)
     elif kind == "volume":
         post_cgi("volume.py", {"level": common.to_int(action.get("value"), 30, 0, 100)}, timeout=15)
     elif kind == "clock_text":

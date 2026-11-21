@@ -178,12 +178,18 @@ start_voice() {
         return 0
     fi
     if [ -x /opt/bin/curl ]; then
+        # ensure, а не start: если пользователь выключил пульт в панели,
+        # watchdog не должен поднимать его обратно каждую минуту.
         /opt/bin/curl -s -m 30 -X POST http://127.0.0.1:8055/cgi-bin/voicectl.py \
-            -H 'Content-Type: application/json' -d '{"start":1}' >/dev/null 2>&1
+            -H 'Content-Type: application/json' -d '{"ensure":1}' >/dev/null 2>&1
     fi
     sleep 2
     if pid_matches /data/mypult/voice.pid "voice_daemon.py"; then
         log "голосовой пульт: запущен (pid $(cat /data/mypult/voice.pid 2>/dev/null))"
+        return 0
+    fi
+    if [ -f /data/mypult/voice.json ] && grep -q '"enabled": *false' /data/mypult/voice.json 2>/dev/null; then
+        log "голосовой пульт: выключен пользователем"
         return 0
     fi
     log "голосовой пульт: НЕ стартовал"
@@ -192,8 +198,10 @@ start_voice() {
 
 stop_voice() {
     if [ -x /opt/bin/curl ]; then
+        # kill, а не stop: остановка сервиса не должна означать «пользователь
+        # выключил голосовой пульт навсегда».
         /opt/bin/curl -s -m 15 -X POST http://127.0.0.1:8055/cgi-bin/voicectl.py \
-            -H 'Content-Type: application/json' -d '{"stop":1}' >/dev/null 2>&1
+            -H 'Content-Type: application/json' -d '{"kill":1}' >/dev/null 2>&1
     fi
     if [ -f /data/mypult/voice.pid ]; then
         _pid=$(cat /data/mypult/voice.pid 2>/dev/null)

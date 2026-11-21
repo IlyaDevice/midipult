@@ -19,6 +19,7 @@ import sys
 import tempfile
 import time
 import urllib.parse
+import urllib.request
 import wave
 import zipfile
 from datetime import datetime
@@ -181,10 +182,7 @@ def _upload_custom(name):
         shutil.rmtree(tmpdir, ignore_errors=True)
 
 
-def _play_custom(sound_id):
-    path = _custom_path(sound_id)
-    if not os.path.isfile(path):
-        raise ValueError("свой звук не найден")
+def _play_file(path, timeout=120):
     env = os.environ.copy()
     env["LD_LIBRARY_PATH"] = QUASAR + "/libs"
     try:
@@ -192,11 +190,62 @@ def _play_custom(sound_id):
             [MAIND, "--gst-launch",
              "filesrc location=%s ! decodebin ! audioconvert ! audioresample ! alsasink" % path],
             cwd=QUASAR, env=env, stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL, timeout=120)
+            stderr=subprocess.DEVNULL, timeout=timeout)
         if proc.returncode != 0:
             raise RuntimeError("GStreamer не смог воспроизвести звук")
     except subprocess.TimeoutExpired:
-        raise RuntimeError("воспроизведение не уложилось в 120 секунд")
+        raise RuntimeError("воспроизведение не уложилось в %d секунд" % timeout)
+
+
+def _play_custom(sound_id):
+    path = _custom_path(sound_id)
+    if not os.path.isfile(path):
+        raise ValueError("свой звук не найден")
+    _play_file(path)
+
+
+PLAY_URL_MAX = 40 * 1024 * 1024
+FFMPEG = "/opt/bin/ffmpeg"
+
+
+def _download(url, dst, limit=PLAY_URL_MAX):
+    request = urllib.request.Request(url, headers={"User-Agent": "MidiPult/play-url"})
+    with urllib.request.urlopen(request, timeout=30) as response:
+        data = response.read(limit + 1)
+    if len(data) > limit:
+        raise ValueError("файл больше %d МБ" % (limit // (1024 * 1024)))
+    if not data:
+        raise ValueError("пустой ответ")
+    with open(dst, "wb") as fh:
+        fh.write(data)
+
+
+def _transcode(src, dst, seconds=600):
+    """Любой формат → WAV 48 кГц стерео: GStreamer на колонке играет и так."""
+    if not os.path.isfile(FFMPEG):
+        raise RuntimeError("нет ffmpeg для перекодирования")
+    proc = subprocess.run(
+        [FFMPEG, "-v", "error", "-y", "-t", str(seconds), "-i", src,
+         "-ac", "2", "-ar", "48000", "-f", "wav", dst],
+        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True, timeout=240)
+    if proc.returncode != 0 or not os.path.isfile(dst) or os.path.getsize(dst) == 0:
+        detail = (proc.stderr or "").strip().splitlines()
+        raise RuntimeError("ffmpeg: " + (detail[-1][-160:] if detail else "не смог перекодировать"))
+
+
+def _play_url(url):
+    """Проиграть поток по ссылке: скачать, при необходимости перекодировать."""
+    if not str(url or "").startswith(("http://", "https://")):
+        raise ValueError("нужен http(s)-адрес")
+    tmpdir = tempfile.mkdtemp(prefix="mypult-url-")
+    raw = os.path.join(tmpdir, "source")
+    wav = os.path.join(tmpdir, "audio.wav")
+    try:
+        _download(url, raw)
+        _transcode(raw, wav)
+        _play_file(wav, timeout=300)
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
 
 
 def _safe_rel(value):
@@ -642,6 +691,18 @@ def main():
         return
 
     data = common.params()
+    if method == "POST" and data.get("play_url"):
+        url = str(data.get("play_url") or "").strip()
+        try:
+            url = common.url_guard(url, allow_http=True, allow_private=True,
+                                   allow_loopback=False)
+        except ValueError as exc:
+            common.fail(400, "адрес не подходит: %s" % exc)
+            return
+        _play_url(url)
+        common.ok(played=url)
+        return
+
     if method == "POST" and data.get("play_custom"):
         sound_id = _custom_id(data.get("play_custom"))
         _play_custom(sound_id)

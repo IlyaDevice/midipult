@@ -2692,6 +2692,13 @@ body.light dialog.queue-dlg.ym-look{
           <button class="btn sm" id="btnVoiceDaemon">Голосовой пульт: выкл</button>
           <span class="seg-note" id="voiceDaemonStatus">голосовой пульт выключен</span>
         </div>
+        <div class="row" style="margin-top:8px;align-items:center;gap:8px">
+          <select id="voiceIdleMode" aria-label="Режим простоя голосового пульта" style="max-width:260px">
+            <option value="always">Слушать постоянно</option>
+            <option value="auto">Только при сценариях и нейросети</option>
+          </select>
+          <span class="seg-note" id="voiceIdleNote">в режиме «только при сценариях» микрофон в простое не открывается</span>
+        </div>
       </div>
     </div>
   </section>
@@ -9532,8 +9539,14 @@ body.light dialog.queue-dlg.ym-look{
       el.btnVoiceDaemon.textContent = data.running ? 'Голосовой пульт: вкл' : 'Голосовой пульт: выкл';
       el.btnVoiceDaemon.setAttribute('aria-pressed', data.running ? 'true' : 'false');
       el.voiceDaemonStatus.textContent = data.running
-        ? 'слушает «Алиса, …»'
-        : 'выключен';
+        ? (data.idle === 'auto' ? 'ждёт сценарии или нейросеть' : 'слушает «Алиса, …»')
+        : (data.enabled === false ? 'выключен' : 'не запущен');
+      if (el.voiceIdleMode && data.idle) el.voiceIdleMode.value = data.idle;
+      if (el.voiceIdleNote) {
+        el.voiceIdleNote.textContent = data.device === 'yandexmidi' || !data.device
+          ? 'на Миди «постоянно» кольцо не подсвечивает'
+          : 'на этой станции «постоянно» подсвечивает кольцо';
+      }
     }).catch(function (err) {
       el.voiceDaemonStatus.textContent = err.message;
     });
@@ -9548,6 +9561,17 @@ body.light dialog.queue-dlg.ym-look{
       }).catch(function (err) {
         toast('Голос: ' + err.message, 'bad');
       });
+    });
+  }
+
+  function setVoiceIdleMode(mode) {
+    if (!mode) return Promise.resolve();
+    return cgi('voicecfg.py', { idle: mode }, { timeout: 10000 }).then(function () {
+      toast(mode === 'auto' ? 'Микрофон в простое выключен' : 'Пульт слушает постоянно', 'ok');
+      return loadVoice();
+    }).catch(function (err) {
+      toast('Голос: ' + err.message, 'bad');
+      return loadVoice();
     });
   }
 
@@ -10096,6 +10120,7 @@ body.light dialog.queue-dlg.ym-look{
     { id: 'led_off', label: 'Кольцо: погасить', hint: '' },
     { id: 'radio', label: 'Радио', hint: 'Европа Плюс', key: 'name' },
     { id: 'play_sound', label: 'Свой звук', hint: '', key: 'name' },
+    { id: 'play_url', label: 'Проиграть ссылку', hint: 'https://… (mp3, m4a, wav)', key: 'url' },
     { id: 'volume', label: 'Громкость', hint: '0–100', key: 'value' },
     { id: 'clock_text', label: 'Текст на дисплей', hint: 'Доброе утро', key: 'text' },
     { id: 'clock_anim', label: 'Анимация дисплея', hint: '', key: 'anim_id' },
@@ -14361,6 +14386,11 @@ body.light dialog.queue-dlg.ym-look{
 
     /* голосовой демон */
     el.btnVoiceDaemon.addEventListener('click', toggleVoiceDaemon);
+    if (el.voiceIdleMode) {
+      el.voiceIdleMode.addEventListener('change', function () {
+        setVoiceIdleMode(this.value);
+      });
+    }
 
     /* радио */
     el.btnRadioPick.addEventListener('click', function (ev) {
@@ -15858,7 +15888,7 @@ body.light dialog.queue-dlg.ym-look{
       'llmLocation', 'llmTimezone', 'llmTimezoneList', 'llmContextStatus', 'btnLlmContext',
       'llmAnswer', 'llmMeta',
       'vpnUrl', 'btnVpnSave', 'btnVpnToggle', 'vpnStatus', 'vpnServer', 'vpnLog', 'vpnAutostart',
-      'btnVoiceDaemon', 'voiceDaemonStatus',
+      'btnVoiceDaemon', 'voiceDaemonStatus', 'voiceIdleMode', 'voiceIdleNote',
       'radioChips', 'btnRadioPrev', 'btnRadioStop', 'btnRadioNext', 'radioStatus',
       'radioName', 'btnRadioAdd', 'radioUrl', 'btnRadioStream',
       'btnRadioPick', 'radioPickName', 'radioPickCount', 'radioPop', 'radioSearch',

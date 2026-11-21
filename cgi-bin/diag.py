@@ -372,6 +372,57 @@ def time_info():
 #  Точка входа
 # --------------------------------------------------------------------------- #
 
+def luna_ring_check():
+    """Профиль кольца в Luna: ловушка `settings.toml` без секции [led].
+
+    Если файл появился только ради [web.network], Luna перестаёт подставлять
+    модельный профиль и отдаёт LED как custom на 6 диодов — кольцо «съезжает».
+    Проверяем сам файл, чтобы не пугать тех, у кого секция на месте.
+    """
+    path = "/data/quazar/luna/data/settings.toml"
+    info = {"settings": False, "led_section": False, "profile": None,
+            "count": None, "expected": None, "warning": "", "note": ""}
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            lines = [line.strip() for line in fh]
+        info["settings"] = True
+        info["led_section"] = any(line == "[led]" or line.startswith("[led.")
+                                 for line in lines)
+    except OSError:
+        return info
+
+    try:
+        import urllib.request
+        with urllib.request.urlopen("http://127.0.0.1:8099/api/settings", timeout=3) as response:
+            settings = json.loads(response.read().decode("utf-8", "replace"))
+        led = settings.get("led") or {}
+        info["profile"] = led.get("profile")
+        info["count"] = led.get("count")
+    except Exception:  # noqa: BLE001
+        pass
+
+    try:
+        import urllib.request
+        with urllib.request.urlopen("http://127.0.0.1:8099/api/device", timeout=3) as response:
+            device = json.loads(response.read().decode("utf-8", "replace"))
+        for feature in device.get("features") or []:
+            parts = str(feature).split(".")
+            if len(parts) == 3 and parts[:2] == ["led", "ring"] and parts[2].isdigit():
+                info["expected"] = int(parts[2])
+    except Exception:  # noqa: BLE001
+        pass
+
+    if info["settings"] and not info["led_section"]:
+        info["warning"] = ("settings.toml без секции [led]: Luna сбросит профиль "
+                           "кольца на custom. Добавьте [led] profile/count.")
+    elif info["expected"] and info["count"] and info["count"] != info["expected"]:
+        # На Миди Luna по умолчанию тоже отдаёт custom/6, но кольцом управляет
+        # панель через sysfs — это не поломка, поэтому только заметка.
+        info["note"] = ("Luna отдаёт %s диодов, у модели %s: профиль кольца "
+                        "задан не моделью" % (info["count"], info["expected"]))
+    return info
+
+
 def main():
     data = common.params()
     voice = common.truthy(data.get("voice"))
@@ -394,6 +445,7 @@ def main():
         "processes": processes(),
         "unix_sockets": unix_sockets(),
         "luna": luna_probes(voice),
+        "ring": luna_ring_check(),
         "glagol": glagol_probes(),
         "ipc": {
             "tcp_9875": common.port_open(9875, timeout=0.3),
