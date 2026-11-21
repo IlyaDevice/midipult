@@ -231,9 +231,8 @@ def glagol_probes():
 
 
 def glagol_token():
-    """Токен из кэша glagol.json (или старого secrets.json)."""
-    for path, key in (("/data/mypult/glagol.json", "token"),
-                      ("/data/mypult/secrets.json", "glagol_token")):
+    """Токен из кэша glagol.json (старый secrets.json больше не читаем)."""
+    for path, key in (("/data/mypult/glagol.json", "token"),):
         try:
             with open(path, "r", encoding="utf-8") as fh:
                 data = json.load(fh)

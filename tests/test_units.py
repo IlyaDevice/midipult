@@ -2193,6 +2193,29 @@ def test_update_dns_hint():
     check("update: прочие ошибки остаются прежними", "GitHub" in other, other)
 
 
+def test_files_security_guard():
+    check("файлы: chats.json — секрет",
+          files._sensitive("/data/mypult/chats.json"))
+    check("файлы: secrets.json — секрет",
+          files._sensitive("/data/mypult/secrets.json"))
+    check("файлы: *_auth.json — секрет",
+          files._sensitive("/data/mypult/some_auth.json"))
+    check("файлы: voice_daemon.py — защищён",
+          files._protected("/data/mypult/voice_daemon.py"))
+    check("файлы: alarmd.py — защищён",
+          files._protected("/data/mypult/alarmd.py"))
+    check("файлы: bin/yt-dlp — защищён",
+          files._protected("/data/mypult/bin/yt-dlp"))
+    check("файлы: sounds/*.wav — можно",
+          not files._protected("/data/mypult/sounds/test.wav"))
+    check("файлы: panel.json — можно",
+          not files._protected("/data/mypult/panel.json"))
+    check("файлы: запись в voice_daemon.py запрещена",
+          not files._can_write("/data/mypult/voice_daemon.py"))
+    check("файлы: запись в sounds разрешена",
+          files._can_write("/data/mypult/sounds/test.wav"))
+
+
 def main():
     for test in (
         test_generic_helpers,
@@ -2251,6 +2274,7 @@ def main():
         test_network_dns_servers,
         test_update_local_archive,
         test_update_dns_hint,
+        test_files_security_guard,
     ):
         try:
             test()

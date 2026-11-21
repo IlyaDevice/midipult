@@ -659,6 +659,29 @@ def test_ring_pipeline():
           "luna_ring_off" in display_py and "paintOff()" in html)
 
 
+def test_security_files_guard():
+    source = read(os.path.join(ROOT, "cgi-bin", "files.py"))
+    check("файлы: chats.json в SENSITIVE_NAMES", '"chats.json"' in source)
+    check("файлы: secrets.json в SENSITIVE_NAMES", '"secrets.json"' in source)
+    check("файлы: есть защита исполняемых файлов",
+          "PROTECTED_EXT" in source and "def _protected" in source)
+    check("файлы: _can_write учитывает _protected",
+          "not _protected(path)" in source)
+
+
+def test_luna_yam_guard():
+    preflight = read(os.path.join(ROOT, "deploy", "preflight.sh"))
+    init = read(os.path.join(ROOT, "init.d", "S99mypult"))
+    check("Luna: закреплена 0.2.39", 'LUNA_VERSION="0.2.39"' in preflight)
+    check("Luna: SHA-256 0.2.39",
+          "2815464179ed105f1e969d4683e5a1699dd6c5ee1954d4655987e120f8dcabfb"
+          in preflight)
+    check("Luna: preflight знает про YAM",
+          "luna_owned_by_yam" in preflight and "/etc/init.d/S99luna" in preflight)
+    check("Luna: init не запускает свою копию при YAM",
+          "luna_owned_by_yam" in init and "не запускаю" in init)
+
+
 def main():
     for test in (
         test_encoding,
@@ -683,6 +706,8 @@ def main():
         test_init_script,
         test_python_headers,
         test_version,
+        test_security_files_guard,
+        test_luna_yam_guard,
     ):
         try:
             test()

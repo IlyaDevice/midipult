@@ -51,8 +51,15 @@ SENSITIVE_NAMES = {
     "auth.json", "yandex_auth.json", "llm.json", "vpn.json",
     "zvuk.json", ".zvuk_auth.json", "glagol.conf", "glagol.json",
     "spotify.json", "youtube_state.json", "soundcloud_state.json",
+    # история чатов с LLM и старый кэш Glagol-токена: это не для файлового менеджера
+    "chats.json", "secrets.json",
 }
 SENSITIVE_EXT = (".pem", ".key", ".secret")
+
+# Код, который выполняется от root, нельзя перезаписывать через файловый
+# менеджер: случайная загрузка voice_daemon.py ломает пульт до перезагрузки.
+PROTECTED_DIRS = ("/data/mypult/bin",)
+PROTECTED_EXT = (".py", ".sh", ".pyc", ".so", ".pid")
 
 
 class FileError(Exception):
@@ -86,7 +93,23 @@ def _resolve(value, write=False):
 
 def _sensitive(path):
     name = os.path.basename(path)
-    return name in SENSITIVE_NAMES or name.endswith(SENSITIVE_EXT)
+    return (name in SENSITIVE_NAMES or name.endswith(SENSITIVE_EXT)
+            or name.endswith("_auth.json"))
+
+
+def _protected(path):
+    """Исполняемый код и pid-файлы внутри /data/mypult: только чтение."""
+    real = os.path.realpath(path)
+    root = os.path.realpath("/data/mypult")
+    if not (real == root or real.startswith(root + os.sep)):
+        return False
+    if real.endswith(PROTECTED_EXT):
+        return True
+    for folder in PROTECTED_DIRS:
+        folder = os.path.realpath(folder)
+        if real == folder or real.startswith(folder + os.sep):
+            return True
+    return False
 
 
 def _can_read(path):
@@ -95,7 +118,8 @@ def _can_read(path):
 
 
 def _can_write(path):
-    return _inside(os.path.realpath(path), WRITE_ROOTS) and not _sensitive(path)
+    return (_inside(os.path.realpath(path), WRITE_ROOTS)
+            and not _sensitive(path) and not _protected(path))
 
 
 def _entry(path, name):

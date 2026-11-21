@@ -108,7 +108,17 @@ wait_root() {
 }
 
 # ------------------------------------------------------------------ Luna ----
+# Luna из YAM (/etc/init.d/S99luna) — чужая: не запускаем свою копию и не
+# трогаем порт, иначе после остановки YAM-версии займём 8099 старой сборкой.
+luna_owned_by_yam() {
+    [ -e /etc/init.d/S99luna ] || [ -d /data/yam/pkgs/yam/luna ]
+}
+
 start_luna() {
+    if luna_owned_by_yam; then
+        log "luna: управляется YAM (S99luna) — свою копию не запускаю"
+        return 0
+    fi
     if is_listening 8099; then
         if luna_on_lan; then
             if [ -f "$RUNDIR/luna.pid" ]; then

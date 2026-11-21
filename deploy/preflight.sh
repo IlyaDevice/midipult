@@ -12,9 +12,9 @@ LOG="/tmp/mypult.log"
 NO_PACKAGES="${MYPULT_NO_PACKAGES:-0}"
 NO_BOOTSTRAP="${MYPULT_NO_BOOTSTRAP:-0}"
 UPDATE_LUNA="${MYPULT_UPDATE_LUNA:-0}"
-LUNA_VERSION="0.2.35"
+LUNA_VERSION="0.2.39"
 LUNA_URL="https://github.com/nyakokitsu/luna/releases/download/v${LUNA_VERSION}/luna-yandexmidi-aarch64-linux-musl"
-LUNA_SHA="14eb1e50821fcf91146138fd703b04b4d67354948b988342570898fb03287546"
+LUNA_SHA="2815464179ed105f1e969d4683e5a1699dd6c5ee1954d4655987e120f8dcabfb"
 LUNA_BIN="/data/quazar/luna/bin/luna"
 LUNA_DATA="/data/quazar/luna/data"
 LOCK="/data/mypult/bootstrap.lock"
@@ -186,7 +186,17 @@ install_luna() {
     die "Luna не поднялась, лог: /tmp/mypult-luna.log"
 }
 
+# Luna может быть установлена через YAM (/etc/init.d/S99luna). Тогда наша
+# закреплённая копия не нужна: она займёт 8099 и не даст YAM поднять свежую.
+luna_owned_by_yam() {
+    [ -e /etc/init.d/S99luna ] || [ -d /data/yam/pkgs/yam/luna ]
+}
+
 ensure_luna() {
+    if luna_owned_by_yam; then
+        warn "Luna управляется YAM (S99luna) — свою копию не ставлю и не запускаю"
+        return 0
+    fi
     if [ "$NO_BOOTSTRAP" = "1" ]; then
         luna_up && say "Luna уже работает" || warn "Luna не отвечает (bootstrap отключён)"
         return 0
