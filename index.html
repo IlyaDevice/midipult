@@ -2194,6 +2194,12 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
 .prov-pane .zvuk-status{margin-top:8px}
 .prov-pane .zvuk-results{max-height:min(46vh,360px)}
 .prov-ym-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+.beta-badge{display:inline-flex;align-items:center;height:19px;padding:0 8px;margin-left:8px;
+  border-radius:999px;border:1px solid rgba(245,158,11,.4);background:rgba(245,158,11,.14);
+  color:#fbbf24;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  vertical-align:middle}
+.prov-beta{font-size:9px;font-weight:800;letter-spacing:.04em;color:#fbbf24;
+  border:1px solid rgba(245,158,11,.35);border-radius:999px;padding:1px 5px;line-height:1.2}
 @media(max-width:520px){
   .prov-tab{flex:1 1 calc(50% - 6px);justify-content:center;padding:0 8px}
 }
@@ -2616,14 +2622,18 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   </section>
 
   <section class="card c-providers" data-group="sound" data-card-id="providers"
-           data-legacy-card-ids="zvuk,youtube,spotify,soundcloud" aria-labelledby="h-providers">
-    <h2 id="h-providers"><span class="dot"></span>Сервисы музыки</h2>
+           data-legacy-card-ids="zvuk,youtube,spotify,soundcloud,vk" aria-labelledby="h-providers">
+    <h2 id="h-providers"><span class="dot"></span>Сервисы музыки<span class="beta-badge">бета версия</span></h2>
+    <div class="seg-note" style="margin-top:6px">Окно с разными источниками музыки. Часть провайдеров неофициальная и может требовать токен.</div>
     <div class="prov-tabs" id="provTabs" role="tablist" aria-label="Сервис музыки">
       <button type="button" class="prov-tab" role="tab" data-provider="yandex" aria-controls="provPaneYandex" aria-pressed="true">
         <span class="prov-dot" data-prov-dot="yandex"></span>Яндекс Музыка
       </button>
       <button type="button" class="prov-tab" role="tab" data-provider="zvuk" aria-controls="provPaneZvuk" aria-pressed="false">
         <span class="prov-dot" data-prov-dot="zvuk"></span>Сбер Звук
+      </button>
+      <button type="button" class="prov-tab" role="tab" data-provider="vk" aria-controls="provPaneVk" aria-pressed="false">
+        <span class="prov-dot" data-prov-dot="vk"></span>VK Музыка<span class="prov-beta">β</span>
       </button>
       <button type="button" class="prov-tab" role="tab" data-provider="youtube" aria-controls="provPaneYoutube" aria-pressed="false">
         <span class="prov-dot" data-prov-dot="youtube"></span>YouTube
@@ -2660,6 +2670,24 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       </div>
       <div class="zvuk-now" id="zvukNow"></div>
       <div class="zvuk-results" id="zvukResults"></div>
+    </div>
+
+    <div class="prov-pane" id="provPaneVk" role="tabpanel" data-provider-pane="vk" hidden>
+      <div class="seg-note">Бета: неофициальный VK-провайдер. Нужен токен VK с доступом к аудио; токен хранится только на станции. VK может ограничить API или поток.</div>
+      <div class="zvuk-token-wrap">
+        <input id="vkToken" class="net-input" type="password" autocomplete="off"
+               placeholder="Токен VK (audio)">
+        <button class="btn sm" id="btnVkSave">Сохранить</button>
+        <button class="btn sm ghost" id="btnVkClear">Убрать</button>
+      </div>
+      <div class="zvuk-status" id="vkStatus">Токен не сохранён</div>
+      <div class="zvuk-search">
+        <input id="vkQuery" class="net-input" placeholder="Трек, исполнитель или подборка" autocomplete="off">
+        <button class="btn sm" id="btnVkSearch">Найти</button>
+        <button class="btn sm ghost" id="btnVkMine">Моя музыка</button>
+      </div>
+      <div class="zvuk-now" id="vkNow"></div>
+      <div class="zvuk-results" id="vkResults"></div>
     </div>
 
     <div class="prov-pane" id="provPaneYoutube" role="tabpanel" data-provider-pane="youtube" hidden>
@@ -10611,6 +10639,144 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       }).catch(function () { extStatus(el.spotifyStatus, 'Spotify недоступен', 'bad'); setProvDot('spotify', 'bad'); });
   }
 
+  function vkRender(tracks) {
+    if (!el.vkResults) return;
+    el.vkResults.textContent = '';
+    if (!tracks || !tracks.length) {
+      var empty = document.createElement('div');
+      empty.className = 'zvuk-empty';
+      empty.textContent = 'Ничего не найдено';
+      el.vkResults.appendChild(empty);
+      return;
+    }
+    tracks.forEach(function (track) {
+      var row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'zvuk-track';
+      var img = document.createElement('img');
+      img.alt = '';
+      img.loading = 'lazy';
+      if (track.cover) img.src = track.cover;
+      var info = document.createElement('div');
+      var title = document.createElement('div');
+      title.className = 'zt-title';
+      title.textContent = track.title || 'VK Музыка';
+      var artist = document.createElement('div');
+      artist.className = 'zt-artist';
+      artist.textContent = track.artist || 'VK Музыка';
+      info.appendChild(title);
+      info.appendChild(artist);
+      var time = document.createElement('span');
+      time.className = 'zt-time';
+      time.textContent = track.duration ? zvukTime(track.duration) : '';
+      var play = document.createElement('span');
+      play.className = 'zt-play';
+      play.textContent = '▶';
+      row.appendChild(img);
+      row.appendChild(info);
+      row.appendChild(time);
+      row.appendChild(play);
+      row.addEventListener('click', function () { vkPlay(track); });
+      el.vkResults.appendChild(row);
+    });
+  }
+
+  function vkNow(track) {
+    if (!el.vkNow) return;
+    el.vkNow.textContent = '';
+    if (!track) return;
+    var b = document.createElement('b');
+    b.textContent = track.title || 'VK Музыка';
+    var artist = document.createElement('div');
+    artist.textContent = track.artist || '';
+    var stop = document.createElement('button');
+    stop.type = 'button';
+    stop.className = 'btn sm ghost';
+    stop.style.marginTop = '8px';
+    stop.textContent = 'Остановить';
+    stop.addEventListener('click', function () {
+      cgi('vk.py', { action: 'stop' }, { timeout: 12000, silent: true }).catch(function () {});
+      cgi('media.py', { action: 'pause' }, { timeout: 12000 })
+        .then(function () { vkNow(null); extStatus(el.vkStatus, 'Остановлено'); })
+        .catch(function (err) { extStatus(el.vkStatus, 'Ошибка: ' + err.message, 'bad'); });
+    });
+    el.vkNow.appendChild(b);
+    el.vkNow.appendChild(artist);
+    el.vkNow.appendChild(stop);
+  }
+
+  function vkPlay(track) {
+    if (!track || !track.url) return;
+    extStatus(el.vkStatus, 'Получаю поток VK…');
+    vkNow(track);
+    cgi('vk.py', {
+      action: 'play', id: track.id, url: track.url, title: track.title || '',
+      artist: track.artist || '', cover: track.cover || ''
+    }, { timeout: 120000 })
+      .then(function (data) {
+        extStatus(el.vkStatus, 'Играет: ' + ((data.track && data.track.title) || track.title), 'ok');
+        vkNow(data.track || track);
+      })
+      .catch(function (err) {
+        extStatus(el.vkStatus, 'Ошибка: ' + err.message, 'bad');
+        toast('VK Музыка: ' + err.message, 'bad');
+      });
+  }
+
+  function vkSearch() {
+    var q = (el.vkQuery && el.vkQuery.value || '').trim();
+    if (!q) return;
+    extStatus(el.vkStatus, 'Ищу в VK Музыке…');
+    cgi('vk.py', { action: 'search', q: q, limit: 15 }, { timeout: 60000 })
+      .then(function (data) {
+        vkRender(data.tracks || []);
+        extStatus(el.vkStatus, 'Найдено: ' + ((data.tracks || []).length));
+      })
+      .catch(function (err) { extStatus(el.vkStatus, 'Ошибка: ' + err.message, 'bad'); });
+  }
+
+  function vkMine() {
+    extStatus(el.vkStatus, 'Загружаю мою музыку…');
+    cgi('vk.py', { action: 'mine', limit: 30 }, { timeout: 60000 })
+      .then(function (data) {
+        vkRender(data.tracks || []);
+        extStatus(el.vkStatus, 'Моя музыка: ' + ((data.tracks || []).length));
+      })
+      .catch(function (err) { extStatus(el.vkStatus, 'Ошибка: ' + err.message, 'bad'); });
+  }
+
+  function vkLoadStatus() {
+    return cgi('vk.py', { action: 'status' }, { timeout: 12000, silent: true })
+      .then(function (data) {
+        extStatus(el.vkStatus, data.has_token ? 'Токен сохранён (бета)' : 'Токен не сохранён',
+          data.has_token ? 'ok' : 'warn');
+        setProvDot('vk', data.has_token ? 'ok' : 'warn');
+        if (data.track && data.track.id) vkNow(data.track);
+      }).catch(function () {
+        extStatus(el.vkStatus, 'VK Музыка недоступна', 'bad');
+        setProvDot('vk', 'bad');
+      });
+  }
+
+  function vkSave() {
+    var token = (el.vkToken && el.vkToken.value || '').trim();
+    if (!token) { extStatus(el.vkStatus, 'Вставьте токен VK', 'bad'); return; }
+    extStatus(el.vkStatus, 'Проверяю токен…');
+    cgi('vk.py', { action: 'token', token: token }, { timeout: 30000 })
+      .then(function (data) {
+        if (el.vkToken) el.vkToken.value = '';
+        extStatus(el.vkStatus, 'Токен сохранён' + (data.login ? ' · ' + data.login : ''), 'ok');
+        setProvDot('vk', 'ok');
+      })
+      .catch(function (err) { extStatus(el.vkStatus, 'Ошибка: ' + err.message, 'bad'); });
+  }
+
+  function vkClear() {
+    cgi('vk.py', { action: 'clear' }, { timeout: 12000 })
+      .then(function () { extStatus(el.vkStatus, 'Токен удалён', 'warn'); setProvDot('vk', 'warn'); })
+      .catch(function (err) { extStatus(el.vkStatus, 'Ошибка: ' + err.message, 'bad'); });
+  }
+
   function soundcloudRender(tracks) {
     if (!el.soundcloudResults) return;
     el.soundcloudResults.textContent = '';
@@ -13611,10 +13777,18 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     if (el.soundcloudQuery) el.soundcloudQuery.addEventListener('keydown', function (event) {
       if (event.key === 'Enter') { event.preventDefault(); soundcloudSearch(); }
     });
+    if (el.btnVkSave) el.btnVkSave.addEventListener('click', vkSave);
+    if (el.btnVkClear) el.btnVkClear.addEventListener('click', vkClear);
+    if (el.btnVkSearch) el.btnVkSearch.addEventListener('click', vkSearch);
+    if (el.vkQuery) el.vkQuery.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') { event.preventDefault(); vkSearch(); }
+    });
+    if (el.btnVkMine) el.btnVkMine.addEventListener('click', vkMine);
     zvukLoadStatus();
     youtubeLoadStatus();
     spotifyLoadStatus();
     soundcloudLoadStatus();
+    vkLoadStatus();
     initProviders();
     if (el.btnFilesClose) el.btnFilesClose.addEventListener('click', function () { el.filesDlg.close(); });
     if (el.btnFilesRefresh) el.btnFilesRefresh.addEventListener('click', function () { filesLoad(filesCurrent); });
@@ -14998,6 +15172,8 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       'spotifyId', 'spotifySecret', 'btnSpotifySave', 'btnSpotifyClear', 'spotifyStatus',
       'spotifyQuery', 'btnSpotifySearch', 'spotifyResults',
       'soundcloudQuery', 'btnSoundcloudSearch', 'soundcloudStatus', 'soundcloudNow', 'soundcloudResults',
+      'vkToken', 'btnVkSave', 'btnVkClear', 'vkStatus', 'vkQuery', 'btnVkSearch', 'btnVkMine',
+      'vkNow', 'vkResults',
       'btnNetcheck', 'btnCleanup', 'btnReboot', 'btnPoweroff', 'maintBox', 'autoBright', 'autoBrightStatus',
       'displayAuto', 'displayAutoStatus',
       'btnSpeed', 'btnBackup', 'backupFile',
