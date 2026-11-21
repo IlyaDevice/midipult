@@ -2737,14 +2737,14 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     </div>
 
     <div class="prov-pane" id="provPaneZvuk" role="tabpanel" data-provider-pane="zvuk" hidden>
-      <div class="seg-note">Неофициальный провайдер. Токен хранится только на станции, трек играет штатный плеер.</div>
+      <div class="seg-note">Публичного входа в Сбер Звук нет: поиск и воспроизведение работают анонимно без токена. Токен веб-сессии нужен только для «Моего потока» и качества 320.</div>
       <div class="zvuk-token-wrap">
         <input id="zvukToken" class="net-input" type="password" autocomplete="off"
-               placeholder="Токен из zvuk.com/api/tiny/profile">
+               placeholder="Токен аккаунта — необязательно">
         <button class="btn sm" id="btnZvukSave">Сохранить</button>
         <button class="btn sm ghost" id="btnZvukClear">Убрать</button>
       </div>
-      <div class="zvuk-status" id="zvukStatus">Токен не сохранён</div>
+      <div class="zvuk-status" id="zvukStatus">Анонимный доступ</div>
       <div class="zvuk-search">
         <input id="zvukQuery" class="net-input" placeholder="Трек, альбом или исполнитель" autocomplete="off">
         <button class="btn sm" id="btnZvukSearch">Найти</button>
@@ -10534,7 +10534,8 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   function zvukLoadStatus() {
     return cgi('zvuk.py', { action: 'status' }, { timeout: 12000, silent: true })
       .then(function (data) {
-        zvukSetStatus(data.has_token ? 'Токен сохранён' : 'Токен не сохранён', data.has_token ? 'ok' : '');
+        zvukSetStatus(data.has_token ? 'Аккаунт подключён' : 'Анонимный доступ — поиск работает',
+          data.has_token ? 'ok' : '');
         setProvDot('zvuk', data.has_token ? 'ok' : 'warn');
         if (data.track && data.track.id) zvukShowNow(data.track);
       })
@@ -10548,7 +10549,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     cgi('zvuk.py', { action: 'token', token: token }, { timeout: 45000 })
       .then(function () {
         if (el.zvukToken) el.zvukToken.value = '';
-        zvukSetStatus('Токен сохранён', 'ok');
+        zvukSetStatus('Аккаунт подключён', 'ok');
         toast('Сбер Звук подключён', 'ok');
       })
       .catch(function (err) { zvukSetStatus('Токен не принят: ' + err.message, 'bad'); });
@@ -14301,7 +14302,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     if (el.btnZvukSave) el.btnZvukSave.addEventListener('click', zvukSaveToken);
     if (el.btnZvukClear) el.btnZvukClear.addEventListener('click', function () {
       cgi('zvuk.py', { action: 'clear' }, { timeout: 12000 }).then(function () {
-        zvukSetStatus('Токен удалён'); zvukShowNow(null);
+        zvukSetStatus('Анонимный доступ'); zvukShowNow(null);
       }).catch(function (err) { zvukSetStatus('Ошибка: ' + err.message, 'bad'); });
     });
     if (el.btnZvukSearch) el.btnZvukSearch.addEventListener('click', zvukSearch);

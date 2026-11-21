@@ -7,6 +7,7 @@ from __future__ import annotations
 import os
 import re
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
@@ -15,6 +16,8 @@ import zvuk_api  # noqa: E402
 
 DATA_DIR = "/data/mypult"
 AUTH_PATH = os.path.join(DATA_DIR, "zvuk.json")
+ANON_PATH = os.path.join(DATA_DIR, "zvuk_anon.json")
+ANON_TTL = 3600
 CACHE_DIR = os.path.join(DATA_DIR, "zvuk-cache")
 STATE_PATH = os.path.join(DATA_DIR, "zvuk_state.json")
 SELF_URL = "http://127.0.0.1:8055/cgi-bin/zvuk_stream.py"
@@ -28,7 +31,17 @@ def _auth():
 def _api():
     token = _auth().token
     if not token:
-        raise zvuk_api.AuthError("Сначала сохраните токен Сбер Звука")
+        cached = common.read_json(ANON_PATH, {}) or {}
+        if cached.get("token") and time.time() - float(cached.get("ts") or 0) < ANON_TTL:
+            token = str(cached["token"])
+        else:
+            try:
+                token = zvuk_api.anonymous_token()
+                common.write_json(ANON_PATH, {"token": token, "ts": time.time()}, mode=0o600)
+            except zvuk_api.Error:
+                token = ""
+    if not token:
+        raise zvuk_api.AuthError("Не удалось получить доступ к Сбер Звуку")
     return zvuk_api.Api(token)
 
 
@@ -113,6 +126,8 @@ def main():
         return
 
     if action in ("wave", "my_wave"):
+        if not auth.token:
+            raise zvuk_api.AuthError("«Мой поток» требует аккаунт Сбер Звука — поиск работает анонимно")
         count = common.to_int(data.get("count"), 12, 1, 30)
         tracks = _api().personal_wave(count)
         common.ok(tracks=tracks)

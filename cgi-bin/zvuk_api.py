@@ -14,8 +14,34 @@ import zvuk_queries as Q
 
 GQL_URL = "https://zvuk.com/api/v1/graphql"
 TINY_URL = "https://zvuk.com/api/tiny"
+PROFILE_URL = "https://zvuk.com/api/tiny/profile"
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
+
+def anonymous_token():
+    """Анонимный токен «Звука» без аккаунта: поиск и поток 128 kbps."""
+    import http.cookiejar
+
+    jar = http.cookiejar.CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+    headers = {
+        "User-Agent": UA,
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "ru-RU,ru;q=0.9",
+        "Referer": "https://zvuk.com/",
+    }
+    try:
+        with opener.open(urllib.request.Request("https://zvuk.com/", headers=headers), timeout=20):
+            pass
+        with opener.open(urllib.request.Request(PROFILE_URL, headers=headers), timeout=20) as response:
+            data = json.loads(response.read() or b"{}")
+    except (OSError, ValueError, urllib.error.HTTPError) as exc:
+        raise Error("Звук не выдал анонимный токен: %s" % exc) from None
+    token = str((data.get("result") or {}).get("token") or "").strip()
+    if not token:
+        raise Error("Звук не выдал анонимный токен")
+    return token
 
 
 class Error(Exception):
