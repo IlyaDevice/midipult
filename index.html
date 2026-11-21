@@ -1814,7 +1814,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 /* редизайн «Дисплея» и «Кольца» */
 .c-clock{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
   column-gap:18px;row-gap:8px;align-items:start;align-content:start}
-.c-clock>h2{grid-column:1/-1}
+.c-clock>.card-head{grid-column:1/-1}
 .c-clock>.display-actions{grid-column:1;grid-row:2;margin:0;flex-wrap:nowrap;gap:6px}
 .c-clock>.display-actions .btn{height:36px;padding:0 10px;font-size:13px;flex:1 1 0}
 .c-clock>.display-auto{grid-column:2;grid-row:2;margin:0!important;align-self:center;justify-content:flex-end}
@@ -1831,7 +1831,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .c-clock .display-preview em{display:none}
 
 .c-led{display:grid;grid-template-columns:190px minmax(0,1fr);column-gap:18px;row-gap:8px;align-items:start;align-content:start}
-.c-led>h2{grid-column:1/-1}
+.c-led>.card-head{grid-column:1/-1}
 .c-led>.auto-bright{grid-column:1/-1;grid-row:2;margin:0!important;align-self:start}
 .c-led>.ring{grid-column:1;grid-row:3;margin:0 auto}
 .c-led>.led-hint{display:none}
