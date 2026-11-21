@@ -7841,7 +7841,64 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       el.mediaArtIcon.style.display = '';
     }
     syncHomePlayer();
+    syncSystemMedia();
   }
+
+  /**
+   * Системный плеер Android: шторка/локскрин и аппаратные кнопки громкости.
+   * На веб-версии объекта нет — функция просто ничего не делает.
+   */
+  function syncSystemMedia(force) {
+    if (!window.MidiPultMedia) return;
+    if (!State.mediaTitle) {
+      try { window.MidiPultMedia.clear(); } catch (e) {}
+      return;
+    }
+    var duration = Math.max(0, Math.round((State.mediaDuration || 0) * 1000));
+    var elapsed = State.playing ? Math.max(0, (Date.now() / 1000) - (State.progressAt || 0)) : 0;
+    var position = Math.max(0, Math.round(((State.mediaProgress || 0) + elapsed) * 1000));
+    var payload = {
+      title: State.mediaTitle || '',
+      artist: State.mediaArtist || '',
+      cover: State.mediaCover || '',
+      playing: !!State.playing,
+      position: Math.min(position, duration || position),
+      duration: duration,
+      volume: Math.round(State.volume || 0),
+      canSeek: State.playerKind === 'Track' && duration > 0
+    };
+    var raw = JSON.stringify(payload);
+    if (!force && raw === State.systemMediaRaw) return;
+    State.systemMediaRaw = raw;
+    try { window.MidiPultMedia.update(raw); } catch (e) {}
+  }
+
+  var systemMediaTimer = null;
+  function syncSystemMediaSoon() {
+    if (systemMediaTimer) return;
+    systemMediaTimer = setTimeout(function () {
+      systemMediaTimer = null;
+      syncSystemMedia();
+    }, 250);
+  }
+
+  window.MidiPultRemote = {
+    play: function () { if (!State.playing) mediaAction('play'); },
+    pause: function () { if (State.playing) mediaAction('pause'); },
+    playPause: function () { mediaAction(State.playing ? 'pause' : 'play'); },
+    next: function () { mediaAction('next'); },
+    prev: function () { mediaAction('prev'); },
+    setVolume: function (level) {
+      setVolumeUI(parseInt(level, 10) || 0, false);
+      pushVolume();
+      syncSystemMedia(true);
+    },
+    seek: function (ms) {
+      var total = (State.mediaDuration || 0) * 1000;
+      if (total <= 0) return;
+      seekMedia(Math.round(Math.max(0, Math.min(Number(ms) || 0, total)) / total * 1000));
+    }
+  };
 
   function applyState(data) {
     if (data.status) applyStatusData(data.status);
@@ -7997,6 +8054,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     if (!silent) { el.volume.value = v; el.volumeVal.textContent = v + '%'; }
     store.set('volume', v);
     updateVolumeIcons();
+    if (typeof syncSystemMediaSoon === 'function') syncSystemMediaSoon();
   }
 
   var volTimer = null;
