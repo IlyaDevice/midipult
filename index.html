@@ -2185,6 +2185,12 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
 .zvuk-track .zt-artist{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .zvuk-track .zt-time{font-size:10px;color:var(--muted)}
 .zvuk-track .zt-play{font-size:15px;color:var(--accent2)}
+.ext-src{display:inline-block;margin-left:6px;padding:1px 5px;border-radius:999px;
+  font-size:8px;font-weight:800;letter-spacing:.04em;vertical-align:1px;
+  border:1px solid var(--stroke);background:rgba(255,255,255,.045);color:var(--muted)}
+.ext-src.yt{color:#ff8a8a;border-color:rgba(255,107,107,.3);background:rgba(255,107,107,.08)}
+.ext-src.sc{color:#ffb86b;border-color:rgba(255,153,51,.32);background:rgba(255,153,51,.08)}
+.ext-now-src{font-size:10px;color:var(--muted);margin-top:2px}
 .zvuk-empty{padding:14px 4px;color:var(--muted);font-size:12px}
 @media(max-width:620px){.zvuk-track{grid-template-columns:30px minmax(0,1fr) auto}.zvuk-track img{width:30px;height:30px}.zvuk-track .zt-time{display:none}}
 
@@ -2680,14 +2686,11 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       <button type="button" class="prov-tab" role="tab" data-provider="vk" aria-controls="provPaneVk" aria-pressed="false">
         <span class="prov-dot" data-prov-dot="vk"></span>VK Музыка<span class="prov-beta">β</span>
       </button>
-      <button type="button" class="prov-tab" role="tab" data-provider="youtube" aria-controls="provPaneYoutube" aria-pressed="false">
-        <span class="prov-dot" data-prov-dot="youtube"></span>YouTube
+      <button type="button" class="prov-tab" role="tab" data-provider="ext" aria-controls="provPaneExt" aria-pressed="false">
+        <span class="prov-dot" data-prov-dot="ext"></span>YouTube + SoundCloud
       </button>
       <button type="button" class="prov-tab" role="tab" data-provider="spotify" aria-controls="provPaneSpotify" aria-pressed="false">
         <span class="prov-dot" data-prov-dot="spotify"></span>Spotify
-      </button>
-      <button type="button" class="prov-tab" role="tab" data-provider="soundcloud" aria-controls="provPaneSoundcloud" aria-pressed="false">
-        <span class="prov-dot" data-prov-dot="soundcloud"></span>SoundCloud
       </button>
     </div>
 
@@ -2772,15 +2775,15 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       <div class="zvuk-results" id="vkResults"></div>
     </div>
 
-    <div class="prov-pane" id="provPaneYoutube" role="tabpanel" data-provider-pane="youtube" hidden>
-      <div class="seg-note">Поиск через yt-dlp, звук — локальный MP3. Первый запуск трека занимает несколько секунд: аудио скачивается и перекодируется.</div>
+    <div class="prov-pane" id="provPaneExt" role="tabpanel" data-provider-pane="ext" hidden>
+      <div class="seg-note">Поиск сразу по YouTube Music и SoundCloud. Звук идёт через штатный плеер, без скачивания файлов. В результатах видно источник.</div>
       <div class="zvuk-search">
-        <input id="youtubeQuery" class="net-input" placeholder="Трек или исполнитель" autocomplete="off">
-        <button class="btn sm" id="btnYoutubeSearch">Найти</button>
+        <input id="extQuery" class="net-input" placeholder="Трек или исполнитель — ищем в двух сервисах" autocomplete="off">
+        <button class="btn sm" id="btnExtSearch">Найти</button>
       </div>
-      <div class="zvuk-status" id="youtubeStatus">Экспериментальный режим</div>
-      <div class="zvuk-now" id="youtubeNow"></div>
-      <div class="zvuk-results" id="youtubeResults"></div>
+      <div class="zvuk-status" id="extStatus">Готово к поиску</div>
+      <div class="zvuk-now" id="extNow"></div>
+      <div class="zvuk-results" id="extResults"></div>
     </div>
 
     <div class="prov-pane" id="provPaneSpotify" role="tabpanel" data-provider-pane="spotify" hidden>
@@ -2797,17 +2800,6 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
         <button class="btn sm" id="btnSpotifySearch">Найти</button>
       </div>
       <div class="zvuk-results" id="spotifyResults"></div>
-    </div>
-
-    <div class="prov-pane" id="provPaneSoundcloud" role="tabpanel" data-provider-pane="soundcloud" hidden>
-      <div class="seg-note">Экспериментально: поиск и поток через yt-dlp. SoundCloud может ограничить поток.</div>
-      <div class="zvuk-search">
-        <input id="soundcloudQuery" class="net-input" placeholder="Трек или исполнитель" autocomplete="off">
-        <button class="btn sm" id="btnSoundcloudSearch">Найти</button>
-      </div>
-      <div class="zvuk-status" id="soundcloudStatus">Экспериментальный режим</div>
-      <div class="zvuk-now" id="soundcloudNow"></div>
-      <div class="zvuk-results" id="soundcloudResults"></div>
     </div>
   </section>
 
@@ -8051,6 +8043,22 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
 
   function applyPlayerData(data) {
     var title = data.title || '';
+    // Потоки YouTube/SoundCloud идут через штатный плеер, но их обложку и
+    // источник Glagol не возвращает. Пока играет тот же трек, сохраняем
+    // метаданные провайдера.
+    if (State.extTrack) {
+      var ext = State.extTrack;
+      // Внешний поток Glagol часто отдаёт пустой title/cover — пока играет
+      // наш трек, показываем метаданные провайдера.
+      if (!data.title || data.title === ext.title || data.title.indexOf(ext.title) === 0) {
+        data.title = ext.title;
+        data.artist = ext.artist || data.artist || '';
+        data.cover = ext.cover || '';
+      } else if (data.title) {
+        extClearPlayer();
+      }
+    }
+    title = data.title || '';
     var trackChanged = title !== (State.mediaTitle || '');
     var incoming = (Number(data.progress) || 0) + (Number(data.age) || 0);
     var local = currentProgress();
@@ -8119,8 +8127,10 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     if (el.mediaProgress) el.mediaProgress.hidden = !seekable;
     if (!State.seeking) updateMediaProgress();
     if (el.mediaKind) {
-      el.mediaKind.textContent = data.kind === 'FmRadio' ? 'сейчас радио' :
-        (data.kind === 'Track' ? 'сейчас музыка' : '');
+      el.mediaKind.textContent = State.extTrack
+      ? ((State.extSource || 'Стриминг') + ' · сейчас музыка')
+      : (data.kind === 'FmRadio' ? 'сейчас радио' :
+        (data.kind === 'Track' ? 'сейчас музыка' : ''));
     }
     if (data.title) {
       if (data.title !== State.mediaTitle) {
@@ -10529,7 +10539,10 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     tabs.forEach(function (tab) {
       tab.addEventListener('click', function () { show(tab.dataset.provider); });
     });
-    show(store.get('musicProvider', 'yandex'));
+    show((function () {
+      var saved = store.get('musicProvider', 'yandex');
+      return (saved === 'youtube' || saved === 'soundcloud') ? 'ext' : saved;
+    })());
     var open = document.getElementById('btnProviderYm');
     if (open) open.addEventListener('click', function () { ymOpen(); });
   }
@@ -10617,6 +10630,219 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
         extStatus(el.youtubeStatus, 'Ошибка: ' + err.message, 'bad');
         toast('YouTube Music: ' + err.message, 'bad');
       });
+  }
+
+  var EXT_LABELS = { youtube: 'YouTube Music', soundcloud: 'SoundCloud' };
+
+  function extSetStatus(text, kind) {
+    extStatus(el.extStatus, text, kind);
+  }
+
+  function extSourceBadge(source) {
+    var badge = document.createElement('span');
+    badge.className = 'ext-src ' + (source === 'youtube' ? 'yt' : 'sc');
+    badge.textContent = source === 'youtube' ? 'YouTube Music' : 'SoundCloud';
+    badge.title = EXT_LABELS[source] || source;
+    return badge;
+  }
+
+  function extRender(tracks) {
+    if (!el.extResults) return;
+    el.extResults.textContent = '';
+    if (!tracks || !tracks.length) {
+      var empty = document.createElement('div');
+      empty.className = 'zvuk-empty';
+      empty.textContent = 'Ничего не найдено';
+      el.extResults.appendChild(empty);
+      return;
+    }
+    tracks.forEach(function (track) {
+      var row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'zvuk-track';
+      var img = document.createElement('img');
+      img.alt = '';
+      img.loading = 'lazy';
+      if (track.cover) img.src = track.cover;
+      var info = document.createElement('div');
+      var title = document.createElement('div');
+      title.className = 'zt-title';
+      title.textContent = track.title || EXT_LABELS[track.source] || 'Трек';
+      title.appendChild(extSourceBadge(track.source));
+      var artist = document.createElement('div');
+      artist.className = 'zt-artist';
+      artist.textContent = track.artist || EXT_LABELS[track.source] || '';
+      info.appendChild(title);
+      info.appendChild(artist);
+      var time = document.createElement('span');
+      time.className = 'zt-time';
+      time.textContent = track.duration ? zvukTime(track.duration) : '';
+      var play = document.createElement('span');
+      play.className = 'zt-play';
+      play.textContent = '▶';
+      row.appendChild(img);
+      row.appendChild(info);
+      row.appendChild(time);
+      row.appendChild(play);
+      row.addEventListener('click', function () { extPlay(track); });
+      el.extResults.appendChild(row);
+    });
+  }
+
+  function extNow(track) {
+    if (!el.extNow) return;
+    el.extNow.textContent = '';
+    if (!track) return;
+    var b = document.createElement('b');
+    b.textContent = track.title || 'Трек';
+    var meta = document.createElement('div');
+    meta.className = 'ext-now-src';
+    meta.textContent = (track.artist ? track.artist + ' · ' : '') +
+      (EXT_LABELS[track.source] || '');
+    var stop = document.createElement('button');
+    stop.type = 'button';
+    stop.className = 'btn sm ghost';
+    stop.style.marginTop = '8px';
+    stop.textContent = 'Остановить';
+    stop.addEventListener('click', extStop);
+    el.extNow.appendChild(b);
+    el.extNow.appendChild(meta);
+    el.extNow.appendChild(stop);
+  }
+
+  function extStopBackends() {
+    return Promise.all([
+      cgi('youtube.py', { action: 'stop' }, { timeout: 12000, silent: true }).catch(function () {}),
+      cgi('soundcloud.py', { action: 'stop' }, { timeout: 12000, silent: true }).catch(function () {})
+    ]);
+  }
+
+  function extStop() {
+    extStopBackends().then(function () {
+      return cgi('media.py', { action: 'pause' }, { timeout: 12000 }).catch(function () {});
+    }).then(function () {
+      extClearPlayer();
+      extNow(null);
+      extSetStatus('Остановлено');
+    });
+  }
+
+  function extApplyPlayer(track, source) {
+    var label = EXT_LABELS[source] || '';
+    State.extTrack = {
+      title: track.title || '', artist: track.artist || '',
+      cover: track.cover || '', source: source, label: label
+    };
+    State.extSource = label;
+    State.mediaTitle = track.title || '';
+    State.mediaArtist = track.artist || '';
+    State.mediaCover = track.cover || '';
+    if (el.mediaTitle) el.mediaTitle.textContent = State.mediaTitle || 'Трек';
+    if (el.mediaSub) el.mediaSub.textContent = State.mediaArtist || label;
+    if (el.mediaKind) el.mediaKind.textContent = label + ' · сейчас музыка';
+    if (el.mediaCover) {
+      if (State.mediaCover) {
+        el.mediaCover.src = State.mediaCover;
+        el.mediaCover.hidden = false;
+        if (el.mediaArtIcon) el.mediaArtIcon.style.display = 'none';
+        if (el.npGlow) el.npGlow.style.backgroundImage = 'url("' + State.mediaCover + '")';
+      } else {
+        el.mediaCover.hidden = true;
+        el.mediaCover.removeAttribute('src');
+        if (el.mediaArtIcon) el.mediaArtIcon.style.display = '';
+        if (el.npGlow) el.npGlow.style.backgroundImage = '';
+      }
+    }
+    syncHomePlayer();
+    syncSystemMedia(true);
+  }
+
+  function extClearPlayer() {
+    State.extTrack = null;
+    State.extSource = '';
+  }
+
+  function extPlay(track) {
+    if (!track || !track.id) return;
+    var source = track.source === 'youtube' ? 'youtube' : 'soundcloud';
+    extSetStatus('Останавливаю предыдущий трек…');
+    extNow(track);
+    extStopBackends().then(function () {
+      extSetStatus('Запускаю ' + (EXT_LABELS[source] || '') + '…');
+      var payload = {
+        action: 'play', id: track.id, title: track.title || '',
+        artist: track.artist || '', cover: track.cover || ''
+      };
+      if (source === 'soundcloud') payload.url = track.url;
+      return cgi(source === 'youtube' ? 'youtube.py' : 'soundcloud.py', payload,
+        { timeout: 120000 });
+    }).then(function (data) {
+      var played = (data && data.track) || track;
+      played.source = source;
+      extSetStatus('Играет: ' + (played.title || track.title) +
+        ' · ' + (EXT_LABELS[source] || ''), 'ok');
+      extNow(played);
+      extApplyPlayer(played, source);
+      setProvDot('ext', 'ok');
+    }).catch(function (err) {
+      extSetStatus('Ошибка: ' + err.message, 'bad');
+      toast('Музыка: ' + err.message, 'bad');
+    });
+  }
+
+  function extSearch() {
+    var q = (el.extQuery && el.extQuery.value || '').trim();
+    if (!q) return;
+    extSetStatus('Ищу в YouTube Music и SoundCloud…');
+    function search(file, source) {
+      return cgi(file, { action: 'search', q: q, limit: 8 }, { timeout: 90000 })
+        .then(function (data) {
+          return (data.tracks || []).map(function (track) {
+            track.source = source;
+            return track;
+          });
+        })
+        .catch(function (err) {
+          return { error: err.message };
+        });
+    }
+    Promise.all([search('youtube.py', 'youtube'), search('soundcloud.py', 'soundcloud')])
+      .then(function (parts) {
+        var yt = Array.isArray(parts[0]) ? parts[0] : [];
+        var sc = Array.isArray(parts[1]) ? parts[1] : [];
+        var tracks = [];
+        var max = Math.max(yt.length, sc.length);
+        for (var i = 0; i < max; i++) {
+          if (yt[i]) tracks.push(yt[i]);
+          if (sc[i]) tracks.push(sc[i]);
+        }
+        extRender(tracks);
+        var errors = parts.filter(function (part) { return !Array.isArray(part); });
+        extSetStatus('Найдено: ' + tracks.length + ' · YouTube: ' + yt.length +
+          ' · SoundCloud: ' + sc.length,
+          errors.length && !tracks.length ? 'bad' : '');
+      });
+  }
+
+  function extLoadStatus() {
+    return Promise.all([
+      cgi('youtube.py', { action: 'status' }, { timeout: 12000, silent: true }).catch(function () { return {}; }),
+      cgi('soundcloud.py', { action: 'status' }, { timeout: 12000, silent: true }).catch(function () { return {}; })
+    ]).then(function (parts) {
+      var yt = parts[0] || {};
+      var sc = parts[1] || {};
+      var ytReady = !!yt.has_ytdlp && !!yt.has_ffmpeg;
+      var scReady = !!sc.has_ytdlp;
+      var ready = ytReady || scReady;
+      extSetStatus('YouTube: ' + (ytReady ? 'готов' : 'нет') +
+        ' · SoundCloud: ' + (scReady ? 'готов' : 'нет'), ready ? '' : 'bad');
+      setProvDot('ext', ready ? 'ok' : 'bad');
+      var track = (yt.track && yt.track.id && yt.track) || (sc.track && sc.track.id && sc.track);
+      if (track) {
+        track.source = (yt.track && yt.track.id === track.id) ? 'youtube' : 'soundcloud';
+        extNow(track);
+      }
+    });
   }
 
   function youtubeSearch() {
@@ -14003,6 +14229,10 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     if (el.soundcloudQuery) el.soundcloudQuery.addEventListener('keydown', function (event) {
       if (event.key === 'Enter') { event.preventDefault(); soundcloudSearch(); }
     });
+    if (el.btnExtSearch) el.btnExtSearch.addEventListener('click', extSearch);
+    if (el.extQuery) el.extQuery.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') { event.preventDefault(); extSearch(); }
+    });
     if (el.btnVkSave) el.btnVkSave.addEventListener('click', vkSave);
     if (el.btnVkClear) el.btnVkClear.addEventListener('click', vkClear);
     if (el.btnVkSearch) el.btnVkSearch.addEventListener('click', vkSearch);
@@ -14017,9 +14247,8 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     });
     vkInitOAuth();
     zvukLoadStatus();
-    youtubeLoadStatus();
+    extLoadStatus();
     spotifyLoadStatus();
-    soundcloudLoadStatus();
     vkLoadStatus();
     initProviders();
     if (el.btnFilesClose) el.btnFilesClose.addEventListener('click', function () { el.filesDlg.close(); });
@@ -15405,10 +15634,9 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       'btnFilesSave', 'btnFilesEditorClose', 'btnFilesRename',
       'zvukToken', 'btnZvukSave', 'btnZvukClear', 'zvukStatus', 'zvukQuery',
       'btnZvukSearch', 'btnZvukWave', 'zvukResults', 'zvukNow',
-      'youtubeQuery', 'btnYoutubeSearch', 'youtubeStatus', 'youtubeNow', 'youtubeResults',
       'spotifyId', 'spotifySecret', 'btnSpotifySave', 'btnSpotifyClear', 'spotifyStatus',
       'spotifyQuery', 'btnSpotifySearch', 'spotifyResults',
-      'soundcloudQuery', 'btnSoundcloudSearch', 'soundcloudStatus', 'soundcloudNow', 'soundcloudResults',
+      'extQuery', 'btnExtSearch', 'extStatus', 'extNow', 'extResults',
       'vkToken', 'btnVkSave', 'btnVkClear', 'vkStatus', 'vkQuery', 'btnVkSearch', 'btnVkMine',
       'vkClientId', 'btnVkOAuth', 'vkRedirect', 'btnVkRedirectCopy', 'vkOAuthHint',
       'vkNow', 'vkResults',

@@ -131,8 +131,7 @@ def main():
         }
         _save_state(state)
         try:
-            radio.play_stream((title + (" — " + artist if artist else "")).strip(),
-                              local, fmt="MP3", subtitle=artist)
+            radio.play_stream(title, local, fmt="MP3", subtitle=artist)
         except Exception as exc:  # noqa: BLE001
             raise RuntimeError("Поток не запустился: %s" % exc)
         common.ok(playing=True, track=state)

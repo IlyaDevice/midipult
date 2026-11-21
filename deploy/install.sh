@@ -125,6 +125,8 @@ if [ ! -x /opt/bin/ffmpeg ] && [ -x /opt/bin/opkg ]; then
 fi
 # Устаревший CGI звука отклика: удаляем, чтобы не оставался после обновления.
 rm -f "$STAGE/cgi-bin/soundcfg.py"
+# YouTube теперь отдаёт HLS напрямую; старый MP3-прокси больше не нужен.
+rm -f "$STAGE/cgi-bin/youtube_stream.py"
 rm -f "$STAGE/cgi-bin/timezone.py"
 [ -f "$SRC/cgi-bin/glagol.conf" ] && [ ! -f "$STAGE/cgi-bin/glagol.conf" ] && \
     cp -f "$SRC/cgi-bin/glagol.conf" "$STAGE/cgi-bin/glagol.conf"

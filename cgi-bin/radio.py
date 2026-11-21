@@ -181,7 +181,7 @@ def state_brief():
     }
 
 
-def play_stream(name, url, fmt="MP3", subtitle=""):
+def play_stream(name, url, fmt="MP3", subtitle="", wait=2.5):
     """Отдать ссылку штатному плееру. Возвращает краткое состояние."""
     reply = glagol.send({"command": "externalCommandBypass",
                          "data": audio_play_data(url, title=name, subtitle=subtitle, fmt=fmt)},
@@ -189,7 +189,7 @@ def play_stream(name, url, fmt="MP3", subtitle=""):
     status = (reply or {}).get("status")
     if status not in (None, "SUCCESS"):
         raise RuntimeError("станция отклонила ссылку: %s" % status)
-    time.sleep(2.5)
+    time.sleep(max(0.5, float(wait or 2.5)))
     brief = state_brief()
     if not brief.get("playing"):
         hint = ("HTTPS-потоки штатный плеер на этой прошивке не открывает — "
