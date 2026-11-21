@@ -155,44 +155,53 @@ body.light dialog.queue-dlg{
   background:#0b0e16;color:#eef2ff;border-color:rgba(255,255,255,.08);
   box-shadow:0 30px 80px rgba(0,0,0,.6);
 }
-body.light dialog.lyrics-dlg{
+body.light dialog.lyrics-dlg:not(.ym-look){
   background:linear-gradient(160deg,#fffdf9,#f6eee3);color:#20242c;
   border-color:rgba(76,62,48,.14);box-shadow:0 30px 80px rgba(78,58,38,.22);
 }
-body.light .lyr-bg{opacity:.16;filter:blur(90px) saturate(1.1) brightness(1.2)}
-body.light .lyr-head{
+/* Текст, открытый из Яндекс Музыки, остаётся её фирменной тёмной
+   поверхностью даже при светлой теме панели. */
+body.light dialog.lyrics-dlg.ym-look{
+  background:#0b0e16;color:#eef2ff;border-color:rgba(255,255,255,.08);
+  box-shadow:0 30px 80px rgba(0,0,0,.6);
+}
+body.light .lyrics-dlg.ym-look::backdrop{
+  background:rgba(4,6,12,.74);backdrop-filter:blur(10px);
+}
+body.light .lyrics-dlg:not(.ym-look) .lyr-bg{opacity:.16;filter:blur(90px) saturate(1.1) brightness(1.2)}
+body.light .lyrics-dlg:not(.ym-look) .lyr-head{
   background:linear-gradient(180deg,rgba(255,253,249,.97),rgba(255,253,249,.55) 72%,transparent);
 }
-body.light .lyr-title{color:#20242c}
-body.light .lyr-source{color:#8a8175}
-body.light .lyr-lines .line{color:#5f594f;opacity:.62}
-body.light .lyr-lines .line:hover{color:#33302b;opacity:.82}
-body.light .lyr-lines .line.active{color:#15181f;opacity:1;text-shadow:0 0 24px rgba(124,92,255,.24)}
-body.light .lyr-lines .plain{color:#4a4138}
-body.light .lyr-player{
+body.light .lyrics-dlg:not(.ym-look) .lyr-title{color:#20242c}
+body.light .lyrics-dlg:not(.ym-look) .lyr-source{color:#8a8175}
+body.light .lyrics-dlg:not(.ym-look) .lyr-lines .line{color:#5f594f;opacity:.62}
+body.light .lyrics-dlg:not(.ym-look) .lyr-lines .line:hover{color:#33302b;opacity:.82}
+body.light .lyrics-dlg:not(.ym-look) .lyr-lines .line.active{color:#15181f;opacity:1;text-shadow:0 0 24px rgba(124,92,255,.24)}
+body.light .lyrics-dlg:not(.ym-look) .lyr-lines .plain{color:#4a4138}
+body.light .lyrics-dlg:not(.ym-look) .lyr-player{
   background:rgba(255,252,247,.97);border-top-color:rgba(76,62,48,.14);
 }
-body.light .lyr-player-art{background:#e8ded1;color:#6d675e}
-body.light .lyr-player-meta b{color:#20242c}
-body.light .lyr-player-meta span{color:#8a8175}
-body.light .lyr-player-progress span,
-body.light .lyr-player-volume span{color:#8a8175}
-body.light .lyr-icon{color:#5f594f}
-body.light .lyr-icon:hover{background:rgba(76,62,48,.08);color:#20242c}
-body.light .lyr-switch{background:rgba(76,62,48,.05);border-color:rgba(76,62,48,.14);color:#5f594f}
-body.light .lyr-switch-track{background:#ded5c8;border-color:rgba(76,62,48,.22)}
-body.light .lyr-switch-track i{background:#6d675e}
-body.light .lyr-switch input:checked + .lyr-switch-track{background:rgba(124,92,255,.55);border-color:rgba(124,92,255,.75)}
-body.light .lyr-switch input:checked + .lyr-switch-track i{background:#fff}
-body.light .lyrics-dlg input[type="range"]::-webkit-slider-runnable-track{
+body.light .lyrics-dlg:not(.ym-look) .lyr-player-art{background:#e8ded1;color:#6d675e}
+body.light .lyrics-dlg:not(.ym-look) .lyr-player-meta b{color:#20242c}
+body.light .lyrics-dlg:not(.ym-look) .lyr-player-meta span{color:#8a8175}
+body.light .lyrics-dlg:not(.ym-look) .lyr-player-progress span,
+body.light .lyrics-dlg:not(.ym-look) .lyr-player-volume span{color:#8a8175}
+body.light .lyrics-dlg:not(.ym-look) .lyr-icon{color:#5f594f}
+body.light .lyrics-dlg:not(.ym-look) .lyr-icon:hover{background:rgba(76,62,48,.08);color:#20242c}
+body.light .lyrics-dlg:not(.ym-look) .lyr-switch{background:rgba(76,62,48,.05);border-color:rgba(76,62,48,.14);color:#5f594f}
+body.light .lyrics-dlg:not(.ym-look) .lyr-switch-track{background:#ded5c8;border-color:rgba(76,62,48,.22)}
+body.light .lyrics-dlg:not(.ym-look) .lyr-switch-track i{background:#6d675e}
+body.light .lyrics-dlg:not(.ym-look) .lyr-switch input:checked + .lyr-switch-track{background:rgba(124,92,255,.55);border-color:rgba(124,92,255,.75)}
+body.light .lyrics-dlg:not(.ym-look) .lyr-switch input:checked + .lyr-switch-track i{background:#fff}
+body.light .lyrics-dlg:not(.ym-look) input[type="range"]::-webkit-slider-runnable-track{
   background:linear-gradient(90deg,#c99a1e 0 var(--fill,0%),#ded5c8 var(--fill,0%) 100%);
 }
-body.light .lyrics-dlg input[type="range"]::-webkit-slider-thumb{
+body.light .lyrics-dlg:not(.ym-look) input[type="range"]::-webkit-slider-thumb{
   background:#c99a1e;box-shadow:0 0 0 3px rgba(201,154,30,.18),0 2px 6px rgba(78,58,38,.25);
 }
-body.light .lyrics-dlg input[type="range"]::-moz-range-track{background:#ded5c8}
-body.light .lyrics-dlg input[type="range"]::-moz-range-progress{background:#c99a1e}
-body.light .lyrics-dlg input[type="range"]::-moz-range-thumb{background:#c99a1e}
+body.light .lyrics-dlg:not(.ym-look) input[type="range"]::-moz-range-track{background:#ded5c8}
+body.light .lyrics-dlg:not(.ym-look) input[type="range"]::-moz-range-progress{background:#c99a1e}
+body.light .lyrics-dlg:not(.ym-look) input[type="range"]::-moz-range-thumb{background:#c99a1e}
 *{-webkit-tap-highlight-color:transparent}
 *,*::before,*::after{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
@@ -6055,12 +6064,14 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     });
     [['ymNowPrev', 'btnPrev'], ['ymNowPlay', 'btnPlay'], ['ymNowNext', 'btnNext'],
       ['ymNowLike', 'btnLike'], ['ymNowDislike', 'btnDislike'],
-      ['ymNowQueue', 'btnQueue'], ['ymNowLyrics', 'btnLyrics']
+      ['ymNowQueue', 'btnQueue']
     ].forEach(function (pair) {
       var button = document.getElementById(pair[0]);
       var target = document.getElementById(pair[1]);
       if (button && target) button.addEventListener('click', function () { target.click(); });
     });
+    var ymLyrics = document.getElementById('ymNowLyrics');
+    if (ymLyrics) ymLyrics.addEventListener('click', function () { openLyrics(true); });
     var nowSeek = document.getElementById('ymNowSeek');
     if (nowSeek) {
       nowSeek.addEventListener('input', function () {
@@ -7798,11 +7809,12 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     }, 160);
   }
 
-  function openLyrics() {
+  function openLyrics(fromYm) {
     if (!State.mediaTitle) {
       toast('Сейчас ничего не играет', 'warn');
       return;
     }
+    if (el.lyricsDlg) el.lyricsDlg.classList.toggle('ym-look', !!fromYm);
     if (el.lyrBg) {
       el.lyrBg.style.backgroundImage = State.mediaCover
         ? 'url("' + State.mediaCover + '")' : 'none';
@@ -13391,7 +13403,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     el.btnPrev.addEventListener('click', function () { mediaAction('prev'); });
     el.btnNext.addEventListener('click', function () { mediaAction('next'); });
     el.btnMusic.addEventListener('click', function () { mediaAction('music'); });
-    el.btnLyrics.addEventListener('click', openLyrics);
+    el.btnLyrics.addEventListener('click', function () { openLyrics(false); });
     if (el.btnLyricsClose) el.btnLyricsClose.addEventListener('click', closeLyricsDialog);
     if (el.lyricsDlg) el.lyricsDlg.addEventListener('cancel', function (event) {
       event.preventDefault();
