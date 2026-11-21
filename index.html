@@ -564,9 +564,10 @@ body.light #ringMusicPop{background:#fff}
     .c-scenarios{grid-column:span 12}
   }
 
-.alarm-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px}
-.alarm-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:8px;margin-top:10px;min-width:0}
-.alarm-empty{grid-column:1/-1;color:var(--muted);font-size:13px;padding:18px;border:1px dashed var(--stroke);
+.alarm-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px;flex-wrap:wrap}
+.alarm-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(0,1fr));gap:8px;margin-top:10px;min-width:0}
+.alarm-empty{grid-column:1/-1;color:var(--muted);font-size:13px;padding:14px 12px;border:1px dashed var(--stroke);
+  text-align:center;white-space:normal;overflow-wrap:anywhere;
   border-radius:14px;text-align:center}
 .alarm-item{display:grid;grid-template-columns:76px 1fr auto;gap:14px;align-items:center;padding:12px 14px;
   border-radius:14px;background:rgba(255,255,255,.035);border:1px solid var(--stroke)}
@@ -10174,6 +10175,7 @@ body.light dialog.queue-dlg.ym-look{
 
   function packCards() {
     if (packing || cardResizing) return;
+    if (document.body.classList.contains('card-dragging')) return;
     var grid = document.querySelector('main.grid');
     if (!grid) return;
     packing = true;
@@ -10195,13 +10197,23 @@ body.light dialog.queue-dlg.ym-look{
         return height;
       });
       cards.forEach(function (card, index) {
-        if (!heights[index]) return;
+        if (!heights[index]) {
+          card.style.height = '';
+          return;
+        }
         var span = Math.max(1, Math.ceil((heights[index] + PACK_GAP) / (PACK_UNIT + PACK_GAP)));
         var wanted = Number(card.dataset.rows || 0);
         if (wanted > span) span = wanted;
+        var box = span * (PACK_UNIT + PACK_GAP) - PACK_GAP;
+        var before = Number(card.dataset.packBox || 0);
         card.style.gridRowEnd = 'span ' + span;
-        card.style.height = '';
+        card.style.height = box + 'px';
         card.style.alignSelf = '';
+        card.dataset.packBox = String(box);
+        if (before && Math.abs(before - box) > 1 && !cardResizing && card.animate) {
+          card.animate([{ height: before + 'px' }, { height: box + 'px' }],
+            { duration: 180, easing: 'ease-out' });
+        }
       });
     } finally {
       packing = false;
@@ -10233,6 +10245,24 @@ body.light dialog.queue-dlg.ym-look{
     Array.prototype.forEach.call(
       document.querySelectorAll('main.grid > .card'),
       function (card) { packObserver.observe(card); });
+    // Раскрыли блок внутри карточки, подгрузился текст или список — высота
+    // содержимого меняется, хотя сама карточка ещё нет. Пересобираем сетку.
+    var contentObserver = new MutationObserver(function () {
+      if (!packing && !cardResizing &&
+          !document.body.classList.contains('card-dragging')) {
+        schedulePack();
+      }
+    });
+    var grid = document.querySelector('main.grid');
+    if (grid) {
+      contentObserver.observe(grid, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true,
+        attributeFilter: ['open', 'hidden', 'class']
+      });
+    }
   }
 
   window.addEventListener('resize', schedulePack);
@@ -13848,7 +13878,8 @@ body.light dialog.queue-dlg.ym-look{
     }
 
     function minSpan(card) {
-      if (card.classList.contains('c-media')) return 6;
+      if (card.classList.contains('c-media')) return 5;
+      if (card.classList.contains('c-alarm')) return 4;
       if (card.classList.contains('c-radio')) return 4;
       if (card.classList.contains('c-voice')) return 5;
       return 3;
@@ -13911,6 +13942,7 @@ body.light dialog.queue-dlg.ym-look{
           (moveEvent.clientY - startY) / (PACK_UNIT + PACK_GAP))));
         card.dataset.rows = String(rows);
         card.style.gridRowEnd = 'span ' + rows;
+        card.style.height = (rows * (PACK_UNIT + PACK_GAP) - PACK_GAP) + 'px';
       }
 
       function onUp() {
