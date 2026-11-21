@@ -116,6 +116,13 @@ if [ -f "$SRC/bin/yt-dlp" ]; then
     cp -f "$SRC/bin/yt-dlp" /data/mypult/bin/yt-dlp || warn "не скопировался yt-dlp"
     chmod 755 /data/mypult/bin/yt-dlp 2>/dev/null || true
 fi
+# ffmpeg нужен YouTube-провайдеру: AAC/M4A штатный плеер не играет,
+# поэтому трек перекодируется в локальный MP3.
+if [ ! -x /opt/bin/ffmpeg ] && [ -x /opt/bin/opkg ]; then
+    say "ставлю ffmpeg для YouTube Music"
+    /opt/bin/opkg install ffmpeg >>/tmp/mypult.log 2>&1 || \
+        warn "ffmpeg не установился — YouTube Music будет недоступен"
+fi
 # Устаревший CGI звука отклика: удаляем, чтобы не оставался после обновления.
 rm -f "$STAGE/cgi-bin/soundcfg.py"
 rm -f "$STAGE/cgi-bin/timezone.py"

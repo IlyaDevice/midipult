@@ -2773,7 +2773,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     </div>
 
     <div class="prov-pane" id="provPaneYoutube" role="tabpanel" data-provider-pane="youtube" hidden>
-      <div class="seg-note">Экспериментально: поиск и поток через yt-dlp. YouTube может заблокировать поток или изменить API.</div>
+      <div class="seg-note">Поиск через yt-dlp, звук — локальный MP3. Первый запуск трека занимает несколько секунд: аудио скачивается и перекодируется.</div>
       <div class="zvuk-search">
         <input id="youtubeQuery" class="net-input" placeholder="Трек или исполнитель" autocomplete="off">
         <button class="btn sm" id="btnYoutubeSearch">Найти</button>
@@ -10603,12 +10603,12 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
 
   function youtubePlay(track) {
     if (!track || !track.id) return;
-    extStatus(el.youtubeStatus, 'Получаю поток…');
+    extStatus(el.youtubeStatus, 'Готовлю MP3…');
     youtubeNow(track);
     cgi('youtube.py', {
       action: 'play', id: track.id, title: track.title || '',
       artist: track.artist || '', cover: track.cover || ''
-    }, { timeout: 120000 })
+    }, { timeout: 240000 })
       .then(function (data) {
         extStatus(el.youtubeStatus, 'Играет: ' + ((data.track && data.track.title) || track.title), 'ok');
         youtubeNow(data.track || track);
@@ -10634,8 +10634,12 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   function youtubeLoadStatus() {
     return cgi('youtube.py', { action: 'status' }, { timeout: 12000, silent: true })
       .then(function (data) {
-        extStatus(el.youtubeStatus, data.has_ytdlp ? 'yt-dlp готов' : 'yt-dlp не установлен', data.has_ytdlp ? 'ok' : 'bad');
-        setProvDot('youtube', data.has_ytdlp ? 'ok' : 'bad');
+        var ready = data.has_ytdlp && data.has_ffmpeg;
+        extStatus(el.youtubeStatus,
+          ready ? 'yt-dlp и MP3 готовы'
+            : !data.has_ytdlp ? 'yt-dlp не установлен' : 'ffmpeg не установлен',
+          ready ? 'ok' : 'bad');
+        setProvDot('youtube', ready ? 'ok' : 'bad');
         if (data.track && data.track.id) youtubeNow(data.track);
       }).catch(function () { extStatus(el.youtubeStatus, 'YouTube Music недоступен', 'bad'); setProvDot('youtube', 'bad'); });
   }
