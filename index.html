@@ -8201,7 +8201,16 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       }
       el.mediaTitle.textContent = data.title;
       el.mediaSub.textContent = data.artist || '';
-    } else {
+    } else if (data.playing && data.kind === 'Track') {
+      // Станция уже играет, но ещё не отдала метаданные. Не показываем
+      // «Glagol» и не сбрасываем обложку в пустоту.
+      if (!State.mediaTitle) {
+        State.mediaTitle = 'Загружаю трек…';
+        State.mediaArtist = State.extSource || 'Яндекс Музыка';
+        el.mediaTitle.textContent = State.mediaTitle;
+        el.mediaSub.textContent = State.mediaArtist;
+      }
+    } else if (!State.extTrack) {
       State.mediaTitle = '';
       State.mediaArtist = '';
       el.mediaTitle.textContent = 'Glagol';
@@ -8213,10 +8222,9 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       el.mediaCover.hidden = false;
       el.mediaArtIcon.style.display = 'none';
       if (el.npGlow) el.npGlow.style.backgroundImage = 'url("' + data.cover + '")';
-    } else {
+    } else if (!(data.playing && data.kind === 'Track')) {
       el.mediaCover.hidden = true;
       el.mediaCover.removeAttribute('src');
-      el.mediaCover.hidden = true;
       State.mediaCover = '';
       if (el.npGlow) el.npGlow.style.backgroundImage = '';
       el.mediaArtIcon.style.display = '';
@@ -10842,6 +10850,22 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     cgi('youtube.py', { action: 'stop' }, { timeout: 12000, silent: true }).catch(function () {});
     cgi('soundcloud.py', { action: 'stop' }, { timeout: 12000, silent: true }).catch(function () {});
     extSetStatus('Сейчас играет Яндекс Музыка');
+    // Старый трек YouTube/SoundCloud не должен оставаться в главном плеере
+    // до прихода первого состояния Яндекс Музыки.
+    State.mediaTitle = 'Загружаю трек…';
+    State.mediaArtist = 'Яндекс Музыка';
+    State.mediaCover = '';
+    if (el.mediaTitle) el.mediaTitle.textContent = State.mediaTitle;
+    if (el.mediaSub) el.mediaSub.textContent = State.mediaArtist;
+    if (el.mediaKind) el.mediaKind.textContent = 'Яндекс Музыка · загружаю…';
+    if (el.mediaCover) {
+      el.mediaCover.hidden = true;
+      el.mediaCover.removeAttribute('src');
+    }
+    if (el.mediaArtIcon) el.mediaArtIcon.style.display = '';
+    if (el.npGlow) el.npGlow.style.backgroundImage = '';
+    syncHomePlayer();
+    syncSystemMedia(true);
   }
 
   function extPlay(track) {
