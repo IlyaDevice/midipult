@@ -1801,6 +1801,12 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .c-clock .clock-anim-list{gap:6px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
 .c-clock .clock-anim-row{padding:4px 8px;flex-wrap:wrap;row-gap:2px}
 .c-clock .clock-anim-row .clock-anim-name{flex:1 1 100%}
+.c-clock .clock-anim-row{position:relative}
+.c-clock .clock-anim-row .clock-anim-name{padding-right:26px}
+.clock-anim-del{position:absolute;right:6px;top:6px;width:22px;height:22px;padding:0;
+  border-radius:8px;border:1px solid var(--stroke);background:rgba(255,255,255,.05);
+  color:var(--muted);font-size:14px;line-height:1;cursor:pointer;z-index:2}
+.clock-anim-del:hover{color:var(--text);background:rgba(124,92,255,.22)}
 .c-clock .clock-anim-row .btn{height:28px;padding:2px 8px;font-size:12px}
 .c-led .ring{width:150px;height:150px;--r:60px;margin:2px auto 0}
 .c-led .field-top{margin-bottom:2px}
@@ -7493,7 +7499,7 @@ body.light dialog.queue-dlg.ym-look{
       });
       var remove = document.createElement('button');
       remove.type = 'button';
-      remove.className = 'btn sm ghost';
+      remove.className = 'clock-anim-del';
       remove.textContent = '×';
       remove.title = 'Удалить';
       remove.addEventListener('click', function () {
