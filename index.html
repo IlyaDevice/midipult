@@ -3503,6 +3503,16 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     }, ms);
   }
 
+  // Android-оболочка умеет pull-to-refresh. На время вращения 3D-модели его
+  // нужно выключить, иначе вертикальный жест обновляет страницу.
+  function setPullRefresh(enabled) {
+    try {
+      if (window.MidiPultPull && window.MidiPultPull.setEnabled) {
+        window.MidiPultPull.setEnabled(!!enabled);
+      }
+    } catch (e) {}
+  }
+
   var store = {
     get: function (k, dflt) {
       try { var v = localStorage.getItem('mypult.' + k); return v === null ? dflt : JSON.parse(v); }
@@ -13327,15 +13337,17 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     var drag = null;
     stage.addEventListener('pointerdown', function (event) {
       drag = { x: event.clientX, y: event.clientY, yaw: state.yaw, pitch: state.pitch };
+      setPullRefresh(false);
       try { stage.setPointerCapture(event.pointerId); } catch (e) {}
     });
     stage.addEventListener('pointermove', function (event) {
       if (!drag) return;
       state.yaw = drag.yaw - (event.clientX - drag.x) * 0.007;
-      state.pitch = Math.max(-0.25, Math.min(0.7, drag.pitch - (event.clientY - drag.y) * 0.004));
+      state.pitch = Math.max(-0.25, Math.min(0.7, drag.pitch + (event.clientY - drag.y) * 0.004));
     });
-    stage.addEventListener('pointerup', function () { drag = null; });
-    stage.addEventListener('pointercancel', function () { drag = null; });
+    stage.addEventListener('pointerup', function () { drag = null; setPullRefresh(true); });
+    stage.addEventListener('pointercancel', function () { drag = null; setPullRefresh(true); });
+    stage.addEventListener('lostpointercapture', function () { drag = null; setPullRefresh(true); });
     stage.addEventListener('dblclick', function () { state.yaw = 0.44; state.pitch = 0.16; });
     function resize() {
       var w = stage.clientWidth || 600;
@@ -13815,15 +13827,17 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     var drag = null;
     stage.addEventListener('pointerdown', function (event) {
       drag = { x: event.clientX, y: event.clientY, yaw: state.yaw, pitch: state.pitch };
+      setPullRefresh(false);
       try { stage.setPointerCapture(event.pointerId); } catch (e) {}
     });
     stage.addEventListener('pointermove', function (event) {
       if (!drag) return;
       state.yaw = drag.yaw - (event.clientX - drag.x) * 0.005;
-      state.pitch = Math.max(-0.08, Math.min(0.42, drag.pitch - (event.clientY - drag.y) * 0.003));
+      state.pitch = Math.max(-0.08, Math.min(0.42, drag.pitch + (event.clientY - drag.y) * 0.003));
     });
-    stage.addEventListener('pointerup', function () { drag = null; });
-    stage.addEventListener('pointercancel', function () { drag = null; });
+    stage.addEventListener('pointerup', function () { drag = null; setPullRefresh(true); });
+    stage.addEventListener('pointercancel', function () { drag = null; setPullRefresh(true); });
+    stage.addEventListener('lostpointercapture', function () { drag = null; setPullRefresh(true); });
     stage.addEventListener('dblclick', function () { state.yaw = 0.42; state.pitch = 0.24; });
     function resize() {
       var rect = stage.getBoundingClientRect();
