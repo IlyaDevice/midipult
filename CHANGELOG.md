@@ -5,6 +5,20 @@
 развивался итерациями `0.0.x`; полная история — в
 [docs/CHANGELOG-dev.md](docs/CHANGELOG-dev.md).
 
+## 0.6.6 — 2026-11-21
+
+Кольцо Station 2: чтение без управления.
+
+- **`ring_state.py`** понимает LED-панель Station 2: если sysfs-кольца нет, а
+  `/dev/fb0` есть (`virtual_size 89,1`, 32 bpp), цвета читаются из кадра
+  и отдаются с `via: "framebuffer"`, `readonly: true`. Писать в кадр панель не
+  пытается: им владеет прошивка, Luna на запись отвечает
+  `400 "Station 2 framebuffer belongs to firmware or another indicator"`.
+- **`caps.py`** получил `ring_read` и `ring_count` из framebuffer (89), а
+  `leds.fb_pixels`. `ring` по-прежнему `false` — управлять кольцом Station 2
+  нельзя, поэтому карточка остаётся скрытой.
+- На Миди путь прежний: 24 канала sysfs, `via: "sysfs"`, `readonly: false`.
+
 ## 0.6.5 — 2026-11-21
 
 Диагностика Glagol для станций без `devices.json`.

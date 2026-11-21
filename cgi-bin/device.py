@@ -70,6 +70,16 @@ def _ring_diodes():
     return len(indexes)
 
 
+def _fb_pixels():
+    """Ширина LED-панели Station 2 из /sys/class/graphics/fb0 (89 у Station 2)."""
+    try:
+        with open("/sys/class/graphics/fb0/virtual_size", "r", encoding="ascii") as fh:
+            width = int(fh.read().split(",")[0])
+        return width if width > 0 and os.path.exists("/dev/fb0") else 0
+    except (OSError, ValueError):
+        return 0
+
+
 def read_store():
     try:
         with open(STORE, "r", encoding="utf-8") as fh:
@@ -118,6 +128,7 @@ def detect():
 
     segments = _count(SEGMENT_GLOB)
     ring = _ring_diodes()
+    fb_pixels = _fb_pixels()
     has_fb = os.path.exists("/dev/fb0")
     has_segment_feature = any(item.startswith("display.clock.segment") for item in features)
 
@@ -144,9 +155,10 @@ def detect():
         "tree_model": tree,
         "display": display,
         "ring": support_ring,
-        "ring_count": ring,
+        "ring_count": ring or fb_pixels,
         "ring_kind": ring_kind,
-        "leds": {"segments": segments, "ring": ring},
+        "ring_read": bool(support_ring or fb_pixels),
+        "leds": {"segments": segments, "ring": ring, "fb_pixels": fb_pixels},
         "note": note,
         "detected_at": int(time.time()),
     }

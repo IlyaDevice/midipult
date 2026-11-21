@@ -2047,6 +2047,16 @@ def test_glagol_device_override():
             pass
 
 
+def test_ring_fb_geometry():
+    import ring_state
+
+    check("кольцо: virtual_size 89,1", ring_state.parse_virtual_size("89,1") == (89, 1))
+    check("кольцо: пробелы в размере", ring_state.parse_virtual_size(" 89, 1 ") == (89, 1))
+    check("кольцо: кривой размер", ring_state.parse_virtual_size("foo") is None)
+    check("кольцо: пустой размер", ring_state.parse_virtual_size("") is None)
+    check("кольцо: нулевая ширина", ring_state.parse_virtual_size("0,1") is None)
+
+
 def main():
     for test in (
         test_generic_helpers,
@@ -2098,6 +2108,7 @@ def main():
         test_voice_idle_and_toggle,
         test_device_classify,
         test_glagol_device_override,
+        test_ring_fb_geometry,
     ):
         try:
             test()
