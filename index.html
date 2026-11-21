@@ -1739,7 +1739,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   background:linear-gradient(140deg,#383840,#1d1d22);box-shadow:0 28px 70px rgba(0,0,0,.5);color:#777780}
 .ym-now-art-wrap img{width:100%;height:100%;object-fit:cover}
 .ym-now-art-wrap .ic{width:56px;height:56px}
-.ym-now-info{min-width:0;color:#fff}
+.ym-now-info{min-width:0;color:#fff;display:flex;flex-direction:column;min-height:0}
 .ym-now-info h2{font-size:clamp(26px,3.2vw,42px);line-height:1.06;letter-spacing:-.045em;margin:0;
   overflow-wrap:anywhere}
 .ym-now-artist{font-size:15px;color:#9a9aa3;margin-top:10px}
@@ -1762,15 +1762,36 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .ym-now-volume .ic{width:17px;height:17px;flex:0 0 auto}
 .ym-now-volume input{flex:1;min-width:0;accent-color:#ffdb4d}
 .ym-now-volume output{font-size:10px;min-width:34px;text-align:right}
-@media(max-width:700px){
-  .ym-now{padding:16px 14px 22px}
-  .ym-now-content{grid-template-columns:1fr;gap:24px;margin-top:20px}
-  .ym-now-art-wrap{width:min(68vw,260px);justify-self:center}
-  .ym-now-info h2{font-size:28px}
-  .ym-now-actions{margin-top:16px}
-  .ym-now-seek{margin-top:18px}
-  .ym-now-lyrics{max-height:180px;margin-top:18px}
-  .ym-now-line{font-size:17px}
+.ym-now-bottom{margin-top:auto;flex:0 0 auto}
+@media(max-width:760px){
+  /* Развёрнутый плеер занимает ровно экран: текст песни — над управлением,
+     внутри текста своя прокрутка, вся страница не скроллится. */
+  .ym-now{display:flex;flex-direction:column;overflow:hidden;
+    padding:12px 14px calc(12px + env(safe-area-inset-bottom))}
+  /* В развёрнутом плеере верхнее меню и поиск не нужны — освобождаем высоту. */
+  .ym-dlg.now-open .ym-top{display:none}
+  .ym-now-top{flex:0 0 auto}
+  .ym-now-content{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;
+    gap:8px;margin-top:10px;max-width:none;overflow:hidden}
+  .ym-now-art-wrap{width:min(30vh,190px);flex:0 0 auto;justify-self:center;margin:0 auto}
+  .ym-now-info{flex:1 1 auto;min-height:0;width:100%}
+  .ym-now-info h2{font-size:23px}
+  .ym-now-artist{font-size:12px;margin-top:3px}
+  .ym-now-actions{margin-top:8px}
+  .ym-now-actions .ym-now-icon{width:34px;height:34px}
+  .ym-now-actions .ym-now-icon .ic{width:17px;height:17px}
+  .ym-now-lyrics{flex:1 1 auto;min-height:44px;max-height:none;margin-top:8px;
+    padding:6px 0;overflow-y:auto;overscroll-behavior:contain}
+  .ym-now-line{font-size:15px;padding:4px 0}
+  .ym-now-line.plain{font-size:14px;line-height:1.45}
+  .ym-now-bottom{margin-top:8px}
+  .ym-now-seek{margin-top:4px}
+  .ym-now-seek span{font-size:9px;min-width:26px}
+  .ym-now-controls{margin-top:6px;gap:10px}
+  .ym-now-play{width:48px;height:48px}
+  .ym-now-play .ic{width:20px;height:20px}
+  .ym-now-volume{margin-top:6px;max-width:none}
+  .ym-now-volume output{font-size:10px}
 }
 .ym-wave{max-width:980px}
 .ym-wave-hero{display:flex;align-items:center;gap:24px;padding:22px;border-radius:4px;
@@ -1912,17 +1933,26 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   .files-row{grid-template-columns:24px minmax(0,1fr) auto;gap:7px}
   .files-row .files-meta{display:none}
 }
-/* ───────── компактные музыкальные провайдеры ───────── */
-.c-zvuk,.c-youtube,.c-spotify,.c-soundcloud{grid-column:span 6;min-width:0;padding:16px 18px}
-.c-zvuk .seg-note,.c-youtube .seg-note,.c-spotify .seg-note,.c-soundcloud .seg-note{font-size:11px;line-height:1.4}
-.c-zvuk .zvuk-token-wrap,.c-spotify .zvuk-token-wrap{gap:6px;margin-top:9px}
-.c-zvuk .zvuk-token-wrap .net-input,.c-spotify .zvuk-token-wrap .net-input{flex:1 1 190px;height:34px;font-size:12px}
-.c-zvuk .zvuk-search,.c-youtube .zvuk-search,.c-spotify .zvuk-search,.c-soundcloud .zvuk-search{gap:6px;margin-top:8px}
-.c-zvuk .zvuk-search .net-input,.c-youtube .zvuk-search .net-input,.c-spotify .zvuk-search .net-input,.c-soundcloud .zvuk-search .net-input{height:34px;font-size:12px}
-.c-zvuk .zvuk-results,.c-youtube .zvuk-results,.c-spotify .zvuk-results,.c-soundcloud .zvuk-results{max-height:210px}
-.c-zvuk .zvuk-now,.c-youtube .zvuk-now,.c-soundcloud .zvuk-now{margin-top:8px;padding:8px 10px}
-@media(max-width:900px){
-  .c-zvuk,.c-youtube,.c-spotify,.c-soundcloud{grid-column:span 12}
+/* ───────── музыкальные провайдеры: одна карточка с переключателем ───────── */
+.c-providers{grid-column:span 12;min-width:0}
+.prov-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.prov-tab{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 12px;border-radius:999px;
+  border:1px solid var(--stroke);background:rgba(255,255,255,.045);color:var(--muted);
+  font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}
+.prov-tab:hover{color:var(--text);background:rgba(255,255,255,.08)}
+.prov-tab[aria-pressed="true"]{color:var(--text);border-color:rgba(124,92,255,.6);
+  background:rgba(124,92,255,.18)}
+.prov-dot{width:6px;height:6px;border-radius:50%;background:#6b7280;flex:0 0 auto}
+.prov-dot.ok{background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,.55)}
+.prov-dot.warn{background:#f59e0b}
+.prov-dot.bad{background:#ef4444}
+.prov-pane{padding-top:6px}
+.prov-pane[hidden]{display:none}
+.prov-pane .zvuk-status{margin-top:8px}
+.prov-pane .zvuk-results{max-height:min(46vh,360px)}
+.prov-ym-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+@media(max-width:520px){
+  .prov-tab{flex:1 1 calc(50% - 6px);justify-content:center;padding:0 8px}
 }
 </style>
 </head>
@@ -2342,8 +2372,93 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     </div>
   </section>
 
-  <!-- ───────── озвучка ───────── -->
+  <section class="card c-providers" data-group="sound" data-card-id="providers"
+           data-legacy-card-ids="zvuk,youtube,spotify,soundcloud" aria-labelledby="h-providers">
+    <h2 id="h-providers"><span class="dot"></span>Сервисы музыки</h2>
+    <div class="prov-tabs" id="provTabs" role="tablist" aria-label="Сервис музыки">
+      <button type="button" class="prov-tab" role="tab" data-provider="yandex" aria-controls="provPaneYandex" aria-pressed="true">
+        <span class="prov-dot" data-prov-dot="yandex"></span>Яндекс Музыка
+      </button>
+      <button type="button" class="prov-tab" role="tab" data-provider="zvuk" aria-controls="provPaneZvuk" aria-pressed="false">
+        <span class="prov-dot" data-prov-dot="zvuk"></span>Сбер Звук
+      </button>
+      <button type="button" class="prov-tab" role="tab" data-provider="youtube" aria-controls="provPaneYoutube" aria-pressed="false">
+        <span class="prov-dot" data-prov-dot="youtube"></span>YouTube
+      </button>
+      <button type="button" class="prov-tab" role="tab" data-provider="spotify" aria-controls="provPaneSpotify" aria-pressed="false">
+        <span class="prov-dot" data-prov-dot="spotify"></span>Spotify
+      </button>
+      <button type="button" class="prov-tab" role="tab" data-provider="soundcloud" aria-controls="provPaneSoundcloud" aria-pressed="false">
+        <span class="prov-dot" data-prov-dot="soundcloud"></span>SoundCloud
+      </button>
+    </div>
 
+    <div class="prov-pane" id="provPaneYandex" role="tabpanel" data-provider-pane="yandex">
+      <div class="seg-note">Полный плеер: поиск, плейлисты, «Моя волна», текст песни и очередь. Вход в Яндекс — в карточке «Плеер».</div>
+      <div class="prov-ym-row">
+        <button class="btn sm primary" id="btnProviderYm">Открыть Яндекс Музыку</button>
+        <span class="seg-note" id="provYmStatus">не подключена</span>
+      </div>
+    </div>
+
+    <div class="prov-pane" id="provPaneZvuk" role="tabpanel" data-provider-pane="zvuk" hidden>
+      <div class="seg-note">Неофициальный провайдер. Токен хранится только на станции, трек играет штатный плеер.</div>
+      <div class="zvuk-token-wrap">
+        <input id="zvukToken" class="net-input" type="password" autocomplete="off"
+               placeholder="Токен из zvuk.com/api/tiny/profile">
+        <button class="btn sm" id="btnZvukSave">Сохранить</button>
+        <button class="btn sm ghost" id="btnZvukClear">Убрать</button>
+      </div>
+      <div class="zvuk-status" id="zvukStatus">Токен не сохранён</div>
+      <div class="zvuk-search">
+        <input id="zvukQuery" class="net-input" placeholder="Трек, альбом или исполнитель" autocomplete="off">
+        <button class="btn sm" id="btnZvukSearch">Найти</button>
+        <button class="btn sm ghost" id="btnZvukWave">Мой поток</button>
+      </div>
+      <div class="zvuk-now" id="zvukNow"></div>
+      <div class="zvuk-results" id="zvukResults"></div>
+    </div>
+
+    <div class="prov-pane" id="provPaneYoutube" role="tabpanel" data-provider-pane="youtube" hidden>
+      <div class="seg-note">Экспериментально: поиск и поток через yt-dlp. YouTube может заблокировать поток или изменить API.</div>
+      <div class="zvuk-search">
+        <input id="youtubeQuery" class="net-input" placeholder="Трек или исполнитель" autocomplete="off">
+        <button class="btn sm" id="btnYoutubeSearch">Найти</button>
+      </div>
+      <div class="zvuk-status" id="youtubeStatus">Экспериментальный режим</div>
+      <div class="zvuk-now" id="youtubeNow"></div>
+      <div class="zvuk-results" id="youtubeResults"></div>
+    </div>
+
+    <div class="prov-pane" id="provPaneSpotify" role="tabpanel" data-provider-pane="spotify" hidden>
+      <div class="seg-note">Экспериментально: поиск по Web API и открытие в Spotify. Звук на станции — только через отдельный Spotify Connect, не через Glagol.</div>
+      <div class="zvuk-token-wrap">
+        <input id="spotifyId" class="net-input" placeholder="Client ID" autocomplete="off">
+        <input id="spotifySecret" class="net-input" type="password" placeholder="Client Secret" autocomplete="off">
+        <button class="btn sm" id="btnSpotifySave">Сохранить</button>
+        <button class="btn sm ghost" id="btnSpotifyClear">Убрать</button>
+      </div>
+      <div class="zvuk-status" id="spotifyStatus">Ключи не сохранены</div>
+      <div class="zvuk-search">
+        <input id="spotifyQuery" class="net-input" placeholder="Трек или исполнитель" autocomplete="off">
+        <button class="btn sm" id="btnSpotifySearch">Найти</button>
+      </div>
+      <div class="zvuk-results" id="spotifyResults"></div>
+    </div>
+
+    <div class="prov-pane" id="provPaneSoundcloud" role="tabpanel" data-provider-pane="soundcloud" hidden>
+      <div class="seg-note">Экспериментально: поиск и поток через yt-dlp. SoundCloud может ограничить поток.</div>
+      <div class="zvuk-search">
+        <input id="soundcloudQuery" class="net-input" placeholder="Трек или исполнитель" autocomplete="off">
+        <button class="btn sm" id="btnSoundcloudSearch">Найти</button>
+      </div>
+      <div class="zvuk-status" id="soundcloudStatus">Экспериментальный режим</div>
+      <div class="zvuk-now" id="soundcloudNow"></div>
+      <div class="zvuk-results" id="soundcloudResults"></div>
+    </div>
+  </section>
+
+  <!-- ───────── озвучка ───────── -->
 
   <section class="card c-alarm" data-group="sound" aria-labelledby="h-alarm">
     <h2 id="h-alarm"><span class="dot"></span>Будильники</h2>
@@ -2475,66 +2590,6 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     </div>
   </section>
 
-  <section class="card c-zvuk" data-group="sound" data-card-id="zvuk" data-legacy-card-id="Сбер Звук" aria-labelledby="h-zvuk">
-    <h2 id="h-zvuk"><span class="dot"></span>Сбер Звук</h2>
-    <div class="seg-note" style="margin-top:8px">Неофициальный провайдер. Токен хранится только на станции, трек играет штатный плеер.</div>
-    <div class="zvuk-token-wrap">
-      <input id="zvukToken" class="net-input" type="password" autocomplete="off"
-             placeholder="Токен из zvuk.com/api/tiny/profile">
-      <button class="btn sm" id="btnZvukSave">Сохранить</button>
-      <button class="btn sm ghost" id="btnZvukClear">Убрать</button>
-    </div>
-    <div class="zvuk-status" id="zvukStatus">Токен не сохранён</div>
-    <div class="zvuk-search">
-      <input id="zvukQuery" class="net-input" placeholder="Трек, альбом или исполнитель" autocomplete="off">
-      <button class="btn sm" id="btnZvukSearch">Найти</button>
-      <button class="btn sm ghost" id="btnZvukWave">Мой поток</button>
-    </div>
-    <div class="zvuk-now" id="zvukNow"></div>
-    <div class="zvuk-results" id="zvukResults"></div>
-  </section>
-
-  <!-- ───────── нейросеть ───────── -->
-  <section class="card c-youtube" data-group="sound" data-card-id="youtube" data-legacy-card-id="YouTube Music" aria-labelledby="h-youtube">
-    <h2 id="h-youtube"><span class="dot"></span>YouTube Music</h2>
-    <div class="seg-note" style="margin-top:8px">Экспериментально: поиск и поток через yt-dlp. YouTube может заблокировать поток или изменить API.</div>
-    <div class="zvuk-search">
-      <input id="youtubeQuery" class="net-input" placeholder="Трек или исполнитель" autocomplete="off">
-      <button class="btn sm" id="btnYoutubeSearch">Найти</button>
-    </div>
-    <div class="zvuk-status" id="youtubeStatus">Экспериментальный режим</div>
-    <div class="zvuk-now" id="youtubeNow"></div>
-    <div class="zvuk-results" id="youtubeResults"></div>
-  </section>
-
-  <section class="card c-spotify" data-group="sound" data-card-id="spotify" data-legacy-card-id="Spotify" aria-labelledby="h-spotify">
-    <h2 id="h-spotify"><span class="dot"></span>Spotify</h2>
-    <div class="seg-note" style="margin-top:8px">Экспериментально: поиск по Web API и открытие в Spotify. Звук на станции — только через отдельный Spotify Connect, не через Glagol.</div>
-    <div class="zvuk-token-wrap">
-      <input id="spotifyId" class="net-input" placeholder="Client ID" autocomplete="off">
-      <input id="spotifySecret" class="net-input" type="password" placeholder="Client Secret" autocomplete="off">
-      <button class="btn sm" id="btnSpotifySave">Сохранить</button>
-      <button class="btn sm ghost" id="btnSpotifyClear">Убрать</button>
-    </div>
-    <div class="zvuk-status" id="spotifyStatus">Ключи не сохранены</div>
-    <div class="zvuk-search">
-      <input id="spotifyQuery" class="net-input" placeholder="Трек или исполнитель" autocomplete="off">
-      <button class="btn sm" id="btnSpotifySearch">Найти</button>
-    </div>
-    <div class="zvuk-results" id="spotifyResults"></div>
-  </section>
-
-  <section class="card c-soundcloud" data-group="sound" data-card-id="soundcloud" data-legacy-card-id="SoundCloud" aria-labelledby="h-soundcloud">
-    <h2 id="h-soundcloud"><span class="dot"></span>SoundCloud</h2>
-    <div class="seg-note" style="margin-top:8px">Экспериментально: поиск и поток через yt-dlp. SoundCloud может ограничить поток.</div>
-    <div class="zvuk-search">
-      <input id="soundcloudQuery" class="net-input" placeholder="Трек или исполнитель" autocomplete="off">
-      <button class="btn sm" id="btnSoundcloudSearch">Найти</button>
-    </div>
-    <div class="zvuk-status" id="soundcloudStatus">Экспериментальный режим</div>
-    <div class="zvuk-now" id="soundcloudNow"></div>
-    <div class="zvuk-results" id="soundcloudResults"></div>
-  </section>
 
   <section class="card c-llm" data-group="ai" aria-labelledby="h-llm">
     <h2 id="h-llm"><span class="dot"></span>Нейросеть</h2>
@@ -2860,7 +2915,6 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
 
   <!-- ───────── логи ───────── -->
 
-
   <section class="card c-sys" data-group="system" aria-labelledby="h-logs">
     <h2 id="h-logs"><span class="dot"></span>Логи</h2>
     <div class="row" style="margin-top:12px">
@@ -3017,28 +3071,30 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
                     <svg class="ic" aria-hidden="true"><use href="#i-text"/></svg>
                   </button>
                 </div>
-                <div class="ym-now-seek">
-                  <span id="ymNowPos">0:00</span>
-                  <input type="range" id="ymNowSeek" min="0" max="1000" step="1" value="0" aria-label="Перемотка">
-                  <span id="ymNowDur">0:00</span>
-                </div>
-                <div class="ym-now-controls">
-                  <button type="button" class="ym-now-icon" id="ymNowPrev" aria-label="Предыдущий трек">
-                    <svg class="ic" aria-hidden="true"><use href="#i-prev"/></svg>
-                  </button>
-                  <button type="button" class="ym-now-play" id="ymNowPlay" aria-label="Воспроизвести">
-                    <svg class="ic" aria-hidden="true"><use href="#i-play"/></svg>
-                  </button>
-                  <button type="button" class="ym-now-icon" id="ymNowNext" aria-label="Следующий трек">
-                    <svg class="ic" aria-hidden="true"><use href="#i-next"/></svg>
-                  </button>
-                </div>
-                <div class="ym-now-volume">
-                  <svg class="ic" data-volume-icon aria-hidden="true"><use href="#i-volume"/></svg>
-                  <input type="range" id="ymNowVolume" min="0" max="100" step="1" value="40" aria-label="Громкость">
-                  <output id="ymNowVolumeVal">40%</output>
-                </div>
                 <div class="ym-now-lyrics" id="ymNowLyricsBox" hidden></div>
+                <div class="ym-now-bottom">
+                  <div class="ym-now-seek">
+                    <span id="ymNowPos">0:00</span>
+                    <input type="range" id="ymNowSeek" min="0" max="1000" step="1" value="0" aria-label="Перемотка">
+                    <span id="ymNowDur">0:00</span>
+                  </div>
+                  <div class="ym-now-controls">
+                    <button type="button" class="ym-now-icon" id="ymNowPrev" aria-label="Предыдущий трек">
+                      <svg class="ic" aria-hidden="true"><use href="#i-prev"/></svg>
+                    </button>
+                    <button type="button" class="ym-now-play" id="ymNowPlay" aria-label="Воспроизвести">
+                      <svg class="ic" aria-hidden="true"><use href="#i-play"/></svg>
+                    </button>
+                    <button type="button" class="ym-now-icon" id="ymNowNext" aria-label="Следующий трек">
+                      <svg class="ic" aria-hidden="true"><use href="#i-next"/></svg>
+                    </button>
+                  </div>
+                  <div class="ym-now-volume">
+                    <svg class="ic" data-volume-icon aria-hidden="true"><use href="#i-volume"/></svg>
+                    <input type="range" id="ymNowVolume" min="0" max="100" step="1" value="40" aria-label="Громкость">
+                    <output id="ymNowVolumeVal">40%</output>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -4677,10 +4733,13 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     var out = document.getElementById('ymLoggedOut');
     var inn = document.getElementById('ymLoggedIn');
     var account = document.getElementById('ymAccount');
+    var prov = document.getElementById('provYmStatus');
     if (data && data.oauth_url) State.ymOauthUrl = data.oauth_url;
     if (data && data.logged_in) {
       State.ymLoggedIn = true;
       if (status) status.textContent = 'подключена';
+      if (prov) prov.textContent = 'подключена' + (data.login ? ' · ' + data.login : '');
+      setProvDot('yandex', 'ok');
       if (out) out.hidden = true;
       if (inn) inn.hidden = false;
       if (account) account.textContent = 'Вы вошли как ' + (data.login || 'Яндекс');
@@ -4689,6 +4748,8 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     } else {
       State.ymLoggedIn = false;
       if (status) status.textContent = 'не подключена';
+      if (prov) prov.textContent = 'не подключена';
+      setProvDot('yandex', 'warn');
       if (out) out.hidden = false;
       if (inn) inn.hidden = true;
     }
@@ -4700,6 +4761,9 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       .catch(function () {
         var status = document.getElementById('ymStatus');
         if (status) status.textContent = 'недоступно';
+        var prov = document.getElementById('provYmStatus');
+        if (prov) prov.textContent = 'недоступно';
+        setProvDot('yandex', 'bad');
       });
   }
 
@@ -5410,6 +5474,8 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     now.hidden = false;
     var content = document.querySelector('.ym-content');
     if (content) content.classList.add('now-open');
+    var dialog = document.getElementById('ymDlg');
+    if (dialog) dialog.classList.add('now-open');
     State.ymNowOpen = true;
     ymSyncNow();
     if (State.playerKind === 'Track' && !State.lyricsLines.length) loadLyrics(true);
@@ -5421,6 +5487,8 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     if (now) now.hidden = true;
     var content = document.querySelector('.ym-content');
     if (content) content.classList.remove('now-open');
+    var dialog = document.getElementById('ymDlg');
+    if (dialog) dialog.classList.remove('now-open');
     State.ymNowOpen = false;
   }
 
@@ -9786,9 +9854,10 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     return cgi('zvuk.py', { action: 'status' }, { timeout: 12000, silent: true })
       .then(function (data) {
         zvukSetStatus(data.has_token ? 'Токен сохранён' : 'Токен не сохранён', data.has_token ? 'ok' : '');
+        setProvDot('zvuk', data.has_token ? 'ok' : 'warn');
         if (data.track && data.track.id) zvukShowNow(data.track);
       })
-      .catch(function () { zvukSetStatus('Сбер Звук недоступен', 'bad'); });
+      .catch(function () { zvukSetStatus('Сбер Звук недоступен', 'bad'); setProvDot('zvuk', 'bad'); });
   }
 
   function zvukSaveToken() {
@@ -9821,6 +9890,35 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   }
 
   /* ─────────── YouTube Music / Spotify ─────────── */
+  function setProvDot(name, kind) {
+    var dot = document.querySelector('[data-prov-dot="' + name + '"]');
+    if (!dot) return;
+    dot.className = 'prov-dot' + (kind ? ' ' + kind : '');
+  }
+
+  function initProviders() {
+    var tabs = Array.prototype.slice.call(document.querySelectorAll('#provTabs .prov-tab'));
+    var panes = Array.prototype.slice.call(document.querySelectorAll('[data-provider-pane]'));
+    if (!tabs.length) return;
+    function show(name) {
+      var found = false;
+      tabs.forEach(function (tab) {
+        var on = tab.dataset.provider === name;
+        tab.setAttribute('aria-pressed', on ? 'true' : 'false');
+        if (on) found = true;
+      });
+      if (!found) return;
+      panes.forEach(function (pane) { pane.hidden = pane.dataset.providerPane !== name; });
+      store.set('musicProvider', name);
+    }
+    tabs.forEach(function (tab) {
+      tab.addEventListener('click', function () { show(tab.dataset.provider); });
+    });
+    show(store.get('musicProvider', 'yandex'));
+    var open = document.getElementById('btnProviderYm');
+    if (open) open.addEventListener('click', function () { ymOpen(); });
+  }
+
   function extStatus(node, text, kind) {
     if (!node) return;
     node.textContent = text;
@@ -9922,8 +10020,9 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     return cgi('youtube.py', { action: 'status' }, { timeout: 12000, silent: true })
       .then(function (data) {
         extStatus(el.youtubeStatus, data.has_ytdlp ? 'yt-dlp готов' : 'yt-dlp не установлен', data.has_ytdlp ? 'ok' : 'bad');
+        setProvDot('youtube', data.has_ytdlp ? 'ok' : 'bad');
         if (data.track && data.track.id) youtubeNow(data.track);
-      }).catch(function () { extStatus(el.youtubeStatus, 'YouTube Music недоступен', 'bad'); });
+      }).catch(function () { extStatus(el.youtubeStatus, 'YouTube Music недоступен', 'bad'); setProvDot('youtube', 'bad'); });
   }
 
   function spotifyRender(tracks) {
@@ -9998,7 +10097,8 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       .then(function (data) {
         extStatus(el.spotifyStatus, data.has_credentials ? 'Ключи сохранены' : 'Ключи не сохранены',
           data.has_credentials ? 'ok' : '');
-      }).catch(function () { extStatus(el.spotifyStatus, 'Spotify недоступен', 'bad'); });
+        setProvDot('spotify', data.has_credentials ? 'ok' : 'warn');
+      }).catch(function () { extStatus(el.spotifyStatus, 'Spotify недоступен', 'bad'); setProvDot('spotify', 'bad'); });
   }
 
   function soundcloudRender(tracks) {
@@ -10101,8 +10201,9 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       .then(function (data) {
         extStatus(el.soundcloudStatus, data.has_ytdlp ? 'yt-dlp готов' : 'yt-dlp не установлен',
           data.has_ytdlp ? 'ok' : 'bad');
+        setProvDot('soundcloud', data.has_ytdlp ? 'ok' : 'bad');
         if (data.track && data.track.id) soundcloudNow(data.track);
-      }).catch(function () { extStatus(el.soundcloudStatus, 'SoundCloud недоступен', 'bad'); });
+      }).catch(function () { extStatus(el.soundcloudStatus, 'SoundCloud недоступен', 'bad'); setProvDot('soundcloud', 'bad'); });
   }
 
   /* ─────────── файлы ─────────── */
@@ -12000,10 +12101,16 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       cards.forEach(function (card) {
         map[card.dataset.cardId] = card;
         if (card.dataset.legacyCardId) legacy[card.dataset.legacyCardId] = card;
+        (card.dataset.legacyCardIds || '').split(',').forEach(function (id) {
+          if (id) legacy[id] = card;
+        });
       });
       saved.forEach(function (id) {
         var card = map[id] || legacy[id];
-        if (card) main.appendChild(card);
+        // «Сервисы музыки» — новая объединённая карточка: не тащим её в конец
+        // из старого сохранённого порядка, оставляем рядом с плеером и радио.
+        if (!card || card.dataset.cardId === 'providers') return;
+        main.appendChild(card);
       });
       // Новые карточки, которых ещё нет в сохранённом порядке, ставим в конец
       // своей группы, а не оставляем вверху.
@@ -12933,6 +13040,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     youtubeLoadStatus();
     spotifyLoadStatus();
     soundcloudLoadStatus();
+    initProviders();
     if (el.btnFilesClose) el.btnFilesClose.addEventListener('click', function () { el.filesDlg.close(); });
     if (el.btnFilesRefresh) el.btnFilesRefresh.addEventListener('click', function () { filesLoad(filesCurrent); });
     if (el.btnFilesUp) el.btnFilesUp.addEventListener('click', function () {
