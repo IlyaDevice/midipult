@@ -1439,13 +1439,15 @@ body.light .reboot-bar{background:rgba(76,62,48,.1)}
   background:linear-gradient(180deg,rgba(11,14,22,.96),rgba(11,14,22,.6) 72%,transparent)}
 .lyr-title{font-size:18px;font-weight:700;line-height:1.25}
 .lyr-artist{font-size:13px;opacity:.62;margin-top:2px}
-.lyr-stage{position:relative;z-index:1;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+.lyr-stage{position:relative;z-index:1;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;
   scrollbar-width:none;-webkit-mask-image:linear-gradient(180deg,transparent,#000 16%,#000 84%,transparent);
   mask-image:linear-gradient(180deg,transparent,#000 16%,#000 84%,transparent)}
 .lyr-stage::-webkit-scrollbar{display:none}
 .lyr-lines{position:relative;display:flex;flex-direction:column;gap:18px;padding:36% 26px}
 .lyr-lines .line{font-size:22px;line-height:1.32;font-weight:700;opacity:.34;cursor:pointer;
   transform-origin:left center;transition:opacity .3s, transform .3s, color .3s}
+/* Длинные строки переносим: иначе строка без пробелов уезжает за правый край. */
+.lyr-lines .line,.ym-now-line{white-space:normal;overflow-wrap:anywhere;word-break:break-word;max-width:100%}
 .lyr-lines .line:hover{opacity:.62}
 .lyr-lines .line.active{opacity:1;transform:scale(1.04);color:#fff;
   text-shadow:0 0 24px rgba(124,92,255,.4)}
@@ -1493,17 +1495,28 @@ body.light .reboot-bar{background:rgba(76,62,48,.1)}
   .lyr-head{padding:14px 14px 8px;flex-wrap:wrap;gap:8px}
   .lyr-head>div:first-child{flex:1 1 100%;min-width:0}
   .lyr-head-actions{width:100%;justify-content:space-between;gap:8px;flex-wrap:nowrap}
-  .lyr-title{font-size:16px}
-  .lyr-artist{font-size:12px}
-  .lyr-switch{font-size:11px;gap:6px}
-  #lyricsStatus{font-size:10px}
-  #btnLyricsClose{flex:0 0 auto;height:30px;padding:0 10px}
+  .lyr-title{font-size:18px}
+  .lyr-artist{font-size:13px}
+  .lyr-switch{font-size:13px;gap:6px}
+  #lyricsStatus{font-size:11px}
+  #btnLyricsClose{flex:0 0 auto;height:40px;padding:0 16px;font-size:14px}
   .lyr-lines{padding:30% 16px}
-  .lyr-lines .line{font-size:19px}
-  .lyr-player{padding:8px 12px calc(10px + env(safe-area-inset-bottom));gap:7px}
-  .lyr-player-controls{order:2}
+  .lyr-lines .line{font-size:22px;line-height:1.34}
+  .lyr-lines .line.active{transform:none}
+  .lyr-lines .plain{font-size:17px}
+  .lyr-player{padding:10px 12px calc(12px + env(safe-area-inset-bottom));gap:9px}
+  .lyr-player-controls{order:2;gap:6px}
+  .lyr-icon{width:40px;height:40px}
+  .lyr-icon .ic{width:20px;height:20px}
+  .lyr-play{width:48px;height:48px}
+  .lyr-play .ic{width:21px;height:21px}
+  .lyr-player-art{width:48px;height:48px}
+  .lyr-player-meta b{font-size:14px}
+  .lyr-player-meta span{font-size:12px}
   .lyr-player-progress{order:4;flex-basis:100%}
+  .lyr-player-progress span{font-size:11px}
   .lyr-player-volume{order:3;flex:1 1 100%;max-width:none}
+  .lyr-player-volume span{font-size:11px}
   .lyr-player-now{flex-basis:calc(100% - 180px)}
   .lyr-icon#lyrPlayerLike,.lyr-icon#lyrPlayerDislike{display:none}
 }
@@ -1933,7 +1946,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .ym-content.now-open .ym-main{padding-right:30px}
 .ym-content.now-open ~ .ym-bar{display:none}
 .ym-now{overflow-x:hidden!important}
-.ym-now-lyrics{position:relative;max-height:240px;overflow-y:auto;margin-top:16px;
+.ym-now-lyrics{position:relative;max-height:240px;overflow-y:auto;overflow-x:hidden;margin-top:16px;
   padding:10px 0;scrollbar-width:none;
   mask-image:linear-gradient(180deg,transparent,#000 14%,#000 86%,transparent)}
 .ym-now-lyrics::-webkit-scrollbar{display:none}
@@ -2098,24 +2111,26 @@ body.ym-open{overflow:hidden!important}
   .ym-now-art-wrap{width:min(30vh,190px);flex:0 0 auto;justify-self:center;margin:0 auto;
     border-radius:12px;box-shadow:0 18px 42px rgba(0,0,0,.46)}
   .ym-now-info{flex:1 1 auto;min-height:0;width:100%}
-  .ym-now-info h2{font-size:23px}
-  .ym-now-artist{font-size:12px;margin-top:3px}
+  .ym-now-info h2{font-size:26px}
+  .ym-now-artist{font-size:14px;margin-top:4px}
   .ym-now-transport{gap:4px;margin-top:4px}
-  .ym-now-side .ym-now-icon{width:32px;height:32px}
-  .ym-now-side .ym-now-icon .ic{width:17px;height:17px}
+  .ym-now-side .ym-now-icon{width:42px;height:42px}
+  .ym-now-side .ym-now-icon .ic{width:21px;height:21px}
   .ym-now-lyrics{flex:1 1 auto;min-height:44px;max-height:none;margin-top:8px;
-    padding:6px 0;overflow-y:auto;overscroll-behavior:contain}
-  .ym-now-line{font-size:15px;padding:4px 0}
-  .ym-now-line.plain{font-size:14px;line-height:1.45}
+    padding:6px 0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
+  .ym-now-line{font-size:18px;line-height:1.36;padding:6px 0}
+  .ym-now-line.active{transform:none}
+  .ym-now-line.plain{font-size:16px;line-height:1.5}
   .ym-now-bottom{margin-top:auto;padding-top:8px}
   .ym-now-seek{margin-top:4px}
-  .ym-now-seek span{font-size:9px;min-width:26px}
-  .ym-now-controls{margin-top:0;gap:6px}
-  .ym-now-controls .ym-now-icon{width:34px;height:34px}
-  .ym-now-play{width:48px;height:48px}
-  .ym-now-play .ic{width:20px;height:20px}
+  .ym-now-seek span{font-size:11px;min-width:30px}
+  .ym-now-controls{margin-top:0;gap:8px}
+  .ym-now-controls .ym-now-icon{width:44px;height:44px}
+  .ym-now-controls .ym-now-icon .ic{width:22px;height:22px}
+  .ym-now-play{width:60px;height:60px}
+  .ym-now-play .ic{width:26px;height:26px}
   .ym-now-volume{margin-top:6px;max-width:none}
-  .ym-now-volume output{font-size:10px}
+  .ym-now-volume output{font-size:12px}
 }
 .ym-wave{max-width:980px}
 .ym-wave-hero{display:flex;align-items:center;gap:24px;padding:22px;border-radius:4px;
@@ -3513,9 +3528,6 @@ body.light dialog.queue-dlg.ym-look{
                     <div class="ym-now-side ym-now-side-right">
                       <button type="button" class="ym-now-icon" id="ymNowQueue" aria-label="Очередь">
                         <svg class="ic" aria-hidden="true"><use href="#i-queue"/></svg>
-                      </button>
-                      <button type="button" class="ym-now-icon" id="ymNowLyrics" aria-label="Текст песни">
-                        <svg class="ic" aria-hidden="true"><use href="#i-text"/></svg>
                       </button>
                     </div>
                   </div>
@@ -6220,8 +6232,6 @@ body.light dialog.queue-dlg.ym-look{
     });
     var ymNowQueue = document.getElementById('ymNowQueue');
     if (ymNowQueue) ymNowQueue.addEventListener('click', function () { openQueue(true); });
-    var ymLyrics = document.getElementById('ymNowLyrics');
-    if (ymLyrics) ymLyrics.addEventListener('click', function () { openLyrics(true); });
     var nowSeek = document.getElementById('ymNowSeek');
     if (nowSeek) {
       nowSeek.addEventListener('input', function () {
