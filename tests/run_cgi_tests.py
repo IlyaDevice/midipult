@@ -31,6 +31,7 @@ PY = sys.executable
 
 sys.path.insert(0, CGI_DIR)
 import speak  # noqa: E402
+import volume  # noqa: E402
 
 RESULTS = []
 
@@ -241,8 +242,13 @@ def test_volume():
     check("volume?info=1: amixer поле", "amixer" in data, str(data)[:200])
 
     status, data, _, _ = run_cgi("volume.py", json.dumps({"level": 40}).encode())
-    check("volume: 501 без микшера", status == 501, "status=%s %s" % (status, str(data)[:160]))
-    check("volume: hint alsa-utils", "alsa-utils" in str(data.get("hint", "")), str(data)[:200])
+    if volume.find_amixer():
+        # На колонке amixer есть — проверяем успешную установку, а не ошибку.
+        check("volume: 200 с микшером", status == 200, "status=%s %s" % (status, str(data)[:160]))
+        check("volume: уровень применён", str(data.get("level")) == "40", str(data)[:200])
+    else:
+        check("volume: 501 без микшера", status == 501, "status=%s %s" % (status, str(data)[:160]))
+        check("volume: hint alsa-utils", "alsa-utils" in str(data.get("hint", "")), str(data)[:200])
 
 
 def test_media_fake_ws():
