@@ -1775,7 +1775,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .ym-now-info h2{font-size:clamp(26px,3.2vw,42px);line-height:1.06;letter-spacing:-.045em;margin:0;
   overflow-wrap:anywhere}
 .ym-now-artist{font-size:15px;color:#9a9aa3;margin-top:10px}
-.ym-now-actions{display:flex;gap:6px;margin-top:12px}
+.ym-now-transport{display:flex;align-items:center;justify-content:center;gap:14px;
+  margin-top:10px}
+.ym-now-side{display:flex;align-items:center;gap:2px;min-width:0}
 .ym-now-icon{display:grid;place-items:center;width:38px;height:38px;border:0;border-radius:50%;
   background:transparent;color:#b8b8c1;cursor:pointer;transition:.15s}
 .ym-now-icon:hover{background:#222228;color:#ffdb4d}
@@ -1784,13 +1786,13 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .ym-now-seek span{font-size:10px;color:#85858e;font-variant-numeric:tabular-nums;min-width:30px}
 .ym-now-seek span:last-child{text-align:right}
 .ym-now-seek input{flex:1;min-width:0;accent-color:#ffdb4d}
-.ym-now-controls{display:flex;align-items:center;gap:10px;margin-top:16px}
+.ym-now-controls{display:flex;align-items:center;gap:10px;margin-top:0}
 .ym-now-play{display:grid;place-items:center;width:58px;height:58px;border:0;border-radius:50%;
   background:#ffdb4d;color:#111;cursor:pointer;transition:transform .12s}
 .ym-now-play:hover{transform:scale(1.04)}
 .ym-now-play .ic{width:22px;height:22px}
 .ym-now-icon#ymNowPrev .ic,.ym-now-icon#ymNowNext .ic{width:20px;height:20px}
-.ym-now-volume{display:flex;align-items:center;gap:10px;margin-top:24px;color:#8d8d96;max-width:300px}
+.ym-now-volume{display:flex;align-items:center;gap:10px;margin-top:12px;color:#8d8d96;max-width:300px}
 .ym-now-volume .ic{width:17px;height:17px;flex:0 0 auto}
 .ym-now-volume input{flex:1;min-width:0;accent-color:#ffdb4d}
 .ym-now-volume output{font-size:10px;min-width:34px;text-align:right}
@@ -1854,9 +1856,9 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   .ym-now-info{flex:1 1 auto;min-height:0;width:100%}
   .ym-now-info h2{font-size:23px}
   .ym-now-artist{font-size:12px;margin-top:3px}
-  .ym-now-actions{margin-top:8px}
-  .ym-now-actions .ym-now-icon{width:34px;height:34px}
-  .ym-now-actions .ym-now-icon .ic{width:17px;height:17px}
+  .ym-now-transport{gap:4px;margin-top:4px}
+  .ym-now-side .ym-now-icon{width:32px;height:32px}
+  .ym-now-side .ym-now-icon .ic{width:17px;height:17px}
   .ym-now-lyrics{flex:1 1 auto;min-height:44px;max-height:none;margin-top:8px;
     padding:6px 0;overflow-y:auto;overscroll-behavior:contain}
   .ym-now-line{font-size:15px;padding:4px 0}
@@ -1864,7 +1866,8 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   .ym-now-bottom{margin-top:8px}
   .ym-now-seek{margin-top:4px}
   .ym-now-seek span{font-size:9px;min-width:26px}
-  .ym-now-controls{margin-top:6px;gap:10px}
+  .ym-now-controls{margin-top:0;gap:6px}
+  .ym-now-controls .ym-now-icon{width:34px;height:34px}
   .ym-now-play{width:48px;height:48px}
   .ym-now-play .ic{width:20px;height:20px}
   .ym-now-volume{margin-top:6px;max-width:none}
@@ -3135,36 +3138,40 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
                 <h2 id="ymNowTitle">Ничего не играет</h2>
                 <div class="ym-now-artist" id="ymNowArtist">Яндекс Музыка</div>
                 <div class="ym-now-lyrics" id="ymNowLyricsBox" hidden></div>
-                <div class="ym-now-actions">
-                  <button type="button" class="ym-now-icon" id="ymNowLike" aria-label="Нравится">
-                    <svg class="ic" aria-hidden="true"><use href="#i-like"/></svg>
-                  </button>
-                  <button type="button" class="ym-now-icon" id="ymNowDislike" aria-label="Не нравится">
-                    <svg class="ic" aria-hidden="true"><use href="#i-dislike"/></svg>
-                  </button>
-                  <button type="button" class="ym-now-icon" id="ymNowQueue" aria-label="Очередь">
-                    <svg class="ic" aria-hidden="true"><use href="#i-queue"/></svg>
-                  </button>
-                  <button type="button" class="ym-now-icon" id="ymNowLyrics" aria-label="Текст песни">
-                    <svg class="ic" aria-hidden="true"><use href="#i-text"/></svg>
-                  </button>
-                </div>
                 <div class="ym-now-bottom">
                   <div class="ym-now-seek">
                     <span id="ymNowPos">0:00</span>
                     <input type="range" id="ymNowSeek" min="0" max="1000" step="1" value="0" aria-label="Перемотка">
                     <span id="ymNowDur">0:00</span>
                   </div>
-                  <div class="ym-now-controls">
-                    <button type="button" class="ym-now-icon" id="ymNowPrev" aria-label="Предыдущий трек">
-                      <svg class="ic" aria-hidden="true"><use href="#i-prev"/></svg>
-                    </button>
-                    <button type="button" class="ym-now-play" id="ymNowPlay" aria-label="Воспроизвести">
-                      <svg class="ic" aria-hidden="true"><use href="#i-play"/></svg>
-                    </button>
-                    <button type="button" class="ym-now-icon" id="ymNowNext" aria-label="Следующий трек">
-                      <svg class="ic" aria-hidden="true"><use href="#i-next"/></svg>
-                    </button>
+                  <div class="ym-now-transport">
+                    <div class="ym-now-side ym-now-side-left">
+                      <button type="button" class="ym-now-icon" id="ymNowLike" aria-label="Нравится">
+                        <svg class="ic" aria-hidden="true"><use href="#i-like"/></svg>
+                      </button>
+                      <button type="button" class="ym-now-icon" id="ymNowDislike" aria-label="Не нравится">
+                        <svg class="ic" aria-hidden="true"><use href="#i-dislike"/></svg>
+                      </button>
+                    </div>
+                    <div class="ym-now-controls">
+                      <button type="button" class="ym-now-icon" id="ymNowPrev" aria-label="Предыдущий трек">
+                        <svg class="ic" aria-hidden="true"><use href="#i-prev"/></svg>
+                      </button>
+                      <button type="button" class="ym-now-play" id="ymNowPlay" aria-label="Воспроизвести">
+                        <svg class="ic" aria-hidden="true"><use href="#i-play"/></svg>
+                      </button>
+                      <button type="button" class="ym-now-icon" id="ymNowNext" aria-label="Следующий трек">
+                        <svg class="ic" aria-hidden="true"><use href="#i-next"/></svg>
+                      </button>
+                    </div>
+                    <div class="ym-now-side ym-now-side-right">
+                      <button type="button" class="ym-now-icon" id="ymNowQueue" aria-label="Очередь">
+                        <svg class="ic" aria-hidden="true"><use href="#i-queue"/></svg>
+                      </button>
+                      <button type="button" class="ym-now-icon" id="ymNowLyrics" aria-label="Текст песни">
+                        <svg class="ic" aria-hidden="true"><use href="#i-text"/></svg>
+                      </button>
+                    </div>
                   </div>
                   <div class="ym-now-volume">
                     <svg class="ic" data-volume-icon aria-hidden="true"><use href="#i-volume"/></svg>
