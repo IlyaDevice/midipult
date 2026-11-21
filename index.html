@@ -2308,6 +2308,26 @@ body.light .lyrics-dlg:not(.ym-look) input[type="range"]::-webkit-slider-runnabl
 body.light .lyrics-dlg:not(.ym-look) input[type="range"]::-webkit-slider-thumb{
   background:var(--lyr-fill);box-shadow:0 0 0 3px rgba(124,92,255,.16),0 2px 6px rgba(78,58,38,.22);
 }
+/* В окне текста Яндекс Музыки переключатель «В плеере» не нужен. */
+.lyrics-dlg.ym-look .lyr-switch{display:none}
+/* Очередь/похожие/избранное, открытые из Яндекс Музыки, — в её жёлтой теме. */
+.queue-dlg.ym-look{
+  background:#0b0a08;color:#f7f7f5;border-color:rgba(255,219,77,.14);
+  box-shadow:0 30px 84px rgba(0,0,0,.64);
+}
+.queue-dlg.ym-look .q-kicker{color:#b8a86a}
+.queue-dlg.ym-look .q-name{color:#fff}
+.queue-dlg.ym-look .chip[aria-pressed="true"]{
+  border-color:#ffdb4d;background:rgba(255,219,77,.16);color:#fff;
+}
+.queue-dlg.ym-look .queue-row.current{background:rgba(255,219,77,.13)}
+.queue-dlg.ym-look .queue-row.current .q-t{color:#ffdb4d}
+.queue-dlg.ym-look .queue-row:hover{background:rgba(255,255,255,.06)}
+.queue-dlg.ym-look #btnQueueClose{border-color:rgba(255,219,77,.42);color:#ffdb4d}
+.queue-dlg.ym-look::backdrop{background:rgba(4,4,2,.78)}
+body.light dialog.queue-dlg.ym-look{
+  background:#0b0a08;color:#f7f7f5;border-color:rgba(255,219,77,.14);
+}
 </style>
 </head>
 <body class="booting">
@@ -6178,13 +6198,14 @@ body.light .lyrics-dlg:not(.ym-look) input[type="range"]::-webkit-slider-thumb{
       }
     });
     [['ymNowPrev', 'btnPrev'], ['ymNowPlay', 'btnPlay'], ['ymNowNext', 'btnNext'],
-      ['ymNowLike', 'btnLike'], ['ymNowDislike', 'btnDislike'],
-      ['ymNowQueue', 'btnQueue']
+      ['ymNowLike', 'btnLike'], ['ymNowDislike', 'btnDislike']
     ].forEach(function (pair) {
       var button = document.getElementById(pair[0]);
       var target = document.getElementById(pair[1]);
       if (button && target) button.addEventListener('click', function () { target.click(); });
     });
+    var ymNowQueue = document.getElementById('ymNowQueue');
+    if (ymNowQueue) ymNowQueue.addEventListener('click', function () { openQueue(true); });
     var ymLyrics = document.getElementById('ymNowLyrics');
     if (ymLyrics) ymLyrics.addEventListener('click', function () { openLyrics(true); });
     var nowSeek = document.getElementById('ymNowSeek');
@@ -6282,13 +6303,15 @@ body.light .lyrics-dlg:not(.ym-look) input[type="range"]::-webkit-slider-thumb{
       });
     }
     [['ymBarPrev', 'btnPrev'], ['ymBarPlay', 'btnPlay'], ['ymBarNext', 'btnNext'],
-      ['ymBarQueue', 'btnQueue'], ['ymBarLike', 'btnLike'], ['ymBarDislike', 'btnDislike'],
+      ['ymBarLike', 'btnLike'], ['ymBarDislike', 'btnDislike'],
       ['ymBarMute', 'btnMute']
     ].forEach(function (pair) {
       var button = document.getElementById(pair[0]);
       var target = document.getElementById(pair[1]);
       if (button && target) button.addEventListener('click', function () { target.click(); });
     });
+    var ymBarQueue = document.getElementById('ymBarQueue');
+    if (ymBarQueue) ymBarQueue.addEventListener('click', function () { openQueue(true); });
     setInterval(function () { if (dialog.open) ymSyncBar(); }, 1000);
   }
 
@@ -7919,8 +7942,11 @@ body.light .lyrics-dlg:not(.ym-look) input[type="range"]::-webkit-slider-thumb{
     });
   }
 
-  function openQueue() {
-    if (el.queueDlg && !el.queueDlg.open) el.queueDlg.showModal();
+  function openQueue(fromYm) {
+    if (el.queueDlg) {
+      el.queueDlg.classList.toggle('ym-look', !!fromYm);
+      if (!el.queueDlg.open) el.queueDlg.showModal();
+    }
     loadQueueTab(State.queueTab || 'queue');
   }
 
@@ -14106,7 +14132,7 @@ body.light .lyrics-dlg:not(.ym-look) input[type="range"]::-webkit-slider-thumb{
         if (event.target === dialog) dialog.close();
       });
     });
-    if (el.btnQueue) el.btnQueue.addEventListener('click', openQueue);
+    if (el.btnQueue) el.btnQueue.addEventListener('click', function () { openQueue(false); });
     if (el.btnQueueClose) el.btnQueueClose.addEventListener('click', function () {
       if (el.queueDlg) el.queueDlg.close();
     });
