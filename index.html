@@ -176,6 +176,24 @@ body.light .np-lyric-inner{
 }
 body.light .np-lyric-text{color:#242a36;text-shadow:0 0 18px rgba(124,92,255,.12)}
 body.light .np-kicker{color:#5f594f}
+
+/* Анимации кольца/дисплея в светлой теме: без чёрных кружков и шапок. */
+body.light .anim-tile{border-color:rgba(76,62,48,.14)}
+body.light .anim-tile:hover{border-color:rgba(76,62,48,.28)}
+body.light .anim-tile .anim-name{color:#5f594f;opacity:.9}
+body.light .anim-tile-x{background:rgba(255,252,247,.96);color:#6d675e;
+  border:1px solid rgba(76,62,48,.16);line-height:14px}
+body.light .anim-tile-x:hover{background:rgba(190,18,60,.12);color:#be123c}
+body.light .alarm-dlg-head,body.light .alarm-dlg-foot{
+  background:#fffdf9;color:#20242c;border-color:rgba(76,62,48,.14);
+}
+body.light .anim-editor{background:rgba(255,255,255,.55);border-color:rgba(76,62,48,.14)}
+body.light .anim-frame{background:rgba(255,255,255,.62);color:#5f594f;
+  border-color:rgba(76,62,48,.16)}
+body.light .anim-frame[aria-pressed="true"]{background:rgba(124,92,255,.16);
+  color:#20242c;border-color:#7c5cff;box-shadow:0 0 0 2px rgba(124,92,255,.14)}
+body.light .anim-frame[aria-pressed="true"] small{color:#6d675e}
+body.light .clock-anim-row{background:rgba(255,255,255,.48)}
 body.light .lyrics-dlg:not(.ym-look) .lyr-bg{opacity:.16;filter:blur(90px) saturate(1.1) brightness(1.2)}
 body.light .lyrics-dlg:not(.ym-look) .lyr-head{
   background:linear-gradient(180deg,rgba(255,253,249,.97),rgba(255,253,249,.55) 72%,transparent);
@@ -11600,10 +11618,12 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
 
   function ringEditorPaint() {
     var frame = ringEditorFrames[ringEditorIndex] || ringEditorNewFrame();
+    var light = document.body.classList.contains('light');
     for (var i = 0; i < ringEditorDots.length; i++) {
       var hex = frame[i] || '000000';
       var color = '#' + hex;
-      ringEditorDots[i].style.background = color;
+      // В светлой теме погашенные диоды — тёплый серый, а не чёрные точки.
+      ringEditorDots[i].style.background = (hex === '000000' && light) ? '#d8cfc2' : color;
       ringEditorDots[i].style.boxShadow = hex === '000000'
         ? 'none' : '0 0 10px ' + color;
     }
