@@ -172,6 +172,18 @@
 не включат из панели. Сценарии и будильники живут в демоне и работают в любом
 режиме.
 
+Из curl управление выглядит так:
+
+```sh
+curl -X POST -H 'Content-Type: application/json' \
+     -H 'X-Requested-With: MidiPult' -d '{"stop":1}' \
+     http://192.168.1.216:8055/cgi-bin/voicectl.py
+```
+
+Без `Content-Length` (его добавляет `-d`, даже пустой) lighttpd ответит
+`411 Length Required`, без `X-Requested-With` — `403`: это защита от POST с
+чужого сайта, а не требование PIN.
+
 Ответ штатной Алисы отменяется текстовой командой «стоп» через Glagol
 (`cancelDirective tts_play_placeholder`), а не приглушением звука. Для команд,
 где демон говорит сам, отмена выполняется перед озвучкой.
