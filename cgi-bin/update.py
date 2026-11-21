@@ -228,14 +228,14 @@ def check(force=False):
             stale["current"] = current
             stale["cached"] = True
             stale["update_available"] = newer(stale.get("version"), current)
-            stale["error"] = "Не удалось проверить GitHub: %s" % exc
+            stale["error"] = explain_net_error(exc)
             return stale
         return {
             "ok": False,
             "checked_at": now,
             "current": current,
             "update_available": False,
-            "error": "Не удалось проверить GitHub: %s" % exc,
+            "error": explain_net_error(exc),
         }
 
 
@@ -412,6 +412,38 @@ def cleanup_backups(keep=2):
         shutil.rmtree(str(item), ignore_errors=True)
 
 
+def explain_net_error(exc):
+    """Понятная причина вместо «urlopen error» в карточке обновлений."""
+    text = str(exc)
+    if ("name resolution" in text or "Name or service not known" in text
+            or "Temporary failure" in text or "Errno -3" in text
+            or "getaddrinfo" in text):
+        return ("DNS не отвечает: не удаётся разобрать имя github.com. "
+                "Проверьте сеть или локальный резолвер (unbound) — без DNS "
+                "обновление невозможно.")
+    return "Не удалось проверить GitHub: %s" % exc
+
+
+LOCAL_ROOTS = ("/tmp", "/data")
+
+
+def local_archive(path):
+    """Путь к локальному архиву: только /tmp или /data, с проверкой размера."""
+    real = os.path.realpath(str(path or "").strip())
+    if not real:
+        raise ValueError("не указан путь к архиву")
+    if not any(real == root or real.startswith(root + os.sep) for root in LOCAL_ROOTS):
+        raise ValueError("установка разрешена только из /tmp или /data")
+    if not os.path.isfile(real):
+        raise ValueError("файл не найден: %s" % real)
+    size = os.path.getsize(real)
+    if size < 1024:
+        raise ValueError("файл слишком маленький для архива")
+    if size > MAX_ARCHIVE:
+        raise ValueError("архив больше %d МБ" % (MAX_ARCHIVE // 1024 // 1024))
+    return real
+
+
 def worker(version, archive_url, sha_url):
     status = read_status()
     if status.get("state") in ("downloading", "installing", "rollback"):
@@ -493,6 +525,83 @@ def worker(version, archive_url, sha_url):
             pass
 
 
+def worker_local(path):
+    """Установка из архива на диске — без GitHub и без DNS."""
+    status = read_status()
+    if status.get("state") in ("installing", "rollback"):
+        return 1
+    from_version = current_version()
+    backup = ""
+    temp = ""
+    try:
+        write_status(state="installing", **{"from": from_version, "to": "",
+                                            "message": "Проверяю локальный архив…",
+                                            "error": "", "rolled_back": False,
+                                            "installed": "", "backup": "",
+                                            "finished_at": 0})
+        temp = tempfile.mkdtemp(prefix="mypult-update-", dir="/data")
+        extract_dir = os.path.join(temp, "src")
+        os.makedirs(extract_dir, exist_ok=True)
+        extract_archive(path, extract_dir)
+        source = find_source(Path(extract_dir))
+        with open(source / "version.json", "r", encoding="utf-8") as fh:
+            version = str(json.load(fh).get("version") or "")
+        if not version:
+            raise ValueError("в архиве нет версии")
+        if not (source / "cgi-bin" / "update.py").is_file():
+            raise ValueError("в архиве нет нового update.py")
+
+        write_status(state="installing", message="Делаю резервную копию…", to=version)
+        backup = make_backup(from_version)
+        write_status(state="installing", message="Устанавливаю обновление…", backup=backup)
+        with open(WORKER_LOG, "ab") as log:
+            log.write(("\n== local update %s -> %s (%s) ==\n"
+                       % (from_version, version, path)).encode("utf-8"))
+            completed = subprocess.run(
+                ["/bin/sh", str(source / "deploy" / "install.sh")],
+                cwd=str(source), stdout=log, stderr=subprocess.STDOUT, timeout=600,
+            )
+        if completed.returncode != 0:
+            raise RuntimeError("install.sh завершился с кодом %s" % completed.returncode)
+
+        installed = ""
+        try:
+            with open(os.path.join(WEB_ROOT, "version.json"), "r", encoding="utf-8") as fh:
+                installed = str(json.load(fh).get("version") or "")
+        except (OSError, ValueError):
+            pass
+        if installed != version:
+            raise RuntimeError("после установки версия %s, ожидалась %s" % (installed, version))
+
+        restart_panel()
+        write_status(state="done", message="Обновление установлено", error="",
+                     installed=installed, to=version, rolled_back=False,
+                     finished_at=int(time.time()))
+        cleanup_backups()
+        return 0
+    except Exception as exc:  # noqa: BLE001
+        write_status(state="rollback", message="Откатываю изменения…", error=str(exc)[:1000])
+        restored = restore_backup(backup)
+        try:
+            with open(WORKER_LOG, "a", encoding="utf-8") as log:
+                log.write("local update failed: %r\nrollback: %s\n" % (exc, restored))
+        except OSError:
+            pass
+        restart_panel()
+        write_status(state="error", message="Обновление не установлено",
+                     error=str(exc)[:1000], rolled_back=restored,
+                     installed=current_version())
+        cleanup_backups()
+        return 1
+    finally:
+        if temp:
+            shutil.rmtree(temp, ignore_errors=True)
+        try:
+            os.remove(LOCK_PATH)
+        except OSError:
+            pass
+
+
 # --------------------------------------------------------------------------- #
 #  CGI
 # --------------------------------------------------------------------------- #
@@ -502,6 +611,11 @@ def main():
         if len(sys.argv) != 5:
             return 2
         return worker(sys.argv[2], sys.argv[3], sys.argv[4])
+
+    if len(sys.argv) > 1 and sys.argv[1] == "--worker-local":
+        if len(sys.argv) != 3:
+            return 2
+        return worker_local(sys.argv[2])
 
     data = common.params()
     if common.truthy(data.get("status")):
@@ -549,6 +663,42 @@ def main():
         finally:
             log.close()
         common.ok(started=True, status=read_status())
+        return
+
+    if data.get("install_local"):
+        try:
+            path = local_archive(str(data.get("install_local")))
+        except Exception as exc:  # noqa: BLE001
+            common.fail(400, "Локальная установка: %s" % exc)
+            return
+        current = read_status()
+        if current.get("state") in ("queued", "downloading", "installing", "rollback"):
+            common.fail(409, "Обновление уже выполняется", status=current)
+            return
+        try:
+            if os.path.exists(LOCK_PATH) and time.time() - os.path.getmtime(LOCK_PATH) > 600:
+                os.remove(LOCK_PATH)
+            fd = os.open(LOCK_PATH, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            os.write(fd, str(os.getpid()).encode("ascii"))
+            os.close(fd)
+        except FileExistsError:
+            common.fail(409, "Обновление уже выполняется")
+            return
+        write_status(state="queued", **{"from": current_version(), "to": "",
+                                        "message": "Запускаю установку из файла…",
+                                        "error": "", "rolled_back": False,
+                                        "installed": "", "backup": "",
+                                        "finished_at": 0})
+        log = open(WORKER_LOG, "ab")
+        try:
+            subprocess.Popen(
+                [sys.executable, os.path.abspath(__file__), "--worker-local", path],
+                stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
+                start_new_session=True, close_fds=True, cwd=DATA_ROOT,
+            )
+        finally:
+            log.close()
+        common.ok(started=True, path=path, status=read_status())
         return
 
     cache = check(common.truthy(data.get("check")))

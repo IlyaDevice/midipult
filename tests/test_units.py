@@ -31,6 +31,7 @@ import files  # noqa: E402
 import glagol  # noqa: E402
 import llm  # noqa: E402
 import media  # noqa: E402
+import network  # noqa: E402
 import alice_cli  # noqa: E402
 import lyrics  # noqa: E402
 import radio  # noqa: E402
@@ -2135,6 +2136,63 @@ def test_glagol_probe_source():
          glagol.OVERRIDE_PATH, glagol._resolve) = old
 
 
+def test_network_dns_servers():
+    def raises(fn):
+        try:
+            fn()
+        except Exception:  # noqa: BLE001
+            return True
+        return False
+
+    check("network: link-local IPv6 отклоняется",
+          raises(lambda: network.clean_servers(["fe80::1"])))
+    check("network: адрес со scope-id отклоняется",
+          raises(lambda: network.clean_servers(["fe80::1%wlan0"])))
+    check("network: пустой список отклоняется",
+          raises(lambda: network.clean_servers([])))
+    check("network: IPv4 принимается, дубли убираются",
+          network.clean_servers(["77.88.8.8", " 77.88.8.8 ", "1.1.1.1"])
+          == ["77.88.8.8", "1.1.1.1"])
+    check("network: имя вместо IP отклоняется",
+          raises(lambda: network.clean_servers(["dns.google"])))
+
+
+def test_update_local_archive():
+    def raises(fn):
+        try:
+            fn()
+        except Exception:  # noqa: BLE001
+            return True
+        return False
+
+    old_roots = update.LOCAL_ROOTS
+    update.LOCAL_ROOTS = (tempfile.gettempdir(), "/tmp", "/data")
+    handle, path = tempfile.mkstemp(suffix=".tar.gz")
+    os.close(handle)
+    try:
+        with open(path, "wb") as fh:
+            fh.write(b"x" * 2048)
+        check("update: локальный архив принимается", bool(update.local_archive(path)))
+    finally:
+        update.LOCAL_ROOTS = old_roots
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+    check("update: путь вне /tmp и /data отклоняется",
+          raises(lambda: update.local_archive("/etc/passwd")))
+    check("update: несуществующий файл отклоняется",
+          raises(lambda: update.local_archive("/tmp/midipult-nope.tar.gz")))
+
+
+def test_update_dns_hint():
+    hint = update.explain_net_error(
+        OSError("[Errno -3] Temporary failure in name resolution"))
+    check("update: ошибка DNS объясняется по-человечески", "DNS" in hint, hint)
+    other = update.explain_net_error(OSError("timed out"))
+    check("update: прочие ошибки остаются прежними", "GitHub" in other, other)
+
+
 def main():
     for test in (
         test_generic_helpers,
@@ -2190,6 +2248,9 @@ def main():
         test_glagol_probe_source,
         test_panel_backlight,
         test_ring_fb_geometry,
+        test_network_dns_servers,
+        test_update_local_archive,
+        test_update_dns_hint,
     ):
         try:
             test()

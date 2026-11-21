@@ -74,6 +74,70 @@ def speed_check():
         return {"url": url, "mbps": None, "code": None}
 
 
+def resolv_nameservers():
+    try:
+        with open("/etc/resolv.conf", "r", encoding="utf-8") as fh:
+            return [line.split()[1] for line in fh
+                    if line.startswith("nameserver") and len(line.split()) > 1]
+    except OSError:
+        return []
+
+
+def _socket_inodes(port=53):
+    """Иноды сокетов на порту 53 из /proc/net/udp{,6}."""
+    inodes = set()
+    for path in ("/proc/net/udp", "/proc/net/udp6"):
+        try:
+            with open(path, "r", encoding="ascii") as fh:
+                lines = fh.read().splitlines()[1:]
+        except OSError:
+            continue
+        for line in lines:
+            parts = line.split()
+            if len(parts) < 10:
+                continue
+            try:
+                local_port = int(parts[1].split(":")[1], 16)
+            except (IndexError, ValueError):
+                continue
+            if local_port == port:
+                inodes.add(parts[9])
+    return inodes
+
+
+def _pid_by_inodes(inodes):
+    for pid in os.listdir("/proc"):
+        if not pid.isdigit():
+            continue
+        fd_dir = "/proc/%s/fd" % pid
+        try:
+            entries = os.listdir(fd_dir)
+        except OSError:
+            continue
+        for entry in entries:
+            try:
+                target = os.readlink(os.path.join(fd_dir, entry))
+            except OSError:
+                continue
+            if target.startswith("socket:[") and target[8:-1] in inodes:
+                try:
+                    with open("/proc/%s/cmdline" % pid, "rb") as fh:
+                        cmd = fh.read().replace(b"\x00", b" ").decode("utf-8", "replace")
+                except OSError:
+                    cmd = ""
+                return int(pid), cmd.strip()
+    return None, ""
+
+
+def dns_listener():
+    """Кто слушает :53 — чтобы «сеть есть, а имён нет» не путать с Wi-Fi."""
+    inodes = _socket_inodes(53)
+    if not inodes:
+        return {"listening": False, "pid": None, "command": ""}
+    pid, cmd = _pid_by_inodes(inodes)
+    return {"listening": True, "pid": pid, "command": cmd[:120]}
+
+
 def main():
     data = common.params()
 
@@ -82,10 +146,13 @@ def main():
         return
 
     gw = gateway()
+    dns = dns_check()
+    dns["listener"] = dns_listener()
+    dns["resolv"] = resolv_nameservers()
     common.ok(
         gateway=ping(gw, 3),
         internet=ping("1.1.1.1", 3),
-        dns=dns_check(),
+        dns=dns,
         http=http_check(),
     )
 

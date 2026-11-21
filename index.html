@@ -3435,6 +3435,14 @@ body.light dialog.queue-dlg.ym-look{
     <div class="row" style="margin-top:8px">
       <button class="btn sm ghost" id="btnUpdateCheck">Проверить обновления</button>
     </div>
+    <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:8px">
+      <input type="text" class="net-input" id="updLocalPath" style="flex:1 1 220px;min-width:0"
+             placeholder="/tmp/midipult-0.6.16.tar.gz" aria-label="Путь к архиву на колонке">
+      <button class="btn sm ghost" id="btnUpdLocal">Установить из файла</button>
+    </div>
+    <div class="seg-note" id="updLocalHint" style="margin-top:6px">
+      Архив можно загрузить через «Файлы» в /tmp — пригодится, когда нет DNS.
+    </div>
   </section>
 
   <!-- ───────── логи ───────── -->
@@ -14681,6 +14689,30 @@ body.light dialog.queue-dlg.ym-look{
     el.displayAuto.addEventListener('change', toggleDisplayAuto);
     el.btnBackup.addEventListener('click', downloadBackup);
     el.btnUpdateCheck.addEventListener('click', function () { loadUpdateInfo(true, true); });
+    if (el.btnUpdLocal) {
+      el.btnUpdLocal.addEventListener('click', function () {
+        var path = (el.updLocalPath.value || '').trim();
+        if (!path) {
+          el.updLocalPath.focus();
+          toast('Укажите путь к архиву в /tmp', 'warn');
+          return;
+        }
+        el.btnUpdLocal.disabled = true;
+        el.updLocalHint.textContent = 'Запускаю установку из файла…';
+        State.updateRunning = true;
+        cgi('update.py', { install_local: path }, { timeout: 20000, silent: true })
+          .then(function () {
+            el.btnUpdLocal.disabled = false;
+            pollUpdateStatus(0);
+          })
+          .catch(function (err) {
+            State.updateRunning = false;
+            el.btnUpdLocal.disabled = false;
+            el.updLocalHint.textContent = 'Не удалось: ' + err.message;
+            toast('Установка: ' + err.message, 'bad');
+          });
+      });
+    }
     el.btnUpdateApply.addEventListener('click', startUpdate);
     el.btnUpdateDlgYes.addEventListener('click', startUpdate);
     el.btnUpdateLater.addEventListener('click', closeUpdateDialog);
@@ -16036,6 +16068,7 @@ body.light dialog.queue-dlg.ym-look{
       'confirmDlg', 'confirmText', 'btnConfirmNo', 'btnConfirmYes',
       'updCurrent', 'updChecked', 'updNew', 'updNewTitle', 'updNotes', 'updHint',
       'updState', 'btnUpdateCheck', 'btnUpdateApply',
+    'updLocalPath', 'btnUpdLocal', 'updLocalHint',
       'updateDlg', 'updateDlgVer', 'updateDlgFrom', 'updateDlgNotes', 'updateDismiss',
       'btnUpdateLater', 'btnUpdateDlgNo', 'btnUpdateDlgYes',
       'btnSoundBackup', 'btnSoundRefresh', 'soundFile', 'soundList', 'soundDrop', 'soundGroup', 'soundSearch', 'soundStatus',

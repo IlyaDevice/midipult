@@ -17,6 +17,7 @@ import common
 STATE = "/data/mypult/ipv6.json"
 ALL = "/proc/sys/net/ipv6/conf/all/disable_ipv6"
 DEFAULT = "/proc/sys/net/ipv6/conf/default/disable_ipv6"
+LO = "/proc/sys/net/ipv6/conf/lo/disable_ipv6"
 
 
 def _read_disabled():
@@ -35,6 +36,13 @@ def _set(disabled):
                 fh.write(value)
         except OSError as exc:
             raise RuntimeError("не удалось записать %s: %s" % (path, exc))
+    # ::1 на loopback нужен локальному резолверу unbound: он слушает и ::1,
+    # а без этого адреса старт падает («can't bind socket for ::1»).
+    try:
+        with open(LO, "w", encoding="ascii") as fh:
+            fh.write("0")
+    except OSError:
+        pass
     return _read_disabled()
 
 

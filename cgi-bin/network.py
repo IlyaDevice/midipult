@@ -17,6 +17,8 @@ import ipaddress
 import json
 import os
 import re
+import socket
+import struct
 import sys
 import time
 
@@ -25,6 +27,9 @@ import common  # noqa: E402
 
 WPA = "/usr/sbin/wpa_cli"
 IFACE = "wlan0"
+INIT = "/etc/init.d/S70unbound"
+UNBOUND_BIN = "/usr/sbin/unbound"
+PIDFILE = "/var/run/unbound.pid"
 UNBOUND = "/etc/unbound/unbound.conf"
 UNBOUND_BACKUP = "/data/mypult/unbound.conf.bak"
 DNS_STATE = "/data/mypult/dns.json"
@@ -97,19 +102,125 @@ def dns_servers():
         return []
 
 
-def set_dns(servers):
+def clean_servers(servers):
+    """Проверить forward-адреса: только реальные IP, без scope-id и link-local."""
     clean = []
     for item in servers:
-        item = item.strip()
+        item = str(item).strip()
         if not item:
             continue
+        if "%" in item:
+            raise RuntimeError("адрес со scope-id не подходит: %s" % item)
         try:
-            ipaddress.ip_address(item)
+            address = ipaddress.ip_address(item)
         except ValueError:
             raise RuntimeError("не IP-адрес: %s" % item)
-        clean.append(item)
+        if address.version == 6 and address.is_link_local:
+            raise RuntimeError("link-local IPv6 не годится как forwarder: %s" % item)
+        if item not in clean:
+            clean.append(item)
     if not clean:
         raise RuntimeError("нужен хотя бы один DNS-сервер")
+    return clean
+
+
+def port53_listening():
+    try:
+        with open("/proc/net/udp", "r", encoding="ascii") as fh:
+            lines = fh.read().splitlines()[1:]
+    except OSError:
+        return False
+    for line in lines:
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+        try:
+            port = int(parts[1].split(":")[1], 16)
+        except (IndexError, ValueError):
+            continue
+        if port == 53:
+            return True
+    return False
+
+
+def dns_probe(timeout=1.5):
+    """Спросить локальный резолвер про A-запись: жив ли unbound."""
+    query_id = int.from_bytes(os.urandom(2), "big")
+    header = struct.pack("!HHHHHH", query_id, 0x0100, 1, 0, 0, 0)
+    qname = b"".join(bytes([len(part)]) + part.encode("ascii")
+                     for part in "ya.ru".split(".")) + b"\x00"
+    packet = header + qname + struct.pack("!HH", 1, 1)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        sock.settimeout(timeout)
+        sock.sendto(packet, ("127.0.0.1", 53))
+        data, _ = sock.recvfrom(512)
+        return len(data) > 12
+    except OSError:
+        return False
+    finally:
+        sock.close()
+
+
+def ensure_loopback_ipv6():
+    """unbound слушает и ::1: без адреса на loopback он не стартует."""
+    path = "/proc/sys/net/ipv6/conf/lo/disable_ipv6"
+    try:
+        with open(path, "r", encoding="ascii") as fh:
+            if fh.read().strip() != "1":
+                return False
+        with open(path, "w", encoding="ascii") as fh:
+            fh.write("0")
+        time.sleep(0.5)
+        return True
+    except OSError:
+        return False
+
+
+def restart_unbound():
+    """Поднять unbound: штатный init, затем start-stop-daemon, затем бинарник."""
+    attempts = []
+    commands = []
+    if ensure_loopback_ipv6():
+        attempts.append({"command": "loopback-ipv6", "code": 0, "detail": "::1 включён"})
+    if os.access(INIT, os.X_OK):
+        commands.append([INIT, "restart"])
+    commands.append(["/bin/sh", "-c",
+                     "kill \"$(cat %s 2>/dev/null)\" 2>/dev/null; sleep 1; "
+                     "start-stop-daemon -S -q -p %s -x %s >/dev/null 2>&1 || %s"
+                     % (PIDFILE, PIDFILE, UNBOUND_BIN, UNBOUND_BIN)])
+    for command in commands:
+        code, out, err = common.run(command, timeout=20)
+        detail = ((out or "") + (err or "")).strip().replace("\n", " ")[:180]
+        attempts.append({"command": command[0], "code": code, "detail": detail})
+        for _ in range(6):
+            if dns_probe(0.8):
+                return attempts, True
+            time.sleep(0.5)
+    return attempts, dns_probe(1.0)
+
+
+def ensure_dns():
+    """Поднять резолвер и, если не вышло, вернуть резервный конфиг."""
+    attempts, ok = restart_unbound()
+    restored = False
+    if not ok and os.path.exists(UNBOUND_BACKUP):
+        try:
+            with open(UNBOUND_BACKUP, "r", encoding="utf-8") as src:
+                data = src.read()
+            with open(UNBOUND, "w", encoding="utf-8") as dst:
+                dst.write(data)
+            restored = True
+        except OSError:
+            restored = False
+        if restored:
+            more, ok = restart_unbound()
+            attempts += more
+    return {"ok": bool(ok), "restored": restored, "attempts": attempts}
+
+
+def set_dns(servers):
+    clean = clean_servers(servers)
 
     if os.path.exists(UNBOUND) and not os.path.exists(UNBOUND_BACKUP):
         with open(UNBOUND, "r", encoding="utf-8") as src:
@@ -129,35 +240,34 @@ def set_dns(servers):
     with open(UNBOUND, "w", encoding="utf-8") as fh:
         fh.write(content)
 
-    common.run(["/bin/sh", "-c",
-                "if [ -x /etc/init.d/S70unbound ]; then /etc/init.d/S70unbound restart; "
-                "else kill $(cat /var/run/unbound.pid 2>/dev/null) 2>/dev/null; sleep 1; "
-                "/usr/sbin/unbound; fi"], timeout=25)
-    time.sleep(1.5)
+    probe = ensure_dns()
+    if not probe["ok"]:
+        raise RuntimeError("unbound не поднялся: %s" % "; ".join(
+            "%s → %s" % (item["command"], item["code"]) for item in probe["attempts"]))
 
     try:
         common.write_json(DNS_STATE, {"servers": clean})
     except OSError:
         pass
-
-    return clean
+    return clean, probe
 
 
 def reset_dns():
+    restored = False
     if os.path.exists(UNBOUND_BACKUP):
         with open(UNBOUND_BACKUP, "r", encoding="utf-8") as src:
             data = src.read()
         with open(UNBOUND, "w", encoding="utf-8") as dst:
             dst.write(data)
-        common.run(["/bin/sh", "-c",
-                    "if [ -x /etc/init.d/S70unbound ]; then /etc/init.d/S70unbound restart; "
-                    "else kill $(cat /var/run/unbound.pid 2>/dev/null) 2>/dev/null; sleep 1; "
-                    "/usr/sbin/unbound; fi"], timeout=25)
+        restored = True
+    probe = ensure_dns()
     try:
         os.remove(DNS_STATE)
     except OSError:
         pass
-    return dns_servers()
+    result = {"restored": restored, "servers": dns_servers()}
+    result.update(probe)
+    return result
 
 
 def status():
@@ -306,18 +416,21 @@ def main():
 
     if action == "dns":
         try:
-            servers = set_dns(str(data.get("servers") or "").split(","))
+            servers, probe = set_dns(str(data.get("servers") or "").split(","))
         except Exception as exc:  # noqa: BLE001
-            common.fail(400, "DNS: %s" % exc)
+            common.fail(502, "DNS: %s" % exc)
             return
         result = status()
         result["applied"] = servers
+        result["dns_check"] = probe
         common.respond(200, result)
         return
 
     if action == "dns_reset":
-        reset_dns()
-        common.respond(200, status())
+        probe = reset_dns()
+        result = status()
+        result["dns_check"] = probe
+        common.respond(200, result)
         return
 
     if action == "dns_apply_saved":

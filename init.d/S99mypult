@@ -411,6 +411,34 @@ start_ring_backlight() {
 }
 
 # ------------------------------------------------ DNS: автоприменение --------
+port53_listening() {
+    awk -v p=":0035" 'index($2, p) > 0 { found = 1 } END { exit !found }' \
+        /proc/net/udp /proc/net/udp6 2>/dev/null
+}
+
+# Резолвер прошивки (unbound) иногда не поднимается: IPv6 на loopback выключен,
+# и unbound не может занять ::1. Чиним только если :53 никто не слушает.
+ensure_dns() {
+    port53_listening && return 0
+    [ -x /usr/sbin/unbound ] || { log "dns: unbound не найден"; return 0; }
+    log "dns: :53 не слушает — пробую поднять unbound"
+    if [ "$(cat /proc/sys/net/ipv6/conf/lo/disable_ipv6 2>/dev/null)" = "1" ]; then
+        echo 0 > /proc/sys/net/ipv6/conf/lo/disable_ipv6 2>/dev/null || true
+        sleep 1
+    fi
+    if [ -x /etc/init.d/S70unbound ]; then
+        /etc/init.d/S70unbound start >/dev/null 2>&1 || true
+    else
+        /usr/sbin/unbound >/dev/null 2>&1 || true
+    fi
+    sleep 2
+    if port53_listening; then
+        log "dns: unbound поднят"
+    else
+        log "dns: unbound не поднялся"
+    fi
+}
+
 start_dns_auto() {
     [ -f /data/mypult/dns.json ] || return 0
     [ -x /opt/bin/curl ] || return 0
@@ -450,6 +478,7 @@ case "$1" in
         start_luna
         start_web
         start_ipv6
+        ensure_dns
         restore_volume
         start_voice
         start_state

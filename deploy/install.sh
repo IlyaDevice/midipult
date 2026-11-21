@@ -283,6 +283,46 @@ printf '{"state":"done","from":"%s","to":"%s","message":"Установлено 
     >/data/mypult/update-status.json 2>/dev/null || \
     warn "не удалось обновить update-status.json"
 
+# Резолвер прошивки (unbound) иногда остаётся лежать: сеть по IP есть, а имён нет.
+# Поднимаем его, если :53 никто не слушает. На здоровой колонке это no-op.
+port53_listening() {
+    awk -v p=":0035" 'index($2, p) > 0 { found = 1 } END { exit !found }' \
+        /proc/net/udp /proc/net/udp6 2>/dev/null
+}
+
+ensure_unbound() {
+    port53_listening && return 0
+    if [ ! -x /usr/sbin/unbound ]; then
+        warn "unbound не найден — DNS на колонке не поднимется"
+        return 0
+    fi
+    say "unbound не слушает :53 — пробую поднять"
+    # unbound слушает и ::1; если IPv6 на loopback выключен, старт падает.
+    if [ "$(cat /proc/sys/net/ipv6/conf/lo/disable_ipv6 2>/dev/null)" = "1" ]; then
+        echo 0 > /proc/sys/net/ipv6/conf/lo/disable_ipv6 2>/dev/null || true
+        sleep 1
+    fi
+    if [ -x /etc/init.d/S70unbound ]; then
+        /etc/init.d/S70unbound restart >>/tmp/mypult.log 2>&1 || true
+        sleep 2
+        if port53_listening; then
+            say "unbound поднят (S70unbound)"
+            return 0
+        fi
+    fi
+    kill "$(cat /var/run/unbound.pid 2>/dev/null)" 2>/dev/null || true
+    sleep 1
+    /usr/sbin/unbound >>/tmp/mypult.log 2>&1 || true
+    sleep 2
+    if port53_listening; then
+        say "unbound поднят"
+    else
+        warn "unbound не поднялся — проверьте /etc/unbound/unbound.conf"
+    fi
+}
+
+ensure_unbound
+
 say "готово. Откройте http://<ip-колонки>:8055/"
 
 if [ "$INIT_TARGET" != "$INIT" ] && [ ! -x /etc/init.d/S99mypult ]; then
