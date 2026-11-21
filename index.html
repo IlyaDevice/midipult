@@ -1871,7 +1871,16 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   .c-clock>.display-preview,
   .c-clock>.display-extra,
   .c-clock>.seg-note,
-  .c-clock>.clock-anims-field,
+  .c-clock>.clock-anims-field{grid-column:1/-1!important;grid-row:auto!important}
+  .c-clock>.display-actions{flex-wrap:wrap}
+  .c-clock>.display-actions .btn{flex:1 1 150px;min-width:0}
+  .c-clock>.display-preview{margin-top:4px}
+  /* средняя ширина: кольцо остаётся двумя колонками, но компактнее */
+  .c-led{grid-template-columns:160px minmax(0,1fr)}
+  .c-led>.ring{width:150px;height:150px;--r:60px}
+}
+
+@container (max-width:480px){
   .c-led>.auto-bright,
   .c-led>.ring,
   .c-led>.led-right,
@@ -1879,9 +1888,6 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   .c-led>#presets,
   .c-led>.led-anims,
   .c-led>.led-footer{grid-column:1/-1!important;grid-row:auto!important}
-  .c-clock>.display-actions{flex-wrap:wrap}
-  .c-clock>.display-actions .btn{flex:1 1 150px;min-width:0}
-  .c-clock>.display-preview{margin-top:4px}
   .c-led>.auto-bright{order:1}
   .c-led>.ring{order:2;margin:0 auto;max-width:260px}
   .c-led>.led-controls{order:3;max-width:260px;margin:0 auto}
