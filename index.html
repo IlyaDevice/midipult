@@ -1530,6 +1530,22 @@ body.light .reboot-bar{background:rgba(76,62,48,.1)}
 .queue-row .q-a{display:block;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .queue-row .q-d{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 .q-note{padding:24px;color:var(--muted);font-size:13px;text-align:center}
+/* Заголовок очереди: длинное название не должно выдавливать «Закрыть» за экран. */
+.q-head>div:first-child{flex:1 1 auto;min-width:0}
+.q-head .btn{flex:0 0 auto}
+@media(max-width:560px){
+  .queue-dlg{width:calc(100vw - 16px);max-width:calc(100vw - 16px);
+    max-height:min(86vh,720px);border-radius:20px}
+  @supports (height:100dvh){.queue-dlg{max-height:min(86dvh,720px)}}
+  .q-head{padding:14px 14px 8px;gap:8px}
+  .q-kicker{font-size:9px}
+  .q-name{font-size:17px}
+  #btnQueueClose{height:30px;padding:0 10px;font-size:12px}
+  .q-tabs{padding:0 14px 8px;gap:6px}
+  .q-list{padding:2px 8px 14px}
+  .queue-row{grid-template-columns:36px minmax(0,1fr) auto;gap:9px;padding:7px 8px}
+  .queue-row img,.queue-row .q-cover{width:36px;height:36px;border-radius:8px}
+}
 .anim-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;margin-top:8px}
 .anim-tile{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 4px;
   position:relative;
@@ -8205,11 +8221,17 @@ body.light dialog.queue-dlg.ym-look{
       el.mediaSeek.hidden = true;
       el.mediaSeek.disabled = true;
     }
-    [el.btnLike, el.btnDislike, el.btnLyrics].forEach(function (button) {
+    // Лайк и дизлайк — это трек Яндекс Музыки, у трека с телефона их нет.
+    [el.btnLike, el.btnDislike].forEach(function (button) {
       if (!button) return;
-      button.hidden = false;
+      button.hidden = true;
       button.disabled = true;
     });
+    // Текст песни ищется по названию и исполнителю — для трека с телефона годится.
+    if (el.btnLyrics) {
+      el.btnLyrics.hidden = false;
+      el.btnLyrics.disabled = !title;
+    }
     if (State.lyricsLines.length) clearLyrics();
     updateInlineLine();
     updateMediaProgress();
@@ -8405,7 +8427,10 @@ body.light dialog.queue-dlg.ym-look{
       position: Math.min(position, duration || position),
       duration: duration,
       volume: Math.round(State.volume || 0),
-      canSeek: State.playerKind === 'Track' && duration > 0
+      canSeek: State.playerKind === 'Track' && duration > 0,
+      // Трек играет сам телефон: приложение не должно забирать кнопки
+      // громкости — они остаются телефону (см. PlaybackService).
+      fromPhone: State.playerKind === 'Bt'
     };
     var raw = JSON.stringify(payload);
     if (!force && raw === State.systemMediaRaw) return;
