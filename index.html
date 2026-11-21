@@ -2284,6 +2284,30 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
 @media(max-width:520px){
   .prov-tab{flex:1 1 calc(50% - 6px);justify-content:center;padding:0 8px}
 }
+/* Текст из обычного плеера панели — фирменные фиолетово-голубые акценты,
+   а не жёлтые кнопки Яндекс Музыки. */
+.lyrics-dlg:not(.ym-look){--lyr-fill:#7c5cff;--lyr-empty:#3d3d44}
+body.light .lyrics-dlg:not(.ym-look){--lyr-empty:#ded5c8}
+.lyrics-dlg:not(.ym-look) .lyr-play{
+  background:linear-gradient(135deg,#7c5cff,#4f7cff);color:#fff;
+  box-shadow:0 10px 26px rgba(92,110,255,.38);
+}
+.lyrics-dlg:not(.ym-look) input[type="range"]::-webkit-slider-runnable-track{
+  background:linear-gradient(90deg,var(--lyr-fill) 0 var(--fill,0%),var(--lyr-empty) var(--fill,0%) 100%);
+}
+.lyrics-dlg:not(.ym-look) input[type="range"]::-webkit-slider-thumb{
+  background:var(--lyr-fill);
+  box-shadow:0 0 0 3px rgba(124,92,255,.18),0 2px 6px rgba(76,62,180,.28);
+}
+.lyrics-dlg:not(.ym-look) input[type="range"]::-moz-range-track{background:var(--lyr-empty)}
+.lyrics-dlg:not(.ym-look) input[type="range"]::-moz-range-progress{background:var(--lyr-fill)}
+.lyrics-dlg:not(.ym-look) input[type="range"]::-moz-range-thumb{background:var(--lyr-fill)}
+body.light .lyrics-dlg:not(.ym-look) input[type="range"]::-webkit-slider-runnable-track{
+  background:linear-gradient(90deg,var(--lyr-fill) 0 var(--fill,0%),var(--lyr-empty) var(--fill,0%) 100%);
+}
+body.light .lyrics-dlg:not(.ym-look) input[type="range"]::-webkit-slider-thumb{
+  background:var(--lyr-fill);box-shadow:0 0 0 3px rgba(124,92,255,.16),0 2px 6px rgba(78,58,38,.22);
+}
 </style>
 </head>
 <body class="booting">
