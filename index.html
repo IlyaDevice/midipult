@@ -2328,24 +2328,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   </section>
 
   <!-- ───────── озвучка ───────── -->
-  <section class="card c-zvuk" data-group="sound" data-card-id="zvuk" data-legacy-card-id="Сбер Звук" aria-labelledby="h-zvuk">
-    <h2 id="h-zvuk"><span class="dot"></span>Сбер Звук</h2>
-    <div class="seg-note" style="margin-top:8px">Неофициальный провайдер. Токен хранится только на станции, трек играет штатный плеер.</div>
-    <div class="zvuk-token-wrap">
-      <input id="zvukToken" class="net-input" type="password" autocomplete="off"
-             placeholder="Токен из zvuk.com/api/tiny/profile">
-      <button class="btn sm" id="btnZvukSave">Сохранить</button>
-      <button class="btn sm ghost" id="btnZvukClear">Убрать</button>
-    </div>
-    <div class="zvuk-status" id="zvukStatus">Токен не сохранён</div>
-    <div class="zvuk-search">
-      <input id="zvukQuery" class="net-input" placeholder="Трек, альбом или исполнитель" autocomplete="off">
-      <button class="btn sm" id="btnZvukSearch">Найти</button>
-      <button class="btn sm ghost" id="btnZvukWave">Мой поток</button>
-    </div>
-    <div class="zvuk-now" id="zvukNow"></div>
-    <div class="zvuk-results" id="zvukResults"></div>
-  </section>
+
 
   <section class="card c-alarm" data-group="sound" aria-labelledby="h-alarm">
     <h2 id="h-alarm"><span class="dot"></span>Будильники</h2>
@@ -2475,6 +2458,25 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       <button class="chip" data-text="Таймер на пять минут поставлен.">Таймер</button>
       <button class="chip" data-text="Проверка связи прошла успешно.">Проверка связи</button>
     </div>
+  </section>
+
+  <section class="card c-zvuk" data-group="sound" data-card-id="zvuk" data-legacy-card-id="Сбер Звук" aria-labelledby="h-zvuk">
+    <h2 id="h-zvuk"><span class="dot"></span>Сбер Звук</h2>
+    <div class="seg-note" style="margin-top:8px">Неофициальный провайдер. Токен хранится только на станции, трек играет штатный плеер.</div>
+    <div class="zvuk-token-wrap">
+      <input id="zvukToken" class="net-input" type="password" autocomplete="off"
+             placeholder="Токен из zvuk.com/api/tiny/profile">
+      <button class="btn sm" id="btnZvukSave">Сохранить</button>
+      <button class="btn sm ghost" id="btnZvukClear">Убрать</button>
+    </div>
+    <div class="zvuk-status" id="zvukStatus">Токен не сохранён</div>
+    <div class="zvuk-search">
+      <input id="zvukQuery" class="net-input" placeholder="Трек, альбом или исполнитель" autocomplete="off">
+      <button class="btn sm" id="btnZvukSearch">Найти</button>
+      <button class="btn sm ghost" id="btnZvukWave">Мой поток</button>
+    </div>
+    <div class="zvuk-now" id="zvukNow"></div>
+    <div class="zvuk-results" id="zvukResults"></div>
   </section>
 
   <!-- ───────── нейросеть ───────── -->
@@ -2801,14 +2803,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   </section>
 
   <!-- ───────── логи ───────── -->
-  <section class="card c-sys" data-group="system" data-card-id="files" data-legacy-card-id="Файлы" aria-labelledby="h-files">
-    <h2 id="h-files"><span class="dot"></span>Файлы</h2>
-    <div class="row between" style="margin-top:12px">
-      <span class="seg-note">Просмотр, загрузка и правка файлов станции</span>
-      <button class="btn sm" id="btnFilesOpen">Открыть менеджер</button>
-    </div>
-    <div class="seg-note" style="margin-top:8px">Запись разрешена только в <code>/data/mypult</code> и <code>/tmp</code>.</div>
-  </section>
+
 
   <section class="card c-sys" data-group="system" aria-labelledby="h-logs">
     <h2 id="h-logs"><span class="dot"></span>Логи</h2>
@@ -2894,6 +2889,15 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     </div>
     <div class="seg-note" style="margin-top:8px">По умолчанию выключен. После включения панель спросит PIN на этом устройстве.</div>
     <div class="seg-note" id="pinInsecure" hidden style="margin-top:6px;color:#ffb86b">PIN передаётся по HTTP — используйте доверенную сеть или VPN.</div>
+  </section>
+
+  <section class="card c-sys" data-group="system" data-card-id="files" data-legacy-card-id="Файлы" aria-labelledby="h-files">
+    <h2 id="h-files"><span class="dot"></span>Файлы</h2>
+    <div class="row between" style="margin-top:12px">
+      <span class="seg-note">Просмотр, загрузка и правка файлов станции</span>
+      <button class="btn sm" id="btnFilesOpen">Открыть менеджер</button>
+    </div>
+    <div class="seg-note" style="margin-top:8px">Запись разрешена только в <code>/data/mypult</code> и <code>/tmp</code>.</div>
   </section>
 
   <dialog id="ymDlg" class="ym-dlg" aria-labelledby="ymTitle">
@@ -11640,6 +11644,18 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       saved.forEach(function (id) {
         var card = map[id] || legacy[id];
         if (card) main.appendChild(card);
+      });
+      // Новые карточки, которых ещё нет в сохранённом порядке, ставим в конец
+      // своей группы, а не оставляем вверху.
+      cards.forEach(function (card) {
+        var id = card.dataset.cardId;
+        if (!id || saved.indexOf(id) >= 0) return;
+        var group = card.dataset.group;
+        var last = null;
+        Array.prototype.forEach.call(main.querySelectorAll('.card[data-group="' + group + '"]'),
+          function (other) { if (other !== card) last = other; });
+        if (last) main.insertBefore(card, last.nextSibling);
+        else main.appendChild(card);
       });
     }
     updateMoveButtons();
