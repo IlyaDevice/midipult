@@ -1817,7 +1817,17 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .ym-tabs{overflow:auto;scrollbar-width:none}
 .ym-tabs::-webkit-scrollbar{display:none}
 .ym-now{position:absolute;inset:0;z-index:25;overflow:auto;padding:22px 30px 30px;
-  background:#0b0b0d;border-radius:0}
+  background:#0b0b0d;border-radius:0;
+  opacity:1;transform:none;
+  transition:opacity .28s ease,transform .34s cubic-bezier(.22,.8,.24,1)}
+.ym-now.now-entering{opacity:0;transform:translateY(34px) scale(.992)}
+.ym-now.now-closing{opacity:0;transform:translateY(42px) scale(.99);pointer-events:none}
+.ym-now-entering .ym-now-art-wrap,
+.ym-now.now-entering .ym-now-art-wrap{transform:scale(.94);opacity:.35}
+.ym-now-art-wrap{transition:transform .34s cubic-bezier(.22,.8,.24,1),opacity .3s ease}
+@media(prefers-reduced-motion:reduce){
+  .ym-now,.ym-now-art-wrap{transition:none}
+}
 .ym-content.now-open .ym-promo{display:none}
 .ym-content.now-open .ym-main{padding-right:30px}
 .ym-content.now-open ~ .ym-bar{display:none}
@@ -1863,11 +1873,14 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .ym-now-bg{position:absolute;inset:0;background-size:cover;background-position:center;
   filter:blur(54px) saturate(1.15);opacity:.24;pointer-events:none}
 .ym-now-top{position:relative;display:flex;align-items:center;gap:14px;color:#777780;font-size:12px}
-.ym-now-back{border:0;background:transparent;color:#b7b7c0;font:inherit;font-size:12px;cursor:pointer;padding:4px 0}
+.ym-now-back{border:0;background:transparent;color:#c7c7d0;font:inherit;font-size:12px;cursor:pointer;
+  padding:4px 0;display:inline-flex;align-items:center;gap:6px;border-radius:999px;transition:background .15s,color .15s}
 .ym-now-back:hover{color:#fff}
+.ym-now-back-icon{display:none;width:22px;height:22px}
+.ym-now-back-text{display:inline}
 .ym-now-content{position:relative;display:grid;grid-template-columns:minmax(220px,360px) minmax(0,1fr);
   gap:min(5vw,64px);align-items:center;max-width:1060px;margin:4vh auto 0}
-.ym-now-art-wrap{width:100%;aspect-ratio:1;border-radius:4px;overflow:hidden;display:grid;place-items:center;
+.ym-now-art-wrap{width:100%;aspect-ratio:1;border-radius:10px;overflow:hidden;display:grid;place-items:center;
   background:linear-gradient(140deg,#383840,#1d1d22);box-shadow:0 28px 70px rgba(0,0,0,.5);color:#777780}
 .ym-now-art-wrap img{width:100%;height:100%;object-fit:cover}
 .ym-now-art-wrap .ic{width:56px;height:56px}
@@ -1950,9 +1963,16 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   /* В развёрнутом плеере верхнее меню и поиск не нужны — освобождаем высоту. */
   .ym-dlg.now-open .ym-top{display:none}
   .ym-now-top{flex:0 0 auto}
+  .ym-now-back{width:40px;height:40px;padding:0;justify-content:center;
+    background:transparent;color:#d7d7df}
+  .ym-now-back:hover,.ym-now-back:active{background:rgba(255,255,255,.08);color:#fff}
+  .ym-now-back-text{display:none}
+  .ym-now-back-icon{display:block}
+  .ym-now-top>span{flex:1;text-align:center;padding-right:40px}
   .ym-now-content{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;
     gap:8px;margin-top:10px;max-width:none;overflow:hidden}
-  .ym-now-art-wrap{width:min(30vh,190px);flex:0 0 auto;justify-self:center;margin:0 auto}
+  .ym-now-art-wrap{width:min(30vh,190px);flex:0 0 auto;justify-self:center;margin:0 auto;
+    border-radius:12px;box-shadow:0 18px 42px rgba(0,0,0,.46)}
   .ym-now-info{flex:1 1 auto;min-height:0;width:100%}
   .ym-now-info h2{font-size:23px}
   .ym-now-artist{font-size:12px;margin-top:3px}
@@ -3226,7 +3246,13 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
           <div class="ym-now" id="ymNow" hidden>
             <div class="ym-now-bg" id="ymNowBg"></div>
             <div class="ym-now-top">
-              <button type="button" class="ym-now-back" id="ymNowBack">← Назад</button>
+              <button type="button" class="ym-now-back" id="ymNowBack" aria-label="Свернуть плеер">
+                <svg class="ym-now-back-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+                <span class="ym-now-back-text">← Назад</span>
+              </button>
               <span>Сейчас играет</span>
             </div>
             <div class="ym-now-content">
@@ -5704,6 +5730,8 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     if (volumeVal) volumeVal.textContent = (State.volume || 0) + '%';
   }
 
+  var ymNowTimer = null;
+
   function ymOpenNow() {
     if (!State.mediaTitle) {
       toast('Сейчас ничего не играет', 'warn');
@@ -5711,7 +5739,16 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     }
     var now = document.getElementById('ymNow');
     if (!now) return;
+    clearTimeout(ymNowTimer);
     now.hidden = false;
+    now.classList.remove('now-closing');
+    now.classList.add('now-entering');
+    // Даём браузеру зафиксировать стартовое состояние, затем плавно
+    // поднимаем плеер снизу.
+    void now.offsetWidth;
+    requestAnimationFrame(function () {
+      now.classList.remove('now-entering');
+    });
     var content = document.querySelector('.ym-content');
     if (content) content.classList.add('now-open');
     var dialog = document.getElementById('ymDlg');
@@ -5722,14 +5759,26 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     else highlightNowLyrics(true);
   }
 
-  function ymCloseNow() {
+  function ymCloseNow(instant) {
     var now = document.getElementById('ymNow');
-    if (now) now.hidden = true;
+    if (!now || now.hidden) return;
     var content = document.querySelector('.ym-content');
-    if (content) content.classList.remove('now-open');
     var dialog = document.getElementById('ymDlg');
-    if (dialog) dialog.classList.remove('now-open');
-    State.ymNowOpen = false;
+    clearTimeout(ymNowTimer);
+    var finish = function () {
+      now.hidden = true;
+      now.classList.remove('now-closing', 'now-entering');
+      if (content) content.classList.remove('now-open');
+      if (dialog) dialog.classList.remove('now-open');
+      State.ymNowOpen = false;
+    };
+    if (instant) {
+      finish();
+      return;
+    }
+    now.classList.remove('now-entering');
+    now.classList.add('now-closing');
+    ymNowTimer = setTimeout(finish, 360);
   }
 
   function ymSeekTo(seconds) {
@@ -5814,7 +5863,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     if (!dialog.open) dialog.showModal();
     store.set('ymOpen', true);
     store.set('ymView', State.ymView);
-    ymCloseNow();
+    ymCloseNow(true);
     ymSyncBar();
     ymLoadLibrary();
   }
@@ -5889,10 +5938,10 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       State.ymSearch = '';
       dialog.classList.remove('closing');
       store.set('ymOpen', false);
-      ymCloseNow();
+      ymCloseNow(true);
     });
     var back = document.getElementById('ymNowBack');
-    if (back) back.addEventListener('click', ymCloseNow);
+    if (back) back.addEventListener('click', function () { ymCloseNow(); });
     var barArt = document.getElementById('ymBarArt');
     var barMeta = document.querySelector('.ym-bar-meta');
     [barArt, barMeta].forEach(function (node) {
@@ -5973,7 +6022,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       filters.addEventListener('click', function (event) {
         var button = event.target.closest('[data-ym-view]');
         if (!button) return;
-        ymCloseNow();
+        ymCloseNow(true);
         if (State.ymSearchTimer) { clearTimeout(State.ymSearchTimer); State.ymSearchTimer = null; }
         State.ymSearch = '';
         State.ymSearchResults = null;
