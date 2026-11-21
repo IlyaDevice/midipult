@@ -22,6 +22,9 @@
 Текущая версия — **0.6.1**. Работает на самой колонке: `lighttpd` на порту **8055** + CGI на Python.
 Интерфейс — один `index.html` на чистом HTML/CSS/JS, без React, Node и внешних CDN.
 
+[Релиз 0.6.1](https://github.com/RoBiN19666/midipult/releases/tag/v0.6.1) ·
+[Все релизы](https://github.com/RoBiN19666/midipult/releases)
+
 [Репозиторий приложения Android](https://github.com/RoBiN19666/midipult-android) — нативная оболочка
 для телефона: поиск станций, карточки, меню и системный медиаплеер.
 
