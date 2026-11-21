@@ -65,6 +65,16 @@ for f in "$WEB"/cgi-bin/*.py; do
 done
 [ -f "$CONF" ] && cp -f "$CONF" "$BACKUP/myweb.conf"
 [ -f "$INIT" ] && cp -f "$INIT" "$BACKUP/S99mypult"
+# /tmp — tmpfs: полные снимки веб-рута быстро съедают его. Оставляем
+# только пять последних резервных копий.
+KEEP_BACKUPS=5
+BACKUP_INDEX=0
+for old_backup in $(ls -1dt /tmp/mypult-backup-* 2>/dev/null); do
+    BACKUP_INDEX=$((BACKUP_INDEX + 1))
+    if [ "$BACKUP_INDEX" -gt "$KEEP_BACKUPS" ]; then
+        rm -rf "$old_backup"
+    fi
+done
 # Полный снимок веб-рута — для ручного отката при потере питания.
 if [ -d "$WEB" ]; then
     tar -cf "$BACKUP/myweb.tar" -C "$(dirname "$WEB")" "$(basename "$WEB")" 2>/dev/null || \

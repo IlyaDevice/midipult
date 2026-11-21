@@ -194,6 +194,18 @@ body.light .anim-frame[aria-pressed="true"]{background:rgba(124,92,255,.16);
   color:#20242c;border-color:#7c5cff;box-shadow:0 0 0 2px rgba(124,92,255,.14)}
 body.light .anim-frame[aria-pressed="true"] small{color:#6d675e}
 body.light .clock-anim-row{background:rgba(255,255,255,.48)}
+
+/* Светлые скроллбары: и корень страницы, и внутренние списки/диалоги. */
+html.light-scroll{color-scheme:light;scrollbar-color:#c9bfb0 #eee5d9;scrollbar-width:thin}
+html.light-scroll::-webkit-scrollbar{width:12px;height:12px}
+html.light-scroll::-webkit-scrollbar-track{background:#eee5d9}
+html.light-scroll::-webkit-scrollbar-thumb{background:#c9bfb0;border-radius:999px;
+  border:3px solid #eee5d9}
+html.light-scroll::-webkit-scrollbar-thumb:hover{background:#b3a897}
+body.light ::-webkit-scrollbar{width:10px;height:10px}
+body.light ::-webkit-scrollbar-track{background:transparent}
+body.light ::-webkit-scrollbar-thumb{background:rgba(76,62,48,.28);border-radius:999px;
+  border:2px solid transparent;background-clip:content-box}
 body.light .lyrics-dlg:not(.ym-look) .lyr-bg{opacity:.16;filter:blur(90px) saturate(1.1) brightness(1.2)}
 body.light .lyrics-dlg:not(.ym-look) .lyr-head{
   background:linear-gradient(180deg,rgba(255,253,249,.97),rgba(255,253,249,.55) 72%,transparent);
@@ -13242,6 +13254,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     el.btnTheme.addEventListener('click', function () {
       var light = !document.body.classList.contains('light');
       document.body.classList.toggle('light', light);
+      document.documentElement.classList.toggle('light-scroll', light);
       try { localStorage.setItem('mypult-theme', light ? 'light' : 'dark'); } catch (e) {}
       el.btnTheme.textContent = light ? '☾' : '☼';
       el.btnTheme.setAttribute('aria-label', light ? 'Тёмная тема' : 'Светлая тема');
@@ -15147,6 +15160,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     try {
       if (localStorage.getItem('mypult-theme') === 'light') {
         document.body.classList.add('light');
+        document.documentElement.classList.add('light-scroll');
         el.btnTheme.textContent = '☾';
         el.btnTheme.setAttribute('aria-label', 'Тёмная тема');
       }
