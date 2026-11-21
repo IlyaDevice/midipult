@@ -713,6 +713,14 @@ def test_voice_mic_mode():
           "session_timeout" in daemon and "econom" in daemon)
     check("голос: занятость Алисы — любое состояние кроме IDLE",
           "!= \"IDLE\"" in daemon)
+    readme = read(os.path.join(ROOT, "README.md"))
+    check("голос: в карточке есть пояснение", "voiceHelp" in html)
+    check("голос: в FAQ есть пункт про задержки Алисы",
+          "Почему Алиса стала медленнее" in html)
+    check("голос: кнопка явно выключает пульт",
+          "Выключить голосовой пульт" in html)
+    check("голос: README объясняет дефолт",
+          "по умолчанию на всех моделях" in readme)
 
 
 def main():

@@ -2817,7 +2817,7 @@ body.light dialog.queue-dlg.ym-look{
           </div>
         </div>
         <div class="row" style="margin-top:10px">
-          <button class="btn sm" id="btnVoiceDaemon">Голосовой пульт: выкл</button>
+          <button class="btn sm" id="btnVoiceDaemon" title="Полностью выключить или включить голосовой пульт">Включить голосовой пульт</button>
           <span class="seg-note" id="voiceDaemonStatus">голосовой пульт выключен</span>
         </div>
         <div class="row" style="margin-top:8px;align-items:center;gap:8px">
@@ -2833,6 +2833,14 @@ body.light dialog.queue-dlg.ym-look{
             <option value="econom">Микрофон: экономно (короткие сессии)</option>
           </select>
           <span class="seg-note" id="voiceMicNote">«Экономно» оставляет Алисе окна, но команда может не попасть в паузу</span>
+        </div>
+        <div class="seg-note" id="voiceHelp" style="margin-top:10px;line-height:1.45">
+          Голосовой пульт и штатная Алиса делят один микрофон. По умолчанию
+          («только при сценариях и нейросети») пульт не открывает микрофон, если
+          ему нечего обрабатывать, — Алиса отвечает как обычно. «Слушать
+          постоянно» — осознанный выбор: пульт занимает микрофон и Алиса может
+          отвечать медленнее. Кнопка выше выключает пульт полностью: микрофон он
+          тогда не трогает вообще.
         </div>
       </div>
     </div>
@@ -3788,6 +3796,16 @@ body.light dialog.queue-dlg.ym-look{
       <p>Под 3D-моделью на главной есть ряд «Корпус»: чёрный, серый,
       изумрудный, малиновый и жёлтый. Меняется только модель в панели, цвет
       реальной колонки не затрагивается; выбор сохраняется.</p>
+    </details>
+    <details>
+      <summary>Почему Алиса стала медленнее отвечать после установки?</summary>
+      <p>Голосовой пульт и штатная Алиса делят один микрофон. Если пульт слушает
+      постоянно, Алиса дольше отвечает и позже возвращается в режим ожидания.
+      По умолчанию пульт открывает микрофон только при сценариях или включённой
+      нейросети и не мешает Алисе. «Слушать постоянно» — осознанный выбор.
+      Режим «Экономно» оставляет Алисе окна, но команда может не попасть в паузу.
+      Полностью выключить пульт можно кнопкой «Голосовой пульт: вкл/выкл» —
+      тогда он не трогает микрофон вообще.</p>
     </details>
     <details>
       <summary>Как открыть пульт с телефона?</summary>
@@ -9853,22 +9871,22 @@ body.light dialog.queue-dlg.ym-look{
   function loadVoice() {
     return cgi('voicectl.py', {}, { timeout: 8000, silent: true }).then(function (data) {
       State.voice = data;
-      el.btnVoiceDaemon.textContent = data.running ? 'Голосовой пульт: вкл' : 'Голосовой пульт: выкл';
+      el.btnVoiceDaemon.textContent = data.running ? 'Выключить голосовой пульт' : 'Включить голосовой пульт';
       el.btnVoiceDaemon.setAttribute('aria-pressed', data.running ? 'true' : 'false');
       el.voiceDaemonStatus.textContent = data.running
         ? (data.idle === 'auto' ? 'ждёт сценарии или нейросеть' : 'слушает «Алиса, …»')
-        : (data.enabled === false ? 'выключен' : 'не запущен');
+        : (data.enabled === false ? 'выключен — микрофон не используется' : 'не запущен');
       if (el.voiceIdleMode && data.idle) el.voiceIdleMode.value = data.idle;
       if (el.voiceMicMode && data.mic_mode) el.voiceMicMode.value = data.mic_mode;
       if (el.voiceMicNote) {
         el.voiceMicNote.textContent = data.mic_mode === 'econom'
           ? 'короткие сессии: Алисе легче, но команда может не попасть в паузу'
-          : 'микрофон занят постоянно, пока пульт слушает';
+          : 'сессия не закрывается: Алиса может отвечать медленнее';
       }
       if (el.voiceIdleNote) {
-        el.voiceIdleNote.textContent = data.device === 'yandexmidi' || !data.device
-          ? 'на Миди «постоянно» кольцо не подсвечивает'
-          : 'на этой станции «постоянно» подсвечивает кольцо';
+        el.voiceIdleNote.textContent = (data.idle || 'auto') === 'auto'
+          ? 'если сценариев и нейросети нет — микрофон не открывается вообще'
+          : 'микрофон занят постоянно, пока пульт слушает';
       }
     }).catch(function (err) {
       el.voiceDaemonStatus.textContent = err.message;
