@@ -8,6 +8,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 import urllib.parse
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -16,6 +17,8 @@ import radio  # noqa: E402
 
 YTDLP = "/data/mypult/bin/yt-dlp"
 STATE_PATH = "/data/mypult/soundcloud_state.json"
+URL_CACHE_PATH = "/data/mypult/soundcloud_urls.json"
+URL_TTL = 300
 SELF_URL = "http://127.0.0.1:8055/cgi-bin/soundcloud_stream.py"
 ALLOWED_HOSTS = ("soundcloud.com", "api.soundcloud.com", "m.soundcloud.com")
 
@@ -93,12 +96,36 @@ def _check_url(value):
     return parsed.geturl()
 
 
+def _cache_get(page_url):
+    data = common.read_json(URL_CACHE_PATH, {}) or {}
+    item = data.get(page_url) or {}
+    if isinstance(item, dict) and item.get("url") and time.time() - float(item.get("ts") or 0) < URL_TTL:
+        return str(item["url"])
+    return None
+
+
+def _cache_put(page_url, stream_url):
+    data = common.read_json(URL_CACHE_PATH, {}) or {}
+    now = time.time()
+    data = {key: val for key, val in data.items()
+            if isinstance(val, dict) and now - float(val.get("ts") or 0) < URL_TTL}
+    data[page_url] = {"url": stream_url, "ts": now}
+    if len(data) > 40:
+        for key in sorted(data, key=lambda k: data[k].get("ts", 0))[:-40]:
+            data.pop(key, None)
+    common.write_json(URL_CACHE_PATH, data, mode=0o600)
+
+
 def _stream(page_url):
     page_url = _check_url(page_url)
+    cached = _cache_get(page_url)
+    if cached:
+        return cached
     raw = _run(["--get-url", "-f", "bestaudio/best", page_url], timeout=60)
     stream_url = next((line.strip() for line in raw.splitlines() if line.startswith("http")), "")
     if not stream_url:
         raise RuntimeError("yt-dlp не вернул поток")
+    _cache_put(page_url, stream_url)
     return stream_url
 
 
@@ -115,6 +142,12 @@ def main():
         if not query:
             raise RuntimeError("Пустой поисковый запрос")
         common.ok(tracks=_search(query, common.to_int(data.get("limit"), 12, 1, 25)))
+        return
+
+    if action == "prepare":
+        page_url = _check_url(data.get("url"))
+        _stream(page_url)
+        common.ok(prepared=True)
         return
 
     if action == "play":

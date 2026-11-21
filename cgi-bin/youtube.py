@@ -21,6 +21,8 @@ DATA_DIR = "/data/mypult"
 YTDLP = os.path.join(DATA_DIR, "bin", "yt-dlp")
 FFMPEG = "/opt/bin/ffmpeg"
 STATE_PATH = os.path.join(DATA_DIR, "youtube_state.json")
+URL_CACHE_PATH = os.path.join(DATA_DIR, "youtube_urls.json")
+URL_TTL = 300
 HLS_ROOT = "/data/myweb/hls"
 HLS_PID = "/tmp/mypult-youtube-hls.pid"
 HLS_BASE = "http://127.0.0.1:8055/hls"
@@ -73,17 +75,41 @@ def _search(query, limit=12):
     return tracks[:limit]
 
 
+def _cache_get(track_id):
+    data = common.read_json(URL_CACHE_PATH, {}) or {}
+    item = data.get(track_id) or {}
+    if isinstance(item, dict) and item.get("url") and time.time() - float(item.get("ts") or 0) < URL_TTL:
+        return str(item["url"])
+    return None
+
+
+def _cache_put(track_id, stream_url):
+    data = common.read_json(URL_CACHE_PATH, {}) or {}
+    now = time.time()
+    data = {key: val for key, val in data.items()
+            if isinstance(val, dict) and now - float(val.get("ts") or 0) < URL_TTL}
+    data[track_id] = {"url": stream_url, "ts": now}
+    if len(data) > 40:
+        for key in sorted(data, key=lambda k: data[k].get("ts", 0))[:-40]:
+            data.pop(key, None)
+    common.write_json(URL_CACHE_PATH, data, mode=0o600)
+
+
 def _stream(track_id):
     """Получить свежий прямой поток; MP3 собирается на лету в прокси."""
     if not ID_RE.fullmatch(track_id):
         raise RuntimeError("Некорректный id видео")
     if not os.path.isfile(FFMPEG):
         raise RuntimeError("ffmpeg не установлен — нужен для MP3-потока")
+    cached = _cache_get(track_id)
+    if cached:
+        return cached
     url = "https://music.youtube.com/watch?v=" + track_id
     raw = _run(["--get-url", "-f", "bestaudio[ext=m4a]/bestaudio", url], timeout=60)
     stream_url = next((line.strip() for line in raw.splitlines() if line.startswith("http")), "")
     if not stream_url:
         raise RuntimeError("yt-dlp не вернул поток")
+    _cache_put(track_id, stream_url)
     return stream_url
 
 
@@ -163,6 +189,12 @@ def main():
         common.ok(tracks=tracks)
         return
 
+    if action == "prepare":
+        track_id = str(data.get("id") or "").strip()
+        _stream(track_id)
+        common.ok(prepared=True)
+        return
+
     if action == "play":
         track_id = str(data.get("id") or "").strip()
         title = str(data.get("title") or "YouTube Music")
@@ -176,7 +208,7 @@ def main():
         }
         _save_state(state)
         try:
-            radio.play_stream(title, hls_url, fmt="MP3", subtitle=artist, wait=6)
+            radio.play_stream(title, hls_url, fmt="MP3", subtitle=artist, wait=4)
         except Exception as exc:  # noqa: BLE001
             raise RuntimeError("Поток не запустился: %s" % exc)
         common.ok(playing=True, track=state)

@@ -10684,6 +10684,23 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   }
 
   var EXT_LABELS = { youtube: 'YouTube Music', soundcloud: 'SoundCloud' };
+  var extSearchSeq = 0;
+  var extPrefetched = {};
+  var extPrepares = {};
+
+  function extPrefetch(track) {
+    if (!track || !track.id) return;
+    var source = track.source === 'youtube' ? 'youtube' : 'soundcloud';
+    var key = source + ':' + track.id;
+    if (extPrefetched[key]) return extPrepares[key];
+    extPrefetched[key] = true;
+    var payload = { action: 'prepare', id: track.id };
+    if (source === 'soundcloud') payload.url = track.url;
+    var promise = cgi(source === 'youtube' ? 'youtube.py' : 'soundcloud.py', payload,
+      { timeout: 90000, silent: true }).catch(function () {});
+    extPrepares[key] = promise;
+    return promise;
+  }
 
   function extSetStatus(text, kind) {
     extStatus(el.extStatus, text, kind);
@@ -10818,7 +10835,11 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     var source = track.source === 'youtube' ? 'youtube' : 'soundcloud';
     extSetStatus('Останавливаю предыдущий трек…');
     extNow(track);
-    extStopBackends().then(function () {
+    var prepKey = source + ':' + track.id;
+    var prepare = extPrepares[prepKey] || Promise.resolve();
+    prepare.catch(function () {}).then(function () {
+      extStopBackends();
+    }).then(function () {
       extSetStatus('Запускаю ' + (EXT_LABELS[source] || '') + '…');
       var payload = {
         action: 'play', id: track.id, title: track.title || '',
@@ -10844,34 +10865,47 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   function extSearch() {
     var q = (el.extQuery && el.extQuery.value || '').trim();
     if (!q) return;
+    var seq = ++extSearchSeq;
     extSetStatus('Ищу в YouTube Music и SoundCloud…');
+    var yt = [], sc = [], ytDone = false, scDone = false, errors = [];
+    function render() {
+      if (seq !== extSearchSeq) return;
+      var tracks = [];
+      var max = Math.max(yt.length, sc.length);
+      for (var i = 0; i < max; i++) {
+        if (yt[i]) tracks.push(yt[i]);
+        if (sc[i]) tracks.push(sc[i]);
+      }
+      extRender(tracks);
+      var prefix = 'YouTube: ' + (ytDone ? yt.length : 'ищет…') +
+        ' · SoundCloud: ' + (scDone ? sc.length : 'ищет…');
+      extSetStatus('Найдено: ' + tracks.length + ' · ' + prefix,
+        errors.length && !tracks.length ? 'bad' : '');
+    }
     function search(file, source) {
       return cgi(file, { action: 'search', q: q, limit: 8 }, { timeout: 90000 })
         .then(function (data) {
-          return (data.tracks || []).map(function (track) {
+          var tracks = (data.tracks || []).map(function (track) {
             track.source = source;
             return track;
           });
+          if (source === 'youtube') { yt = tracks; ytDone = true; }
+          else { sc = tracks; scDone = true; }
+          render();
+          if (tracks[0]) extPrefetch(tracks[0]);
+          return tracks;
         })
         .catch(function (err) {
-          return { error: err.message };
+          errors.push(err.message);
+          if (source === 'youtube') ytDone = true;
+          else scDone = true;
+          render();
+          return [];
         });
     }
     Promise.all([search('youtube.py', 'youtube'), search('soundcloud.py', 'soundcloud')])
-      .then(function (parts) {
-        var yt = Array.isArray(parts[0]) ? parts[0] : [];
-        var sc = Array.isArray(parts[1]) ? parts[1] : [];
-        var tracks = [];
-        var max = Math.max(yt.length, sc.length);
-        for (var i = 0; i < max; i++) {
-          if (yt[i]) tracks.push(yt[i]);
-          if (sc[i]) tracks.push(sc[i]);
-        }
-        extRender(tracks);
-        var errors = parts.filter(function (part) { return !Array.isArray(part); });
-        extSetStatus('Найдено: ' + tracks.length + ' · YouTube: ' + yt.length +
-          ' · SoundCloud: ' + sc.length,
-          errors.length && !tracks.length ? 'bad' : '');
+      .then(function () {
+        if (seq === extSearchSeq) render();
       });
   }
 
