@@ -983,8 +983,8 @@ input[type="color"]::-moz-color-swatch{border:2px solid rgba(255,255,255,.32);bo
 .maint-actions .btn{flex:0 0 auto;width:auto;height:30px;padding:0 12px;font-size:12px;white-space:nowrap;justify-content:center}
 .sc-days{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));max-width:466px;justify-content:start;gap:var(--gap-sm)}
 .sc-days .btn{width:100%;justify-content:center}
-.bt-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));max-width:556px;justify-content:start;gap:var(--gap-sm)}
-.bt-actions .btn{width:100%;justify-content:center}
+.bt-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));max-width:556px;justify-content:start;gap:var(--gap-sm)}
+.bt-actions .btn{width:100%;justify-content:center;white-space:normal;height:auto;min-height:32px;line-height:1.2;padding:6px 10px}
 .sc-edit-actions,.sound-top-actions,.pin-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));max-width:368px;justify-content:start;gap:var(--gap-sm);margin-top:10px}
 .sc-edit-actions .btn,.sound-top-actions .btn,.pin-actions .btn{width:100%;justify-content:center}
 .pin-actions .seg-note{grid-column:1/-1}
