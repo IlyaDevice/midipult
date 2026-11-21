@@ -4156,7 +4156,8 @@ body.light dialog.queue-dlg.ym-look{
     lyrSeeking: false,
     audioProgress: 0,
     bt: null,
-    btAt: 0,
+    btPlayer: null,
+    btPlayerAt: 0,
     stationActive: false,
     homeVolumeDragging: false,
     homeExtra: 'resources',
@@ -8143,26 +8144,33 @@ body.light dialog.queue-dlg.ym-look{
   function btPoll() {
     return cgi('btplayer.py', { action: 'status' }, { timeout: 9000, silent: true })
       .then(function (data) {
-        State.bt = data || null;
-        State.btAt = Date.now();
-        return State.bt;
+        State.btPlayer = data || null;
+        State.btPlayerAt = Date.now();
+        return State.btPlayer;
       })
-      .catch(function () { return State.bt; });
+      .catch(function () { return State.btPlayer; });
   }
 
   function btActive() {
-    var bt = State.bt;
+    var bt = State.btPlayer;
     if (!bt || !bt.avrcp) return false;
     // Данные старше 15 секунд не считаем: опрос мог отвалиться, и плеер
     // не должен залипать на телефоне, которого уже нет.
-    if (!State.btAt || Date.now() - State.btAt > 15000) return false;
-    if (bt.status !== 'playing' && bt.status !== 'paused') return false;
-    // Станция играет своё — приоритет у неё, телефон не перебивает.
+    if (!State.btPlayerAt || Date.now() - State.btPlayerAt > 15000) return false;
+    if (bt.status === 'playing') {
+      // Станция играет своё — приоритет у неё, телефон не перебивает.
+      return !State.stationActive;
+    }
+    if (bt.status !== 'paused') return false;
+    // Просто подключённый телефон отдаёт «paused» с пустым треком — это не
+    // источник, а фон: не перебиваем им «Glagol» и радио.
+    var track = bt.track || {};
+    if (!(Number(bt.duration) > 0 || track.title)) return false;
     return !State.stationActive;
   }
 
   function applyBtPlayer() {
-    var bt = State.bt || {};
+    var bt = State.btPlayer || {};
     var track = bt.track || {};
     var title = track.title || 'С телефона';
     var artist = track.artist || '';
@@ -8220,8 +8228,8 @@ body.light dialog.queue-dlg.ym-look{
       .then(function (data) {
         // Ответ команды — уже свежее состояние, второй запрос не нужен.
         if (data && typeof data.avrcp !== 'undefined') {
-          State.bt = data;
-          State.btAt = Date.now();
+          State.btPlayer = data;
+          State.btPlayerAt = Date.now();
         }
         if (btActive()) applyBtPlayer();
       })
@@ -9843,6 +9851,8 @@ body.light dialog.queue-dlg.ym-look{
     });
     State.tab = name;
     loadTabData(name);
+    if (name === 'network') startBtCardPoll();
+    else stopBtCardPoll();
     var activeTab = el.tabs.querySelector('.tab[aria-pressed="true"]');
     var mobileLabel = document.getElementById('mobileTabLabel');
     if (mobileLabel && activeTab) {
@@ -9948,6 +9958,23 @@ body.light dialog.queue-dlg.ym-look{
     return cgi('bluetooth.py', {}, { timeout: 12000, silent: true }).then(renderBt).catch(function (err) {
       el.btStatus.textContent = 'Bluetooth: ' + err.message;
     });
+  }
+
+  // Телефон подключается со своей стороны, поэтому карточку надо опрашивать:
+  // иначе состояние видно только после перезагрузки страницы.
+  var btCardTimer = null;
+
+  function startBtCardPoll() {
+    if (btCardTimer) return;
+    btCardTimer = setInterval(function () {
+      if (State.tab !== 'network' || document.hidden || State.btScanning) return;
+      loadBt();
+    }, 4000);
+  }
+
+  function stopBtCardPoll() {
+    if (btCardTimer) clearInterval(btCardTimer);
+    btCardTimer = null;
   }
 
   function btScan() {

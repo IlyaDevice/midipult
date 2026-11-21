@@ -56,6 +56,14 @@ RE_KEY = re.compile(r'\s*string "((?:[^"\\]|\\.)*)"\s*$')
 RE_VARIANT = re.compile(
     r'\s*variant\s+(string|uint32|uint64|int32|int64|boolean|object path)\s+(.*?)\s*$')
 
+# AVRCP-«метаданные» подключённого, но молчащего телефона.
+PLACEHOLDERS = {"not provided", "unknown", "none", "-", "--"}
+
+
+def _text(value):
+    text = str(value or "").strip()
+    return "" if text.lower() in PLACEHOLDERS else text
+
 
 def _dbus(*args, timeout=8):
     return common.run([DBUS, "--system", "--print-reply", "--dest=org.bluez"] + list(args),
@@ -182,9 +190,9 @@ def _status(fresh=False):
     data["position"] = round(common.to_int(props.get("Position"), 0, 0) / 1000.0, 1)
     data["duration"] = round(common.to_int(props.get("Duration"), 0, 0) / 1000.0, 1)
     data["track"] = {
-        "title": str(props.get("Title") or ""),
-        "artist": str(props.get("Artist") or ""),
-        "album": str(props.get("Album") or ""),
+        "title": _text(props.get("Title")),
+        "artist": _text(props.get("Artist")),
+        "album": _text(props.get("Album")),
     }
     if not props:
         data["hint"] = "BlueZ не отдал свойства плеера"
