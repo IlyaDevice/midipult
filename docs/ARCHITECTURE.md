@@ -70,6 +70,7 @@ cgi-bin/                   CGI-скрипты
   auth.py                  PIN: включение, вход, кука
   backup.py                экспорт/импорт настроек
   bluetooth.py             Bluetooth
+  btplayer.py              AVRCP-пульт: музыка с телефона
   command.py               sendText в Glagol
   diag.py                  расширенная диагностика
   display.py               LED часов, кольцо, яркость, автояркость
@@ -129,6 +130,7 @@ tests/                     статические, юнит- и CGI-тесты
 | `vpn.py` | подписка, серверы, старт/стоп, статус |
 | `network.py` | Wi-Fi, скан, подключение, DNS |
 | `bluetooth.py` | питание, скан, сопряжение |
+| `btplayer.py` | AVRCP: трек, play/pause, next/prev для телефона-источника |
 | `zigbee.py` | статус и устройства |
 | `system.py` | ресурсы и датчики |
 | `logs.py` | хвосты логов |

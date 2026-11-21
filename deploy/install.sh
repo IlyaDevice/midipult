@@ -92,8 +92,6 @@ if [ -d "$WEB" ]; then
     cp -a "$WEB/." "$STAGE/" 2>/dev/null || warn "не всё скопировалось из $WEB"
 fi
 cp -f "$SRC/index.html" "$STAGE/index.html" || die "не скопировался index.html"
-[ -f "$SRC/vk_oauth.html" ] && cp -f "$SRC/vk_oauth.html" "$STAGE/vk_oauth.html"
-[ -f "$SRC/vk_callback.html" ] && cp -f "$SRC/vk_callback.html" "$STAGE/vk_callback.html"
 [ -f "$SRC/index.py" ] && cp -f "$SRC/index.py" "$STAGE/index.py"
 [ -f "$SRC/manifest.json" ] && cp -f "$SRC/manifest.json" "$STAGE/manifest.json"
 for asset in favicon.ico icon-192.png icon-512.png icon.png icon-circle.png; do
@@ -129,6 +127,12 @@ rm -f "$STAGE/cgi-bin/soundcfg.py"
 # YouTube теперь отдаёт HLS напрямую; старый MP3-прокси больше не нужен.
 rm -f "$STAGE/cgi-bin/youtube_stream.py"
 rm -f "$STAGE/cgi-bin/timezone.py"
+# VK-провайдер удалён: VK закрыл публичный audio API. Убираем и CGI, и
+# страницы возврата OAuth, чтобы они не оставались от старых версий.
+# Токен в /data/mypult/vk_token.json не трогаем: это данные пользователя,
+# при желании он удаляется вручную.
+rm -f "$STAGE/cgi-bin/vk.py" "$STAGE/cgi-bin/vk_stream.py"
+rm -f "$STAGE/vk_oauth.html" "$STAGE/vk_callback.html"
 [ -f "$SRC/cgi-bin/glagol.conf" ] && [ ! -f "$STAGE/cgi-bin/glagol.conf" ] && \
     cp -f "$SRC/cgi-bin/glagol.conf" "$STAGE/cgi-bin/glagol.conf"
 

@@ -2752,9 +2752,6 @@ body.light dialog.queue-dlg.ym-look{
       <button type="button" class="prov-tab" role="tab" data-provider="zvuk" aria-controls="provPaneZvuk" aria-pressed="false">
         <span class="prov-dot" data-prov-dot="zvuk"></span>Сбер Звук
       </button>
-      <button type="button" class="prov-tab" role="tab" data-provider="vk" aria-controls="provPaneVk" aria-pressed="false">
-        <span class="prov-dot" data-prov-dot="vk"></span>VK Музыка
-      </button>
       <button type="button" class="prov-tab" role="tab" data-provider="ext" aria-controls="provPaneExt" aria-pressed="false">
         <span class="prov-dot" data-prov-dot="ext"></span>YouTube + SoundCloud
       </button>
@@ -2814,39 +2811,6 @@ body.light dialog.queue-dlg.ym-look{
       </div>
       <div class="zvuk-now" id="zvukNow"></div>
       <div class="zvuk-results" id="zvukResults"></div>
-    </div>
-
-    <div class="prov-pane" id="provPaneVk" role="tabpanel" data-provider-pane="vk" hidden>
-      <div class="seg-note">VK не даёт музыку сторонним приложениям: официального доступа к аудио у новых приложений нет. Зато станция умеет принимать звук с телефона как Bluetooth-колонка — VK Музыка играет с телефона, а громкость и пауза остаются на пульте.</div>
-      <div class="row" style="margin-top:10px;gap:6px;flex-wrap:wrap">
-        <button class="btn sm primary" id="btnVkBt">Настроить Bluetooth</button>
-        <button class="btn sm ghost" id="btnVkBtRefresh">Проверить</button>
-      </div>
-      <div class="zvuk-status" id="vkBtStatus">Проверяю Bluetooth…</div>
-      <div class="seg-note" id="vkBtDevice" style="margin-top:6px" hidden></div>
-      <ol class="seg-note" style="margin:10px 0 0;padding-left:18px;line-height:1.6">
-        <li>В карточке «Bluetooth» включите адаптер и нажмите «Сопряжение».</li>
-        <li>На телефоне: настройки Bluetooth → выберите станцию.</li>
-        <li>Откройте VK Музыку на телефоне — звук пойдёт на колонку.</li>
-      </ol>
-      <details style="margin-top:14px">
-        <summary>Свой токен VK — экспериментально, на свой риск</summary>
-        <div class="seg-note" style="margin-top:8px">Токен официального клиента добывается на ПК и хранится только на станции. Это неофициальный способ: VK может ограничить аккаунт, а поток отдаётся сегментами m3u8.</div>
-        <div class="zvuk-token-wrap">
-          <input id="vkToken" class="net-input" type="password" autocomplete="off"
-                 placeholder="Токен VK или ссылка после входа">
-          <button class="btn sm" id="btnVkSave">Сохранить</button>
-          <button class="btn sm ghost" id="btnVkClear">Убрать</button>
-        </div>
-        <div class="zvuk-status" id="vkStatus">Токен не сохранён</div>
-        <div class="zvuk-search">
-          <input id="vkQuery" class="net-input" placeholder="Трек, исполнитель или подборка" autocomplete="off">
-          <button class="btn sm" id="btnVkSearch">Найти</button>
-          <button class="btn sm ghost" id="btnVkMine">Моя музыка</button>
-        </div>
-        <div class="zvuk-now" id="vkNow"></div>
-        <div class="zvuk-results" id="vkResults"></div>
-      </details>
     </div>
 
     <div class="prov-pane" id="provPaneExt" role="tabpanel" data-provider-pane="ext" hidden>
@@ -4191,6 +4155,9 @@ body.light dialog.queue-dlg.ym-look{
     nowLyricsActive: null,
     lyrSeeking: false,
     audioProgress: 0,
+    bt: null,
+    btAt: 0,
+    stationActive: false,
     homeVolumeDragging: false,
     homeExtra: 'resources',
     homeSystem: null,
@@ -8168,7 +8135,105 @@ body.light dialog.queue-dlg.ym-look{
     if (was !== State.playing) syncMusicRing();
   }
 
+  /* ─────────── Bluetooth-источник (AVRCP) ─────────── */
+  var btPollAt = 0;
+
+  // Состояние плеера телефона: BlueZ отдаёт его по AVRCP, пока телефон
+  // подключён как A2DP-источник. Опрос — два локальных вызова dbus-send.
+  function btPoll() {
+    return cgi('btplayer.py', { action: 'status' }, { timeout: 9000, silent: true })
+      .then(function (data) {
+        State.bt = data || null;
+        State.btAt = Date.now();
+        return State.bt;
+      })
+      .catch(function () { return State.bt; });
+  }
+
+  function btActive() {
+    var bt = State.bt;
+    if (!bt || !bt.avrcp) return false;
+    // Данные старше 15 секунд не считаем: опрос мог отвалиться, и плеер
+    // не должен залипать на телефоне, которого уже нет.
+    if (!State.btAt || Date.now() - State.btAt > 15000) return false;
+    if (bt.status !== 'playing' && bt.status !== 'paused') return false;
+    // Станция играет своё — приоритет у неё, телефон не перебивает.
+    return !State.stationActive;
+  }
+
+  function applyBtPlayer() {
+    var bt = State.bt || {};
+    var track = bt.track || {};
+    var title = track.title || 'С телефона';
+    var artist = track.artist || '';
+    var duration = Number(bt.duration) || 0;
+    var position = Number(bt.position) || 0;
+
+    State.playerKind = 'Bt';
+    State.mediaTitle = title;
+    State.mediaArtist = artist;
+    State.mediaId = '';
+    State.mediaDuration = duration;
+    State.mediaCover = '';
+    State.audioProgress = position;
+    State.mediaProgress = position;
+    State.progressBase = position;
+    State.progressAt = Date.now() / 1000;
+
+    setPlaying(bt.status === 'playing');
+    if (el.mediaTitle) el.mediaTitle.textContent = title;
+    if (el.mediaSub) el.mediaSub.textContent = artist || 'Bluetooth';
+    if (el.mediaKind) el.mediaKind.textContent = 'с телефона · Bluetooth';
+    if (el.mediaCover) {
+      el.mediaCover.hidden = true;
+      el.mediaCover.removeAttribute('src');
+    }
+    if (el.mediaArtIcon) el.mediaArtIcon.style.display = '';
+    if (el.npGlow) el.npGlow.style.backgroundImage = '';
+    // AVRCP не умеет абсолютную перемотку: ползунок прячем, но позицию и
+    // длительность показываем — их телефон отдаёт.
+    if (el.mediaProgress) el.mediaProgress.hidden = false;
+    if (el.mediaSeek) {
+      el.mediaSeek.hidden = true;
+      el.mediaSeek.disabled = true;
+    }
+    [el.btnLike, el.btnDislike, el.btnLyrics].forEach(function (button) {
+      if (!button) return;
+      button.hidden = false;
+      button.disabled = true;
+    });
+    if (State.lyricsLines.length) clearLyrics();
+    updateInlineLine();
+    updateMediaProgress();
+    syncHomePlayer();
+    syncSystemMedia();
+  }
+
+  function btCommand(action) {
+    var optimistic = action === 'play' ? true : action === 'pause' ? false : null;
+    if (optimistic !== null) setPlaying(optimistic);
+    if (el.mediaKind) {
+      el.mediaKind.textContent = action === 'play' ? 'включаю…'
+        : action === 'pause' ? 'ставлю на паузу…' : 'переключаю…';
+    }
+    return cgi('btplayer.py', { action: action }, { timeout: 9000 })
+      .then(function (data) {
+        // Ответ команды — уже свежее состояние, второй запрос не нужен.
+        if (data && typeof data.avrcp !== 'undefined') {
+          State.bt = data;
+          State.btAt = Date.now();
+        }
+        if (btActive()) applyBtPlayer();
+      })
+      .catch(function (err) { toast('Bluetooth: ' + err.message, 'bad'); });
+  }
+
   function applyPlayerData(data) {
+    State.stationActive = !!data.playing;
+    if (btActive()) {
+      applyBtPlayer();
+      return;
+    }
     var title = data.title || '';
     // Потоки YouTube/SoundCloud идут через штатный плеер, но их обложку и
     // источник Glagol не возвращает. Пока играет тот же трек, сохраняем
@@ -8254,6 +8319,11 @@ body.light dialog.queue-dlg.ym-look{
     State.audioProgress = incoming;
     var seekable = State.playerKind === 'Track' && State.mediaDuration > 0;
     if (el.mediaProgress) el.mediaProgress.hidden = !seekable;
+    // Возврат из Bluetooth-режима: там ползунок был спрятан.
+    if (el.mediaSeek) {
+      el.mediaSeek.hidden = false;
+      el.mediaSeek.disabled = false;
+    }
     if (!State.seeking) updateMediaProgress();
     if (el.mediaKind) {
       el.mediaKind.textContent = State.extTrack
@@ -8367,6 +8437,7 @@ body.light dialog.queue-dlg.ym-look{
   function applyState(data) {
     if (data.status) applyStatusData(data.status);
     if (data.player && !data.player.error) applyPlayerData(data.player);
+    else State.stationActive = false;
   }
 
   var stateTimer = null;
@@ -8430,6 +8501,8 @@ body.light dialog.queue-dlg.ym-look{
     stopPlayerPoll();
     if (State.tab !== 'sound' && State.tab !== 'home') return;
     lastPlayerPoll = Date.now();
+    btPollAt = 0;
+    btPoll();
     refreshPlayer();
     loadLiked();
     playerTimer = setInterval(function () {
@@ -8438,6 +8511,16 @@ body.light dialog.queue-dlg.ym-look{
       // yapanel): сервер отдаёт progress + age, а здесь добавляем прошедшее.
       updateMediaProgress();
       if (document.hidden) return;
+      // Телефон играет мимо станции: Glagol о нём не знает, поэтому
+      // состояние спрашиваем у BlueZ отдельно, раз в 2 секунды.
+      if (Date.now() - btPollAt > 2000) {
+        btPollAt = Date.now();
+        var wasBt = btActive();
+        btPoll().then(function () {
+          if (btActive()) applyBtPlayer();
+          else if (wasBt) refreshPlayer(true);
+        });
+      }
       var active = !!State.playing;
       var wait = active ? 2000 : 10000;
       if (Date.now() - lastPlayerPoll < wait) return;
@@ -8460,6 +8543,11 @@ body.light dialog.queue-dlg.ym-look{
   }
 
   function mediaAction(action) {
+    // Пока играет телефон, транспортные кнопки идут в AVRCP, а не в Glagol.
+    if (btActive() && (action === 'play' || action === 'pause'
+                       || action === 'next' || action === 'prev')) {
+      return btCommand(action);
+    }
     commandGuard(action);
     var pending = action === 'play' ? 'включаю…'
       : action === 'pause' ? 'ставлю на паузу…'
@@ -10694,7 +10782,6 @@ body.light dialog.queue-dlg.ym-look{
       if (!found) return;
       panes.forEach(function (pane) { pane.hidden = pane.dataset.providerPane !== name; });
       store.set('musicProvider', name);
-      if (name === 'vk') vkBtLoad();
     }
     tabs.forEach(function (tab) {
       tab.addEventListener('click', function () {
@@ -10702,11 +10789,12 @@ body.light dialog.queue-dlg.ym-look{
         show(tab.dataset.provider);
       });
     });
-    show((function () {
-      var saved = store.get('musicProvider', 'yandex');
-      if (saved === 'youtube' || saved === 'soundcloud') return 'ext';
-      return saved;
-    })());
+    // Сохранённая вкладка могла исчезнуть (например, «VK Музыка»): не
+    // оставляем окно сервисов с пустым содержимым.
+    var saved = store.get('musicProvider', 'yandex');
+    if (saved === 'youtube' || saved === 'soundcloud') saved = 'ext';
+    if (!tabs.some(function (tab) { return tab.dataset.provider === saved; })) saved = 'yandex';
+    show(saved);
     var open = document.getElementById('btnProviderYm');
     if (open) open.addEventListener('click', function () { ymOpen(); });
   }
@@ -11204,328 +11292,6 @@ body.light dialog.queue-dlg.ym-look{
           data.has_credentials ? 'ok' : '');
         setProvDot('spotify', data.has_credentials ? 'ok' : 'warn');
       }).catch(function () { extStatus(el.spotifyStatus, 'Spotify недоступен', 'bad'); setProvDot('spotify', 'bad'); });
-  }
-
-  function vkRender(tracks) {
-    if (!el.vkResults) return;
-    el.vkResults.textContent = '';
-    if (!tracks || !tracks.length) {
-      var empty = document.createElement('div');
-      empty.className = 'zvuk-empty';
-      empty.textContent = 'Ничего не найдено';
-      el.vkResults.appendChild(empty);
-      return;
-    }
-    tracks.forEach(function (track) {
-      var row = document.createElement('button');
-      row.type = 'button';
-      row.className = 'zvuk-track';
-      var img = document.createElement('img');
-      img.alt = '';
-      img.loading = 'lazy';
-      if (track.cover) img.src = track.cover;
-      var info = document.createElement('div');
-      var title = document.createElement('div');
-      title.className = 'zt-title';
-      title.textContent = track.title || 'VK Музыка';
-      var artist = document.createElement('div');
-      artist.className = 'zt-artist';
-      artist.textContent = track.artist || 'VK Музыка';
-      info.appendChild(title);
-      info.appendChild(artist);
-      var time = document.createElement('span');
-      time.className = 'zt-time';
-      time.textContent = track.duration ? zvukTime(track.duration) : '';
-      var play = document.createElement('span');
-      play.className = 'zt-play';
-      play.textContent = '▶';
-      row.appendChild(img);
-      row.appendChild(info);
-      row.appendChild(time);
-      row.appendChild(play);
-      row.addEventListener('click', function () { vkPlay(track); });
-      el.vkResults.appendChild(row);
-    });
-  }
-
-  function vkNow(track) {
-    if (!el.vkNow) return;
-    el.vkNow.textContent = '';
-    if (!track) return;
-    var b = document.createElement('b');
-    b.textContent = track.title || 'VK Музыка';
-    var artist = document.createElement('div');
-    artist.textContent = track.artist || '';
-    var stop = document.createElement('button');
-    stop.type = 'button';
-    stop.className = 'btn sm ghost';
-    stop.style.marginTop = '8px';
-    stop.textContent = 'Остановить';
-    stop.addEventListener('click', function () {
-      cgi('vk.py', { action: 'stop' }, { timeout: 12000, silent: true }).catch(function () {});
-      cgi('media.py', { action: 'pause' }, { timeout: 12000 })
-        .then(function () { vkNow(null); extStatus(el.vkStatus, 'Остановлено'); })
-        .catch(function (err) { extStatus(el.vkStatus, 'Ошибка: ' + err.message, 'bad'); });
-    });
-    el.vkNow.appendChild(b);
-    el.vkNow.appendChild(artist);
-    el.vkNow.appendChild(stop);
-  }
-
-  function vkPlay(track) {
-    if (!track || !track.url) return;
-    extStatus(el.vkStatus, 'Получаю поток VK…');
-    vkNow(track);
-    cgi('vk.py', {
-      action: 'play', id: track.id, url: track.url, title: track.title || '',
-      artist: track.artist || '', cover: track.cover || ''
-    }, { timeout: 120000 })
-      .then(function (data) {
-        extStatus(el.vkStatus, 'Играет: ' + ((data.track && data.track.title) || track.title), 'ok');
-        vkNow(data.track || track);
-      })
-      .catch(function (err) {
-        extStatus(el.vkStatus, 'Ошибка: ' + err.message, 'bad');
-        toast('VK Музыка: ' + err.message, 'bad');
-      });
-  }
-
-  function vkSearch() {
-    var q = (el.vkQuery && el.vkQuery.value || '').trim();
-    if (!q) return;
-    extStatus(el.vkStatus, 'Ищу в VK Музыке…');
-    cgi('vk.py', { action: 'search', q: q, limit: 15 }, { timeout: 60000 })
-      .then(function (data) {
-        vkRender(data.tracks || []);
-        extStatus(el.vkStatus, 'Найдено: ' + ((data.tracks || []).length));
-      })
-      .catch(function (err) { extStatus(el.vkStatus, 'Ошибка: ' + err.message, 'bad'); });
-  }
-
-  function vkMine() {
-    extStatus(el.vkStatus, 'Загружаю мою музыку…');
-    cgi('vk.py', { action: 'mine', limit: 30 }, { timeout: 60000 })
-      .then(function (data) {
-        vkRender(data.tracks || []);
-        extStatus(el.vkStatus, 'Моя музыка: ' + ((data.tracks || []).length));
-      })
-      .catch(function (err) { extStatus(el.vkStatus, 'Ошибка: ' + err.message, 'bad'); });
-  }
-
-  var VK_CLIENT_KEY = 'mypult-vk-client-id';
-  var VK_OAUTH_STATE = 'vk_oauth';
-  var VK_OAUTH_STORAGE = 'mypult-vk-oauth';
-  var vkOAuthWindow = null;
-  var vkOAuthToken = null;
-  var vkOAuthPoll = null;
-
-  function vkRedirectUri() {
-    return location.origin + '/vk_oauth.html';
-  }
-
-  function vkInitOAuth() {
-    if (el.vkRedirect) el.vkRedirect.textContent = vkRedirectUri();
-    var clientId = store.get(VK_CLIENT_KEY, '');
-    if (clientId && el.vkClientId) el.vkClientId.value = clientId;
-    vkHandleOAuthReturn();
-    vkConsumeStoredOAuth();
-  }
-
-  function vkConsumeStoredOAuth() {
-    var raw = '';
-    try { raw = localStorage.getItem(VK_OAUTH_STORAGE) || ''; } catch (e) { return; }
-    if (!raw) return;
-    try { localStorage.removeItem(VK_OAUTH_STORAGE); } catch (e) {}
-    var data = null;
-    try { data = JSON.parse(raw); } catch (e) { return; }
-    if (data && data.token) vkOAuthAccept(data.token);
-  }
-
-  function vkOAuthAccept(token) {
-    token = String(token || '').trim();
-    if (!token || token === vkOAuthToken) return;
-    vkOAuthToken = token;
-    if (vkOAuthPoll) { clearInterval(vkOAuthPoll); vkOAuthPoll = null; }
-    if (vkOAuthWindow && !vkOAuthWindow.closed) {
-      try { vkOAuthWindow.close(); } catch (e) {}
-    }
-    vkOAuthWindow = null;
-    try { window.focus(); } catch (e) {}
-    extStatus(el.vkStatus, 'Сохраняю токен VK…');
-    cgi('vk.py', { action: 'token', token: token }, { timeout: 30000 })
-      .then(function (data) {
-        extStatus(el.vkStatus, 'VK подключена' + (data.login ? ' · ' + data.login : ''), 'ok');
-        setProvDot('vk', 'ok');
-        toast('VK Музыка подключена', 'ok');
-      })
-      .catch(function (err) {
-        vkOAuthToken = null;
-        extStatus(el.vkStatus, 'Ошибка VK: ' + err.message, 'bad');
-        toast('VK Музыка: ' + err.message, 'bad');
-      });
-  }
-
-  window.addEventListener('message', function (event) {
-    if (event.origin !== location.origin) return;
-    var data = event.data || {};
-    if (data.type === 'mipult-vk-oauth' && data.token) vkOAuthAccept(data.token);
-  });
-  window.addEventListener('storage', function (event) {
-    if (event.key === VK_OAUTH_STORAGE) vkConsumeStoredOAuth();
-  });
-
-  function vkOAuthStart() {
-    var clientId = (el.vkClientId && el.vkClientId.value || '').trim();
-    if (!/^\d{5,}$/.test(clientId)) {
-      extStatus(el.vkStatus, 'Нужен Client ID приложения VK', 'bad');
-      if (el.vkClientId) el.vkClientId.focus();
-      return;
-    }
-    store.set(VK_CLIENT_KEY, clientId);
-    vkOAuthToken = null;
-    var query = new URLSearchParams({
-      client_id: clientId,
-      display: 'page',
-      redirect_uri: vkRedirectUri(),
-      scope: 'audio,offline',
-      response_type: 'token',
-      state: VK_OAUTH_STATE,
-      v: '5.199'
-    });
-    var url = 'https://oauth.vk.com/authorize?' + query.toString();
-    var popup = window.open(url, 'vk_oauth',
-      'popup=yes,width=520,height=720,resizable=yes,scrollbars=yes');
-    if (!popup) {
-      // Браузер заблокировал окно — входим в этой же вкладке, а
-      // vk_oauth.html вернёт нас обратно и закроет страницу.
-      extStatus(el.vkStatus, 'Открываю VK в этой вкладке…');
-      window.location.href = url;
-      return;
-    }
-    vkOAuthWindow = popup;
-    extStatus(el.vkStatus, 'Окно входа VK открыто…');
-    try { popup.focus(); } catch (e) {}
-    if (vkOAuthPoll) clearInterval(vkOAuthPoll);
-    vkOAuthPoll = setInterval(function () {
-      if (!vkOAuthWindow || vkOAuthWindow.closed) {
-        clearInterval(vkOAuthPoll);
-        vkOAuthPoll = null;
-        vkOAuthWindow = null;
-        if (!vkOAuthToken) extStatus(el.vkStatus, 'Вход VK отменён', 'warn');
-      }
-    }, 800);
-  }
-
-  function vkCopyRedirect() {
-    var text = vkRedirectUri();
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(function () {
-        toast('Redirect URI скопирован', 'ok');
-      }).catch(function () {
-        if (el.vkRedirect) window.getSelection().selectAllChildren(el.vkRedirect);
-      });
-      return;
-    }
-    if (el.vkRedirect) {
-      var range = document.createRange();
-      range.selectNodeContents(el.vkRedirect);
-      var selection = window.getSelection();
-      selection.removeAllRanges();
-      selection.addRange(range);
-      toast('Адрес выделен — скопируйте вручную', 'warn');
-    }
-  }
-
-  function vkHandleOAuthReturn() {
-    var hash = location.hash || '';
-    if (hash.indexOf('access_token=') < 0 && hash.indexOf('error=') < 0) return;
-    var params = new URLSearchParams(hash.replace(/^#/, ''));
-    if ((params.get('state') || '') !== VK_OAUTH_STATE) return;
-    var error = params.get('error_description') || params.get('error');
-    var token = params.get('access_token') || '';
-    // Токен не должен оставаться в адресной строке и истории.
-    try {
-      history.replaceState(null, '', location.pathname + location.search);
-    } catch (e) { /* старый WebView */ }
-    if (error) {
-      extStatus(el.vkStatus, 'VK: ' + error, 'bad');
-      return;
-    }
-    if (token) vkOAuthAccept(token);
-  }
-
-  function vkBtFocus() {
-    showTab('sound');
-    var card = document.querySelector('.c-bt');
-    if (card && card.scrollIntoView) {
-      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-    toast('Bluetooth: включите адаптер и «Сопряжение»', 'warn');
-  }
-
-  function vkBtLoad() {
-    return cgi('bluetooth.py', {}, { timeout: 15000, silent: true })
-      .then(function (data) {
-        var connected = (data.devices || []).filter(function (d) { return d.connected; });
-        if (el.vkBtDevice) {
-          if (connected.length) {
-            el.vkBtDevice.hidden = false;
-            el.vkBtDevice.textContent = 'Подключено: ' + connected.map(function (d) {
-              return d.name || d.mac;
-            }).join(', ');
-          } else {
-            el.vkBtDevice.hidden = true;
-            el.vkBtDevice.textContent = '';
-          }
-        }
-        if (connected.length) {
-          extStatus(el.vkBtStatus, data.audio
-            ? 'Телефон подключён — звук идёт на станцию'
-            : 'Телефон подключён, звук ещё не поднялся', 'ok');
-          setProvDot('vk', 'ok');
-        } else if (!data.powered) {
-          extStatus(el.vkBtStatus, 'Bluetooth выключен — нажмите «Настроить Bluetooth»', 'warn');
-          setProvDot('vk', '');
-        } else {
-          extStatus(el.vkBtStatus, 'Телефон не подключён — включите «Сопряжение» и подключитесь с телефона', 'warn');
-          setProvDot('vk', '');
-        }
-      })
-      .catch(function () {
-        extStatus(el.vkBtStatus, 'Bluetooth недоступен', 'bad');
-        setProvDot('vk', 'bad');
-      });
-  }
-
-  function vkLoadStatus() {
-    return cgi('vk.py', { action: 'status' }, { timeout: 12000, silent: true })
-      .then(function (data) {
-        extStatus(el.vkStatus, data.has_token ? 'Токен сохранён (бета)' : 'Токен не сохранён',
-          data.has_token ? 'ok' : 'warn');
-        if (data.track && data.track.id) vkNow(data.track);
-      }).catch(function () {
-        extStatus(el.vkStatus, 'VK Музыка недоступна', 'bad');
-        setProvDot('vk', 'bad');
-      });
-  }
-
-  function vkSave() {
-    var token = (el.vkToken && el.vkToken.value || '').trim();
-    if (!token) { extStatus(el.vkStatus, 'Вставьте токен VK', 'bad'); return; }
-    extStatus(el.vkStatus, 'Проверяю токен…');
-    cgi('vk.py', { action: 'token', token: token }, { timeout: 30000 })
-      .then(function (data) {
-        if (el.vkToken) el.vkToken.value = '';
-        extStatus(el.vkStatus, 'Токен сохранён' + (data.login ? ' · ' + data.login : ''), 'ok');
-        setProvDot('vk', 'ok');
-      })
-      .catch(function (err) { extStatus(el.vkStatus, 'Ошибка: ' + err.message, 'bad'); });
-  }
-
-  function vkClear() {
-    cgi('vk.py', { action: 'clear' }, { timeout: 12000 })
-      .then(function () { extStatus(el.vkStatus, 'Токен удалён', 'warn'); setProvDot('vk', 'warn'); })
-      .catch(function (err) { extStatus(el.vkStatus, 'Ошибка: ' + err.message, 'bad'); });
   }
 
   function soundcloudRender(tracks) {
@@ -14593,25 +14359,9 @@ body.light dialog.queue-dlg.ym-look{
     if (el.extQuery) el.extQuery.addEventListener('keydown', function (event) {
       if (event.key === 'Enter') { event.preventDefault(); extSearch(); }
     });
-    if (el.btnVkSave) el.btnVkSave.addEventListener('click', vkSave);
-    if (el.btnVkClear) el.btnVkClear.addEventListener('click', vkClear);
-    if (el.btnVkSearch) el.btnVkSearch.addEventListener('click', vkSearch);
-    if (el.vkQuery) el.vkQuery.addEventListener('keydown', function (event) {
-      if (event.key === 'Enter') { event.preventDefault(); vkSearch(); }
-    });
-    if (el.btnVkMine) el.btnVkMine.addEventListener('click', vkMine);
-    if (el.btnVkOAuth) el.btnVkOAuth.addEventListener('click', vkOAuthStart);
-    if (el.btnVkRedirectCopy) el.btnVkRedirectCopy.addEventListener('click', vkCopyRedirect);
-    if (el.vkClientId) el.vkClientId.addEventListener('input', function () {
-      store.set(VK_CLIENT_KEY, (el.vkClientId.value || '').trim());
-    });
-    vkInitOAuth();
     zvukLoadStatus();
     extLoadStatus();
     spotifyLoadStatus();
-    vkLoadStatus();
-    if (el.btnVkBt) el.btnVkBt.addEventListener('click', vkBtFocus);
-    if (el.btnVkBtRefresh) el.btnVkBtRefresh.addEventListener('click', vkBtLoad);
     initProviders();
     if (el.btnFilesClose) el.btnFilesClose.addEventListener('click', function () { el.filesDlg.close(); });
     if (el.btnFilesRefresh) el.btnFilesRefresh.addEventListener('click', function () { filesLoad(filesCurrent); });
@@ -15999,10 +15749,6 @@ body.light dialog.queue-dlg.ym-look{
       'spotifyId', 'spotifySecret', 'btnSpotifySave', 'btnSpotifyClear', 'spotifyStatus',
       'spotifyQuery', 'btnSpotifySearch', 'spotifyResults',
       'extQuery', 'btnExtSearch', 'extStatus', 'extNow', 'extResults',
-      'vkToken', 'btnVkSave', 'btnVkClear', 'vkStatus', 'vkQuery', 'btnVkSearch', 'btnVkMine',
-      'vkClientId', 'btnVkOAuth', 'vkRedirect', 'btnVkRedirectCopy', 'vkOAuthHint',
-      'btnVkBt', 'btnVkBtRefresh', 'vkBtStatus', 'vkBtDevice',
-      'vkNow', 'vkResults',
       'btnNetcheck', 'btnCleanup', 'btnReboot', 'btnPoweroff', 'maintBox', 'autoBright', 'autoBrightStatus',
       'displayAuto', 'displayAutoStatus',
       'btnSpeed', 'btnBackup', 'backupFile',
