@@ -316,9 +316,9 @@ def match(text):
     return None
 
 
-def recognize():
+def recognize(timeout=120):
     try:
-        data = post(LUNA + "/api/alice/recognize", {}, timeout=120)
+        data = post(LUNA + "/api/alice/recognize", {}, timeout=timeout)
     except Exception:
         return ""
     for key in ("transcript", "text"):
@@ -369,10 +369,13 @@ def native_alice_busy():
     global _NATIVE_LAST_ACTIVE
     try:
         data = get(BASE + "/cgi-bin/player.py", timeout=5) or {}
-        if data.get("alice") in ("LISTENING", "SPEAKING"):
+        state = str(data.get("alice") or "").strip().upper()
+        # Любое активное состояние — LISTENING, SPEAKING, THINKING и т.п. —
+        # означает, что Алиса занята и наш микрофон ей только помешает.
+        if state and state != "IDLE":
             _NATIVE_LAST_ACTIVE = time.time()
             return True
-        if time.time() - _NATIVE_LAST_ACTIVE < 5.0:
+        if time.time() - _NATIVE_LAST_ACTIVE < 8.0:
             return True
         return False
     except Exception:
@@ -864,6 +867,11 @@ def listen_allowed():
 
 def main():
     log("голосовой пульт запущен")
+    try:
+        log("режим микрофона: %s" % (voicecfg.resolve_mic_mode(voice_config())
+                                     if voicecfg else "continuous"))
+    except Exception:  # noqa: BLE001
+        pass
     if alarmd is not None:
         try:
             alarmd.start()
@@ -891,9 +899,17 @@ def main():
         if native_alice_busy():
             time.sleep(0.6)
             continue
+        config = voice_config()
+        try:
+            mic_mode = voicecfg.resolve_mic_mode(config) if voicecfg else "continuous"
+        except Exception:  # noqa: BLE001
+            mic_mode = "continuous"
+        # В «экономном» режиме сессия короткая и с паузами: у штатной Алисы
+        # появляются окна, чтобы поймать wakeword и вернуться в LISTENING.
+        session_timeout = 18 if mic_mode == "econom" else 120
         started = time.time()
         try:
-            text = recognize()
+            text = recognize(timeout=session_timeout)
         except KeyboardInterrupt:
             return
         except Exception as exc:  # noqa: BLE001
@@ -902,8 +918,9 @@ def main():
             continue
         if not text:
             # recognize может вернуться мгновенно с пустым результатом —
-            # без паузы получается busy-loop и 100% CPU.
-            time.sleep(0.5)
+            # без паузы получается busy-loop и 100% CPU. В экономном режиме
+            # пауза длиннее: это воздух для штатной Алисы.
+            time.sleep(1.8 if mic_mode == "econom" else 0.5)
             continue
         # recognize иногда отдаёт одну и ту же фразу несколько раз подряд,
         # причём с паузой больше 4 секунд — держим окно 30 секунд.
@@ -937,7 +954,7 @@ def main():
                     pass
             # Даём штатной Алисе начать/закончить ответ, не открывая микрофон
             # своим recognize в тот же момент.
-            time.sleep(0.8)
+            time.sleep(2.0 if mic_mode == "econom" else 0.8)
 
 
 if __name__ == "__main__":

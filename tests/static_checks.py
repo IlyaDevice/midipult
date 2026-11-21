@@ -699,6 +699,22 @@ def test_dns_probe_hardening():
           "ensure_dns(force=True)" in network)
 
 
+def test_voice_mic_mode():
+    html = read(os.path.join(ROOT, "index.html"))
+    cfg = read(os.path.join(ROOT, "cgi-bin", "voicecfg.py"))
+    daemon = read(os.path.join(ROOT, "service", "voice_daemon.py"))
+    check("голос: в UI есть выбор режима микрофона",
+          "voiceMicMode" in html and "voiceMicNote" in html)
+    check("голос: voicecfg знает режимы микрофона",
+          "MIC_MODES" in cfg and "resolve_mic_mode" in cfg)
+    check("голос: по умолчанию auto, а не always",
+          "return \"auto\"" in cfg)
+    check("голос: демон умеет короткие сессии",
+          "session_timeout" in daemon and "econom" in daemon)
+    check("голос: занятость Алисы — любое состояние кроме IDLE",
+          "!= \"IDLE\"" in daemon)
+
+
 def main():
     for test in (
         test_encoding,
@@ -726,6 +742,7 @@ def main():
         test_security_files_guard,
         test_luna_yam_guard,
         test_dns_probe_hardening,
+        test_voice_mic_mode,
     ):
         try:
             test()

@@ -1977,10 +1977,17 @@ def test_voice_idle_and_toggle():
     import voicectl
     import voicecfg
 
-    check("голос: Миди слушает постоянно", voicecfg.default_idle("yandexmidi") == "always")
+    check("голос: Миди по умолчанию не держит микрофон",
+          voicecfg.default_idle("yandexmidi") == "auto")
     check("голос: Station 2 не слушает вхолостую",
           voicecfg.default_idle("yandexstation_2") == "auto")
-    check("голос: неизвестная модель — как Миди", voicecfg.default_idle("") == "always")
+    check("голос: неизвестная модель — тоже auto", voicecfg.default_idle("") == "auto")
+    check("голос: режим микрофона по умолчанию непрерывный",
+          voicecfg.default_mic_mode() == "continuous")
+    check("голос: экономный режим уважается",
+          voicecfg.resolve_mic_mode({"mic_mode": "econom"}) == "econom")
+    check("голос: мусорный режим микрофона — непрерывный",
+          voicecfg.resolve_mic_mode({"mic_mode": "wat"}) == "continuous")
     check("голос: явный режим важнее модели",
           voicecfg.resolve_idle({"idle": "always"}, "yandexstation_2") == "always")
     check("голос: по умолчанию включён", voicecfg.is_enabled({}) is True)

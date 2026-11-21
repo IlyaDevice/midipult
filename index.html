@@ -2827,6 +2827,13 @@ body.light dialog.queue-dlg.ym-look{
           </select>
           <span class="seg-note" id="voiceIdleNote">в режиме «только при сценариях» микрофон в простое не открывается</span>
         </div>
+        <div class="row" style="margin-top:8px;align-items:center;gap:8px">
+          <select id="voiceMicMode" aria-label="Режим микрофона" style="max-width:260px">
+            <option value="continuous">Микрофон: непрерывно</option>
+            <option value="econom">Микрофон: экономно (короткие сессии)</option>
+          </select>
+          <span class="seg-note" id="voiceMicNote">«Экономно» оставляет Алисе окна, но команда может не попасть в паузу</span>
+        </div>
       </div>
     </div>
   </section>
@@ -9852,6 +9859,12 @@ body.light dialog.queue-dlg.ym-look{
         ? (data.idle === 'auto' ? 'ждёт сценарии или нейросеть' : 'слушает «Алиса, …»')
         : (data.enabled === false ? 'выключен' : 'не запущен');
       if (el.voiceIdleMode && data.idle) el.voiceIdleMode.value = data.idle;
+      if (el.voiceMicMode && data.mic_mode) el.voiceMicMode.value = data.mic_mode;
+      if (el.voiceMicNote) {
+        el.voiceMicNote.textContent = data.mic_mode === 'econom'
+          ? 'короткие сессии: Алисе легче, но команда может не попасть в паузу'
+          : 'микрофон занят постоянно, пока пульт слушает';
+      }
       if (el.voiceIdleNote) {
         el.voiceIdleNote.textContent = data.device === 'yandexmidi' || !data.device
           ? 'на Миди «постоянно» кольцо не подсвечивает'
@@ -9871,6 +9884,17 @@ body.light dialog.queue-dlg.ym-look{
       }).catch(function (err) {
         toast('Голос: ' + err.message, 'bad');
       });
+    });
+  }
+
+  function setVoiceMicMode(mode) {
+    if (!mode) return Promise.resolve();
+    return cgi('voicecfg.py', { mic_mode: mode }, { timeout: 10000 }).then(function () {
+      toast(mode === 'econom' ? 'Экономный режим микрофона' : 'Микрофон слушает непрерывно', 'ok');
+      return loadVoice();
+    }).catch(function (err) {
+      toast('Голос: ' + err.message, 'bad');
+      return loadVoice();
     });
   }
 
@@ -14515,6 +14539,11 @@ body.light dialog.queue-dlg.ym-look{
         setVoiceIdleMode(this.value);
       });
     }
+    if (el.voiceMicMode) {
+      el.voiceMicMode.addEventListener('change', function () {
+        setVoiceMicMode(this.value);
+      });
+    }
 
     /* индикация панели */
     if (el.panelBright) {
@@ -16039,6 +16068,7 @@ body.light dialog.queue-dlg.ym-look{
       'llmAnswer', 'llmMeta',
       'vpnUrl', 'btnVpnSave', 'btnVpnToggle', 'vpnStatus', 'vpnServer', 'vpnLog', 'vpnAutostart',
       'btnVoiceDaemon', 'voiceDaemonStatus', 'voiceIdleMode', 'voiceIdleNote',
+    'voiceMicMode', 'voiceMicNote',
       'cardPanel', 'panelBright', 'panelBrightVal', 'btnPanelOff', 'btnPanelRestore', 'panelStatus',
       'radioChips', 'btnRadioPrev', 'btnRadioStop', 'btnRadioNext', 'radioStatus',
       'radioName', 'btnRadioAdd', 'radioUrl', 'btnRadioStream',

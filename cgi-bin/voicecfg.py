@@ -27,6 +27,7 @@ import common  # noqa: E402
 STORE = "/data/mypult/voice.json"
 LUNA = "http://127.0.0.1:8099"
 IDLE_MODES = ("always", "auto")
+MIC_MODES = ("continuous", "econom")
 MIDI_MODELS = ("yandexmidi",)
 
 
@@ -54,14 +55,23 @@ def device_model():
 
 
 def default_idle(model=None):
-    """На Миди сессия распознавания кольцо не подсвечивает, на других — да.
+    """По умолчанию не держим микрофон без дела ни на одной модели.
 
-    Неизвестная модель считается Миди: лучше сохранить привычное поведение,
-    чем молча выключить голосовые команды.
+    Штатная Алиса живёт в той же Luna, и постоянная сессия пульта задерживает
+    её ответы. `auto` открывает микрофон только когда есть сценарии или
+    включена нейросеть; `always` остаётся явным выбором пользователя.
     """
-    if model is None:
-        model = device_model()
-    return "always" if model in ("",) + MIDI_MODELS else "auto"
+    return "auto"
+
+
+def default_mic_mode():
+    """Непрерывная сессия по умолчанию; `econom` — короче и с паузами."""
+    return "continuous"
+
+
+def resolve_mic_mode(config):
+    mode = str((config or {}).get("mic_mode") or "").strip().lower()
+    return mode if mode in MIC_MODES else default_mic_mode()
 
 
 def resolve_idle(config, model=None):
@@ -84,6 +94,7 @@ def state(config=None):
         "idle": resolve_idle(config, model),
         "device": model,
         "max_volume": common.to_int(config.get("max_volume"), 45, 1, 100),
+        "mic_mode": resolve_mic_mode(config),
     }
 
 
@@ -100,6 +111,17 @@ def main():
     if data.get("enabled") is not None:
         config = load()
         config["enabled"] = common.truthy(data.get("enabled"))
+        save(config)
+        common.ok(config=config, **state(config))
+        return
+
+    if data.get("mic_mode") is not None:
+        mode = str(data.get("mic_mode") or "").strip().lower()
+        if mode not in MIC_MODES:
+            common.fail(400, "режим микрофона: %s" % ", ".join(MIC_MODES))
+            return
+        config = load()
+        config["mic_mode"] = mode
         save(config)
         common.ok(config=config, **state(config))
         return
