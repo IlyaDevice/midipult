@@ -67,6 +67,44 @@ Select-String -Path *.md,*.html,*.json,cgi-bin\*.py,service\*.py,deploy\* `
 - `chats.json` (личные вопросы к нейросети);
 - логи `voice.log`, `mypult.log`.
 
+## Релиз и четыре файла
+
+У каждого релиза должно быть **четыре** файла:
+
+- `Source code (zip)` и `Source code (tar.gz)` — GitHub добавляет сам;
+- `midipult-<version>.tar.gz` — архив панели для обновления из веб-интерфейса;
+- `midipult-<version>.tar.gz.sha256` — контрольная сумма архива.
+
+Если архива и SHA нет, панель показывает «В релизе панели нет архива
+обновления» и self-update не работает (именно так было у `v0.5.63` и
+`v0.5.64` — файлы восстановлены вручную).
+
+Порядок выпуска:
+
+1. Поднимите `version.json` и `CHANGELOG.md`, закоммитьте, поставьте тег
+   `v<version>` и запушьте его.
+2. Создайте на GitHub релиз с этим тегом и текстом изменений.
+3. Соберите и загрузите оба файла:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File deploy\publish-release.ps1 -Version 0.5.66
+```
+
+`publish-release.ps1` сам вызывает `build-release.ps1`, проверяет, что
+`version.json` совпадает с версией, находит релиз по тегу, заменяет старые
+одноимённые assets и в конце проверяет, что оба файла на месте. Токен берётся
+из `GITHUB_TOKEN`/`GH_TOKEN` или из git credential manager.
+
+Автоматический вариант — `.github/workflows/release-assets.yml`: при
+публикации релиза GitHub Actions собирает архив и SHA и прикладывает их к
+релизу. Если Actions в репозитории выключены, используйте
+`publish-release.ps1` вручную.
+
+В архив входят `index.html`, `index.py`, `manifest.json`, `version.json`,
+иконки, `assets`, `cgi-bin`, `service`, `init.d`, `lighttpd`, `deploy` и
+`bin` (`yt-dlp`, если есть). `__pycache__`, `tests` и `.git` в архив не
+попадают.
+
 ## Лицензия
 
 Проект распространяется по MIT (`LICENSE`). Замените имя правообладателя,

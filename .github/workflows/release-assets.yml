@@ -1,0 +1,56 @@
+name: release-assets
+
+# Гарантия, что у каждого релиза есть архив панели и SHA-256:
+# при публикации релиза workflow собирает midipult-<version>.tar.gz и
+# midipult-<version>.tar.gz.sha256 и прикладывает их к релизу.
+#
+# Если Actions в репозитории выключены — используйте вручную:
+#   powershell -ExecutionPolicy Bypass -File deploy/publish-release.ps1 -Version 0.5.66
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Тег релиза, например v0.5.66"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  assets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+
+      - name: Build archive and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ github.event.release.tag_name || inputs.tag }}"
+          version=$(python3 -c 'import json;print(json.load(open("version.json"))["version"])')
+          if [ "v$version" != "$tag" ]; then
+            echo "version.json = $version, тег = $tag" >&2
+            exit 1
+          fi
+          items=(index.html index.py manifest.json version.json
+                 favicon.ico icon-192.png icon-512.png icon.png icon-circle.png
+                 assets cgi-bin service init.d lighttpd deploy)
+          [ -d bin ] && items+=(bin)
+          tar -czf "midipult-$version.tar.gz" "${items[@]}"
+          sha256sum "midipult-$version.tar.gz" > "midipult-$version.tar.gz.sha256"
+          cat "midipult-$version.tar.gz.sha256"
+
+      - name: Upload assets to release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${{ github.event.release.tag_name || inputs.tag }}"
+          gh release upload "$tag" midipult-*.tar.gz midipult-*.tar.gz.sha256 --clobber
+          gh release view "$tag" --json assets --jq '.assets[].name'
