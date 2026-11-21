@@ -29,13 +29,30 @@ die() { echo "[preflight] ОШИБКА: $*" >&2; exit 1; }
 
 mkdir -p /data/mypult 2>/dev/null || die "нет доступа к /data"
 
-# MidiPult рассчитан только на Яндекс Станцию Миди (Cucumber).
+# Определяем, какая это станция. Важно: у розничной Станции 2 в device-tree
+# тоже написано «Yandex Station Midi» (внутреннее имя), а розничная Миди — это
+# Cucumber. Поэтому сначала Cucumber, потом station-midi/station2.
 MODEL=$(tr -d '\000' </proc/device-tree/model 2>/dev/null || true)
-case "$MODEL" in
-    *Cucumber*|*cucumber*|*Midi*|*midi*) ;;
-    *) die "это не Яндекс Станция Миди (model='${MODEL:-неизвестно}'); установка отменена" ;;
+COMPAT=$(tr -d '\000' </proc/device-tree/compatible 2>/dev/null || true)
+DEVICE_KIND="unknown"
+case "$COMPAT $MODEL" in
+    *cucumber*|*Cucumber*) DEVICE_KIND="midi" ;;
+    *station-midi*|*Station*Midi*) DEVICE_KIND="station2" ;;
+    *station2*) DEVICE_KIND="station2" ;;
 esac
-say "модель: $MODEL"
+if [ "$DEVICE_KIND" = "unknown" ]; then
+    die "не Яндекс Станция Миди/2 (model='${MODEL:-неизвестно}'); установка отменена"
+fi
+say "модель: $MODEL ($DEVICE_KIND)"
+if [ "$DEVICE_KIND" = "station2" ]; then
+    warn "это Яндекс Станция 2, а не розничная Станция Миди (у них общее внутреннее имя «Midi»)."
+    warn "на Station 2 нет сегментного дисплея, а кольцо — 88 диодов через /dev/fb0."
+    warn "эти карточки панель скроет; плеер, радио, сеть, LLM и звуки ставятся как обычно."
+fi
+mkdir -p /data/mypult 2>/dev/null || true
+MODEL_JSON=$(printf '%s' "$MODEL" | tr -d '"\\')
+printf '{"kind": "%s", "model": "%s", "installed_at": %s}\n' \
+    "$DEVICE_KIND" "$MODEL_JSON" "$(date +%s)" >/data/mypult/device.json 2>/dev/null || true
 
 # Сколько места на корне (КБ)
 free_kb=$(df -k / 2>/dev/null | awk 'NR==2 {print $4}')

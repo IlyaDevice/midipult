@@ -2374,6 +2374,8 @@ body.light dialog.queue-dlg.ym-look{
   <code>/data/quazar/luna/bin/luna --listen 127.0.0.1:8099 --data-dir /data/quazar/luna/data &amp;</code>
 </div>
 
+<div class="banner" id="capsBanner" hidden></div>
+
 <nav class="tabs" id="tabs" aria-label="Разделы">
   <button class="tab" data-tab="home" aria-pressed="true">⌂ Главная</button>
   <button class="tab" data-tab="display" aria-pressed="false">◐ Дисплей</button>
@@ -10139,6 +10141,7 @@ body.light dialog.queue-dlg.ym-look{
 
   function fillScTypes() {
     SC_TYPES.forEach(function (type) {
+      if (!scTypeAvailable(type)) return;
       var option = document.createElement('option');
       option.value = type.id;
       option.textContent = type.label;
@@ -10223,6 +10226,7 @@ body.light dialog.queue-dlg.ym-look{
     select.className = 'net-input';
     select.style.maxWidth = '190px';
     SC_TYPES.forEach(function (item) {
+      if (!scTypeAvailable(item)) return;
       var option = document.createElement('option');
       option.value = item.id;
       option.textContent = item.label;
@@ -13698,6 +13702,46 @@ body.light dialog.queue-dlg.ym-look{
     });
   }
 
+  /* ─────────── возможности модели ─────────── */
+  function scTypeAvailable(type) {
+    var caps = State.caps || {};
+    if ((type.id === 'clock_text' || type.id === 'clock_anim' || type.id === 'clock_anim_stop')
+        && caps.display === false) return false;
+    if ((type.id === 'led' || type.id === 'led_off') && caps.ring === false) return false;
+    return true;
+  }
+
+  function applyCaps(caps) {
+    State.caps = caps || {};
+    var noDisplay = caps.display === false;
+    var noRing = caps.ring === false;
+    var clock = document.querySelector('.c-clock');
+    var led = document.querySelector('.c-led');
+    if (clock) clock.hidden = noDisplay;
+    if (led) led.hidden = noRing;
+    var tab = document.querySelector('.tab[data-tab="display"]');
+    if (tab && noDisplay && noRing) tab.hidden = true;
+    var banner = el.capsBanner;
+    if (banner) {
+      var text = caps.note || '';
+      if (!text && noDisplay && !noRing) text = 'Дисплей на этой модели не поддерживается.';
+      if (!text && noRing && !noDisplay) text = 'Кольцо на этой модели не поддерживается.';
+      banner.hidden = !text;
+      banner.textContent = text;
+    }
+    if (el.scType) {
+      el.scType.innerHTML = '';
+      fillScTypes();
+    }
+    log('app', 'модель: ' + (caps.kind || '?') + ' · дисплей ' + (noDisplay ? 'нет' : 'да') +
+      ' · кольцо ' + (noRing ? 'нет' : 'да'));
+  }
+
+  function loadCaps() {
+    return cgi('caps.py', {}, { timeout: 15000, silent: true }).then(applyCaps)
+      .catch(function () { /* старые сборки без caps.py — молча */ });
+  }
+
   /* ─────────── обновления ─────────── */
   var UPDATE_DISMISS_KEY = 'updateDismissedVersion';
   var UPDATE_PROMPT_KEY = 'updatePrompted';
@@ -15875,7 +15919,7 @@ body.light dialog.queue-dlg.ym-look{
       'command', 'btnSendCmd', 'ttsText', 'ttsCount', 'btnTtsClear', 'btnSay', 'ttsChips',
       'toasts', 'debugDlg', 'btnDebug', 'btnTheme', 'btnFaq', 'faqDlg', 'btnCloseFaq', 'btnCloseDebug', 'svcState', 'logBox', 'btnRefreshStatus',
       'btnDiag', 'diagBox',
-      'verTag', 'verLine',
+      'verTag', 'verLine', 'capsBanner',
       'llmProviderSelect', 'llmModel', 'llmModelCustomWrap', 'llmModelCustom', 'llmBase', 'llmKey',
       'llmProfiles', 'btnLlmNew', 'llmName', 'llmActive',
       'llmChat', 'btnChatPrev', 'btnChatNext', 'btnChatNew', 'btnChatRename', 'btnChatDel',
@@ -15968,6 +16012,7 @@ body.light dialog.queue-dlg.ym-look{
     }, 15000);
     renderStatus();
     loadVersion();
+    loadCaps();
     loadUpdateInfo(false, false);
     setInterval(function () {
       if (!document.hidden) loadUpdateInfo(false, false);

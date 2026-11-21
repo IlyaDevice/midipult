@@ -2000,6 +2000,21 @@ def test_voice_idle_and_toggle():
         voicectl.start = old_start
 
 
+def test_device_classify():
+    import device
+
+    check("модель: Cucumber — это Миди",
+          device.classify("yandexmidi", "Yandex Cucumber DVT2", []) == "midi")
+    check("модель: Station 2 по Luna",
+          device.classify("yandexstation_2", "Yandex Station Midi", []) == "station2")
+    check("модель: Station 2 по device-tree (ловушка «Midi»)",
+          device.classify("", "Yandex Station Midi", []) == "station2")
+    check("модель: Миди по фиче сегментов",
+          device.classify("", "", ["display.clock.segment.v1"]) == "midi")
+    check("модель: неизвестная станция",
+          device.classify("", "", []) == "unknown")
+
+
 def main():
     for test in (
         test_generic_helpers,
@@ -2049,6 +2064,7 @@ def main():
         test_voice_chat_commands,
         test_voice_chat_actions,
         test_voice_idle_and_toggle,
+        test_device_classify,
     ):
         try:
             test()
