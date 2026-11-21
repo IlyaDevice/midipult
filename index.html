@@ -1852,6 +1852,26 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .c-led>.led-footer .btn{flex:0 0 auto;width:auto;height:32px;padding:0 14px;font-size:13px}
 .c-led .chips{justify-content:flex-start}
 
+.c-clock,.c-led{container-type:inline-size}
+
+@container (max-width:600px){
+  .c-clock>.display-actions,
+  .c-clock>.display-auto,
+  .c-clock>.field.slider-narrow,
+  .c-clock>.display-preview,
+  .c-clock>.display-extra,
+  .c-clock>.seg-note,
+  .c-clock>.clock-anims-field,
+  .c-led>.ring,
+  .c-led>.led-right,
+  .c-led>.led-controls,
+  .c-led>#presets{grid-column:1/-1!important;grid-row:auto!important}
+  .c-clock>.display-actions .btn{flex:1 1 0}
+  .c-clock>.display-preview{margin-top:4px}
+  .c-led>.ring{margin:0 auto}
+  .c-led>.led-right{grid-template-columns:1fr}
+}
+
 @media(max-width:900px){
   .c-clock,.c-led{display:block}
   .c-clock>.display-preview{margin-top:8px}
