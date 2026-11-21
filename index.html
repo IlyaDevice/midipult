@@ -16608,15 +16608,47 @@ body.light dialog.queue-dlg.ym-look{
         : 'Пресетов для ' + modeLabel() + ' пока нет';
     }
 
+    function applyDefaultIfFresh() {
+      if (mode() !== 'wide') return;
+      try { if (localStorage.getItem('mypult-cards')) return; } catch (e) { return; }
+      var preset = presets.filter(function (item) {
+        return item.mode === 'wide' && item.name === 'По умолчанию';
+      })[0];
+      if (!preset) return;
+      window.PultLayout.apply(preset.layout);
+      status.textContent = 'Применена раскладка по умолчанию';
+    }
+
     function load() {
       cgi('layout_presets.py', { action: 'list' }, { silent: true })
         .then(function (data) {
           presets = (data && data.presets) || [];
           render();
+          applyDefaultIfFresh();
         })
         .catch(function (err) {
           status.textContent = 'Не удалось загрузить пресеты: ' + err.message;
         });
+    }
+
+    function savePreset(name, id, update) {
+      saveBtn.disabled = true;
+      var payload = {
+        action: 'save',
+        name: name,
+        mode: mode(),
+        layout: window.PultLayout.capture()
+      };
+      if (id) payload.id = id;
+      if (update) payload.update = 1;
+      cgi('layout_presets.py', payload).then(function (data) {
+        presets = (data && data.presets) || [];
+        nameInput.value = '';
+        render();
+        status.textContent = 'Сохранён пресет «' + name + '» для ' + modeLabel();
+      }).catch(function (err) {
+        status.textContent = 'Ошибка сохранения: ' + err.message;
+      }).then(function () { saveBtn.disabled = false; });
     }
 
     saveBtn.addEventListener('click', function () {
@@ -16626,20 +16658,18 @@ body.light dialog.queue-dlg.ym-look{
         nameInput.focus();
         return;
       }
-      saveBtn.disabled = true;
-      cgi('layout_presets.py', {
-        action: 'save',
-        name: name,
-        mode: mode(),
-        layout: window.PultLayout.capture()
-      }).then(function (data) {
-        presets = (data && data.presets) || [];
-        nameInput.value = '';
-        render();
-        status.textContent = 'Сохранён пресет «' + name + '» для ' + modeLabel();
-      }).catch(function (err) {
-        status.textContent = 'Ошибка сохранения: ' + err.message;
-      }).then(function () { saveBtn.disabled = false; });
+      var existing = presets.filter(function (item) {
+        return item.mode === mode() &&
+          String(item.name || '').toLowerCase() === name.toLowerCase();
+      })[0];
+      if (existing) {
+        askConfirm('Пресет «' + existing.name + '» уже есть. Обновить его?',
+          { yes: 'Обновить' }).then(function (ok) {
+          if (ok) savePreset(name, existing.id, true);
+        });
+        return;
+      }
+      savePreset(name);
     });
 
     applyBtn.addEventListener('click', function () {

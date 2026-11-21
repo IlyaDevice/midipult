@@ -23,6 +23,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
 
 STORE = "/data/mypult/layout_presets.json"
+DEFAULT_STORE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              "default_layout_presets.json")
 MAX_PRESETS = 40
 NAME_MAX = 40
 ID_RE = re.compile(r"^[a-z0-9_-]{1,64}$")
@@ -30,7 +32,10 @@ MODES = ("wide", "phone")
 
 
 def load_presets():
-    data = common.read_json(STORE, {"presets": []}) or {}
+    data = common.read_json(STORE, None)
+    # Свежая установка: подставляем заводской пресет «По умолчанию».
+    if not isinstance(data, dict):
+        data = common.read_json(DEFAULT_STORE, {"presets": []}) or {}
     presets = data.get("presets") if isinstance(data, dict) else None
     if not isinstance(presets, list):
         return []
@@ -90,6 +95,19 @@ def main():
         mode = clean_mode(data.get("mode"))
         layout = clean_layout(data.get("layout"))
         preset_id = str(data.get("id") or "").strip()
+        if not ID_RE.match(preset_id):
+            # Одинаковое имя в одном режиме не плодим: сначала спрашиваем
+            # подтверждение на клиенте, затем он присылает id и update=1.
+            for item in presets:
+                if item.get("mode") != mode:
+                    continue
+                if clean_name(item.get("name")).lower() != name.lower():
+                    continue
+                if not common.truthy(data.get("update")):
+                    common.fail(409, "Пресет с таким именем уже есть")
+                    return
+                preset_id = str(item.get("id") or "")
+                break
         if not ID_RE.match(preset_id):
             preset_id = "layout-" + uuid.uuid4().hex[:10]
         preset = {
