@@ -667,21 +667,22 @@ body.light .alarm-station-list{background:#fff}
 .card h2 .dot{width:6px;height:6px;border-radius:50%;background:linear-gradient(140deg,var(--accent),var(--accent2))}
 
 /* ---------- голос: панель настроек ---------- */
-.voice-panel{margin-top:14px;padding:12px 14px;border-radius:var(--r12);
+.voice-panel{margin-top:10px;padding:10px 12px;border-radius:var(--r12);
   border:1px solid var(--stroke);background:rgba(255,255,255,.025)}
 body.light .voice-panel{background:rgba(76,62,48,.035)}
 .voice-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .voice-panel-title{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;min-width:0}
 .voice-panel-title b{font-size:var(--fs-13);font-weight:650;color:var(--text)}
-.voice-settings{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
-  gap:10px 14px;margin-top:11px}
+.voice-settings{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));
+  gap:8px 12px;margin-top:9px;align-content:start;align-items:start}
 .voice-setting{display:flex;flex-direction:column;gap:4px;min-width:0}
 .voice-setting>span{font-size:var(--fs-10);letter-spacing:.08em;text-transform:uppercase;
   color:var(--muted);font-weight:600}
 .voice-setting select{width:100%;height:var(--ctl-h-sm)}
-.voice-setting small{display:block;font-size:var(--fs-11);line-height:1.35;color:var(--muted)}
-.voice-help{margin-top:11px;padding-top:9px;border-top:1px solid var(--stroke);
-  font-size:var(--fs-11);line-height:1.5;color:var(--muted)}
+.voice-setting small{display:block;flex:0 0 auto;font-size:var(--fs-11);
+  line-height:1.35;color:var(--muted)}
+.voice-help{margin-top:9px;padding-top:8px;border-top:1px solid var(--stroke);
+  font-size:var(--fs-11);line-height:1.45;color:var(--muted)}
 .voice-panel.off .voice-settings,.voice-panel.off .voice-help{opacity:.55}
 @media(max-width:560px){.voice-panel{padding:11px 12px}.voice-settings{grid-template-columns:1fr}}
 
@@ -1186,7 +1187,7 @@ body.light .np-glow{opacity:.30;filter:blur(60px) saturate(1.2) brightness(.95)}
 .vol-row .btn{height:var(--ctl-h-sm);width:var(--ctl-h-sm);padding:0;font-size:var(--fs-16);line-height:1}
 
 /* ---------- voice ---------- */
-.voice-grid{display:grid;grid-template-columns:auto 1fr;gap:var(--gap-xl);align-items:start;margin-top:14px}
+.voice-grid{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:start;margin-top:10px}
 .mic-wrap{display:flex;flex-direction:column;align-items:center;gap:var(--gap-sm);min-width:104px}
 .mic{
   width:88px;height:88px;border-radius:50%;border:none;cursor:pointer;
@@ -1211,7 +1212,7 @@ body.light .np-glow{opacity:.30;filter:blur(60px) saturate(1.2) brightness(.95)}
 }
 .transcript.empty{color:var(--muted);font-style:italic}
 .voice-side .row{margin-top:10px}
-.voice-side .field{margin-top:14px}
+.voice-side .field{margin-top:10px}
 
 @media(max-width:560px){
   .voice-grid{grid-template-columns:1fr;justify-items:center}
@@ -10157,6 +10158,38 @@ body.light dialog.queue-dlg.ym-look{
     }
   }
 
+  // Карточки в сетке разной высоты: без упаковки под короткой карточкой
+  // остаётся пустая полоса до конца ряда. Считаем span по фактической высоте.
+  var packTimer = 0;
+  function packCards() {
+    var grid = document.querySelector('main.grid');
+    if (!grid) return;
+    var cards = Array.prototype.filter.call(grid.children, function (node) {
+      return node.classList.contains('card');
+    });
+    if (!cards.length) return;
+    var gap = parseFloat(getComputedStyle(grid).rowGap) || 12;
+    var unit = 4;
+    grid.style.gridAutoRows = unit + 'px';
+    cards.forEach(function (card) { card.style.gridRowEnd = 'auto'; });
+    var heights = cards.map(function (card) {
+      return card.classList.contains('is-hidden') ? 0 : card.getBoundingClientRect().height;
+    });
+    cards.forEach(function (card, index) {
+      if (!heights[index]) return;
+      var span = Math.max(1, Math.ceil((heights[index] + gap) / (unit + gap)));
+      card.style.gridRowEnd = 'span ' + span;
+    });
+  }
+
+  function schedulePack() {
+    clearTimeout(packTimer);
+    packTimer = setTimeout(packCards, 90);
+  }
+
+  window.addEventListener('resize', schedulePack);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(schedulePack);
+
   function showTab(name, save) {
     if (TABS.indexOf(name) < 0) name = 'display';
     document.body.dataset.tab = name;
@@ -10184,6 +10217,7 @@ body.light dialog.queue-dlg.ym-look{
     if (mobileMenu) mobileMenu.hidden = true;
     if (mobileButton) mobileButton.setAttribute('aria-expanded', 'false');
     setTimeout(refreshDropdowns, 80);
+    schedulePack();
     if (name === 'sound' || name === 'home') startVolumePoll();
     else stopVolumePoll();
     if (name === 'sound' || name === 'home') startPlayerPoll();
@@ -13598,6 +13632,7 @@ body.light dialog.queue-dlg.ym-look{
         State.dragCard = null;
         saveCardOrder();
         updateMoveButtons();
+        schedulePack();
       }
 
       function processMove() {
@@ -16221,6 +16256,7 @@ body.light dialog.queue-dlg.ym-look{
     enhanceSelects();
     loadAuth();
     initCardDrag();
+    schedulePack();
     loadRingSpeed();
     syncVolumeFromDevice();
     refreshState();
