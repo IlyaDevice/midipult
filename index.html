@@ -1822,7 +1822,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   column-gap:18px;row-gap:8px;align-items:start;align-content:start}
 .c-clock>.card-head{grid-column:1/-1}
 .c-clock>.display-actions{grid-column:1;grid-row:2;margin:0;flex-wrap:nowrap;gap:6px}
-.c-clock>.display-actions .btn{height:36px;padding:0 10px;font-size:13px;flex:1 1 0}
+.c-clock>.display-actions .btn{height:30px;padding:0 12px;font-size:13px;flex:0 0 auto}
 .c-clock>.display-auto{grid-column:2;grid-row:2;margin:0!important;align-self:center;justify-content:flex-end}
 .c-clock>.display-preview{grid-column:1/-1;grid-row:3;margin-top:0}
 .c-clock>.seg7{max-width:460px;padding:0 8px 8px}
@@ -1839,17 +1839,17 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 
 .c-led{display:grid;grid-template-columns:190px minmax(0,1fr);column-gap:18px;row-gap:8px;align-items:start;align-content:start}
 .c-led>.card-head{grid-column:1/-1}
-.c-led>.led-footer{grid-column:1/-1;grid-row:2;margin:0;gap:8px}
-.c-led>.led-footer .btn{flex:0 0 auto;width:auto;height:32px;padding:0 14px;font-size:13px}
-.c-led>.auto-bright{grid-column:1/-1;grid-row:3;margin:0!important;align-self:start}
-.c-led>.ring{grid-column:1;grid-row:4;margin:0 auto}
+.c-led>.led-footer{grid-column:1;grid-row:2;margin:0;gap:6px}
+.c-led>.led-footer .btn{flex:0 0 auto;width:auto;height:30px;padding:0 10px;font-size:12.5px}
+.c-led>.auto-bright{grid-column:2;grid-row:2;margin:0!important;align-self:center;justify-content:flex-end}
+.c-led>.ring{grid-column:1;grid-row:3;margin:0 auto}
 .c-led>.led-hint{display:none}
-.c-led>.led-right{grid-column:2;grid-row:4;display:grid;gap:8px;align-content:start}
+.c-led>.led-right{grid-column:2;grid-row:3;display:grid;gap:8px;align-content:start}
 .c-led>.led-right .field{margin-top:0}
-.c-led>.led-controls{grid-column:1;grid-row:5;margin-top:0}
+.c-led>.led-controls{grid-column:1;grid-row:4;margin-top:0}
 .c-led>.led-bright #ringBrightness,.c-led>.led-speed #ringSpeed,
 .c-led>.led-right .field-top{max-width:100%}
-.c-led>#presets{grid-column:2;grid-row:5;margin-top:0;display:grid;
+.c-led>#presets{grid-column:2;grid-row:4;margin-top:0;display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
 .c-led>#presets .chip{width:100%;height:30px;font-size:13px;padding:0 6px}
 .c-led .logo-modes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
@@ -1857,7 +1857,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .c-led .led-right .field-top,
 .c-led .led-right #ringBrightness,
 .c-led .led-right #ringSpeed{max-width:100%}
-.c-led>.led-anims{grid-column:1/-1;grid-row:6;margin-top:4px}
+.c-led>.led-anims{grid-column:1/-1;grid-row:5;margin-top:4px}
 .c-led .ring-anim-row .ring-picker{flex:1 1 160px;min-width:0}
 .c-led .ring-anim-row .btn{flex:0 0 80px;height:30px;padding:0 6px;font-size:13px}
 
@@ -1874,6 +1874,11 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   .c-led{grid-template-columns:150px minmax(0,1fr)}
   .c-led>.ring{width:140px;height:140px;--r:56px}
   .c-clock>.display-actions{grid-column:1/-1;grid-row:2}
+  .c-led>.led-footer{grid-column:1/-1;grid-row:2}
+  .c-led>.auto-bright{grid-column:1/-1;grid-row:3;justify-content:flex-start}
+  .c-led>.ring,.c-led>.led-right{grid-row:4}
+  .c-led>.led-controls,.c-led>#presets{grid-row:5}
+  .c-led>.led-anims{grid-row:6}
   .c-clock>.display-auto{grid-column:1/-1;grid-row:3;justify-content:flex-start;margin:0!important}
   .c-clock>.display-preview{grid-column:1/-1;grid-row:4;margin-top:4px}
   .c-clock>.field.slider-narrow{grid-column:1;grid-row:5}
