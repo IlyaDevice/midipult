@@ -1872,12 +1872,23 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .ym-now[hidden]{display:none}
 .ym-now-bg{position:absolute;inset:0;background-size:cover;background-position:center;
   filter:blur(54px) saturate(1.15);opacity:.24;pointer-events:none}
-.ym-now-top{position:relative;display:flex;align-items:center;gap:14px;color:#777780;font-size:12px}
+.ym-now-top{position:relative;display:flex;align-items:center;gap:10px;
+  color:#777780;font-size:12px}
+.ym-now-top>span{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  white-space:nowrap;pointer-events:none}
 .ym-now-back{border:0;background:transparent;color:#c7c7d0;font:inherit;font-size:12px;cursor:pointer;
   padding:4px 0;display:inline-flex;align-items:center;gap:6px;border-radius:999px;transition:background .15s,color .15s}
 .ym-now-back:hover{color:#fff}
 .ym-now-back-icon{display:none;width:22px;height:22px}
 .ym-now-back-text{display:inline}
+.ym-now-close{display:grid;place-items:center;width:38px;height:38px;padding:0;margin-left:2px;
+  border:0;border-radius:50%;background:transparent;color:#b8b8c1;cursor:pointer;
+  transition:background .15s,color .15s}
+.ym-now-close svg{width:22px;height:22px}
+.ym-now-close:hover,.ym-now-close:active{background:rgba(255,255,255,.09);color:#fff}
+/* Развёрнутый плеер — самостоятельный экран: верхнее меню Яндекс Музыки
+   убираем, чтобы «назад» и «закрыть всё» были в одной строке. */
+.ym-dlg.now-open .ym-top{display:none}
 .ym-now-content{position:relative;display:grid;grid-template-columns:minmax(220px,360px) minmax(0,1fr);
   gap:min(5vw,64px);align-items:center;max-width:1060px;margin:4vh auto 0}
 .ym-now-art-wrap{width:100%;aspect-ratio:1;border-radius:10px;overflow:hidden;display:grid;place-items:center;
@@ -1968,7 +1979,8 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   .ym-now-back:hover,.ym-now-back:active{background:rgba(255,255,255,.08);color:#fff}
   .ym-now-back-text{display:none}
   .ym-now-back-icon{display:block}
-  .ym-now-top>span{flex:1;text-align:center;padding-right:40px}
+  .ym-now-top>span{padding:0}
+  .ym-now-close{width:40px;height:40px;margin-left:auto}
   .ym-now-content{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;
     gap:8px;margin-top:10px;max-width:none;overflow:hidden}
   .ym-now-art-wrap{width:min(30vh,190px);flex:0 0 auto;justify-self:center;margin:0 auto;
@@ -3254,6 +3266,12 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
                 <span class="ym-now-back-text">← Назад</span>
               </button>
               <span>Сейчас играет</span>
+              <button type="button" class="ym-now-close" id="ymNowCloseAll" aria-label="Закрыть Яндекс Музыку">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6L6 18"/>
+                </svg>
+              </button>
             </div>
             <div class="ym-now-content">
               <div class="ym-now-art-wrap">
@@ -5942,6 +5960,8 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     });
     var back = document.getElementById('ymNowBack');
     if (back) back.addEventListener('click', function () { ymCloseNow(); });
+    var closeAll = document.getElementById('ymNowCloseAll');
+    if (closeAll) closeAll.addEventListener('click', closeYmDialog);
     var barArt = document.getElementById('ymBarArt');
     var barMeta = document.querySelector('.ym-bar-meta');
     [barArt, barMeta].forEach(function (node) {
