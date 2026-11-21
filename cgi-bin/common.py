@@ -136,16 +136,26 @@ def read_json(path, default=None):
 
 
 def write_json(path, data, mode=0o600, **kwargs):
-    """Атомарно записать JSON: временный файл + rename."""
+    """Атомарно записать JSON: уникальный временный файл + rename."""
     folder = os.path.dirname(path)
     if folder:
         os.makedirs(folder, exist_ok=True)
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(data, fh, ensure_ascii=False, **kwargs)
-        fh.flush()
-        os.fsync(fh.fileno())
-    os.replace(tmp, path)
+    # Один и тот же .tmp при параллельных CGI-запросах (поиск, prefetch,
+    # play, stop) мог быть удалён другим процессом до os.replace — отсюда
+    # «No such file or directory ...tmp». Уникальный суффикс обязателен.
+    tmp = "%s.tmp.%d.%d" % (path, os.getpid(), id(data))
+    try:
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, ensure_ascii=False, **kwargs)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, path)
+    finally:
+        try:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+        except OSError:
+            pass
     try:
         os.chmod(path, mode)
     except OSError:

@@ -61,6 +61,10 @@ def _track_id(value):
 
 
 def _play(data):
+    if not _auth().token:
+        raise zvuk_api.AuthError(
+            "Без аккаунта Сбер Звук даёт только 30 секунд. Войдите на zvuk.com, "
+            "скопируйте token со страницы профиля API и сохраните его здесь")
     track_id = _track_id(data.get("id"))
     api = _api()
     url = api.stream_url(track_id)

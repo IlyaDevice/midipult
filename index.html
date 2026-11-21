@@ -2737,14 +2737,18 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     </div>
 
     <div class="prov-pane" id="provPaneZvuk" role="tabpanel" data-provider-pane="zvuk" hidden>
-      <div class="seg-note">Публичного входа в Сбер Звук нет: поиск и воспроизведение работают анонимно без токена. Токен веб-сессии нужен только для «Моего потока» и качества 320.</div>
+      <div class="seg-note">Без аккаунта Сбер Звук отдаёт только 30-секундный фрагмент. Для полного трека нужен токен: войдите на zvuk.com, откройте страницу профиля API и скопируйте поле <b>token</b>.</div>
+      <div class="row" style="margin-top:8px;gap:6px;flex-wrap:wrap">
+        <button class="btn sm ghost" id="btnZvukSite">Войти на zvuk.com</button>
+        <button class="btn sm ghost" id="btnZvukProfile">Страница с токеном</button>
+      </div>
       <div class="zvuk-token-wrap">
         <input id="zvukToken" class="net-input" type="password" autocomplete="off"
-               placeholder="Токен аккаунта — необязательно">
+               placeholder="Вставьте token из профиля">
         <button class="btn sm" id="btnZvukSave">Сохранить</button>
         <button class="btn sm ghost" id="btnZvukClear">Убрать</button>
       </div>
-      <div class="zvuk-status" id="zvukStatus">Анонимный доступ</div>
+      <div class="zvuk-status" id="zvukStatus">Нужен токен — анонимно только 30 секунд</div>
       <div class="zvuk-search">
         <input id="zvukQuery" class="net-input" placeholder="Трек, альбом или исполнитель" autocomplete="off">
         <button class="btn sm" id="btnZvukSearch">Найти</button>
@@ -10542,8 +10546,8 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   function zvukLoadStatus() {
     return cgi('zvuk.py', { action: 'status' }, { timeout: 12000, silent: true })
       .then(function (data) {
-        zvukSetStatus(data.has_token ? 'Аккаунт подключён' : 'Анонимный доступ — поиск работает',
-          data.has_token ? 'ok' : '');
+        zvukSetStatus(data.has_token ? 'Аккаунт подключён' : 'Нужен токен — анонимно только 30 секунд',
+          data.has_token ? 'ok' : 'warn');
         setProvDot('zvuk', data.has_token ? 'ok' : 'warn');
         if (data.track && data.track.id) zvukShowNow(data.track);
       })
@@ -14326,11 +14330,17 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     if (el.btnZvukSave) el.btnZvukSave.addEventListener('click', zvukSaveToken);
     if (el.btnZvukClear) el.btnZvukClear.addEventListener('click', function () {
       cgi('zvuk.py', { action: 'clear' }, { timeout: 12000 }).then(function () {
-        zvukSetStatus('Анонимный доступ'); zvukShowNow(null);
+        zvukSetStatus('Нужен токен — анонимно только 30 секунд'); zvukShowNow(null);
       }).catch(function (err) { zvukSetStatus('Ошибка: ' + err.message, 'bad'); });
     });
     if (el.btnZvukSearch) el.btnZvukSearch.addEventListener('click', zvukSearch);
     if (el.btnZvukWave) el.btnZvukWave.addEventListener('click', zvukWave);
+    if (el.btnZvukSite) el.btnZvukSite.addEventListener('click', function () {
+      window.open('https://zvuk.com/', '_blank', 'noopener');
+    });
+    if (el.btnZvukProfile) el.btnZvukProfile.addEventListener('click', function () {
+      window.open('https://zvuk.com/api/tiny/profile', '_blank', 'noopener');
+    });
     if (el.zvukQuery) el.zvukQuery.addEventListener('keydown', function (event) {
       if (event.key === 'Enter') { event.preventDefault(); zvukSearch(); }
     });
@@ -15756,7 +15766,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       'filesNote', 'filesList', 'filesEditor', 'filesEditorName', 'filesText',
       'btnFilesSave', 'btnFilesEditorClose', 'btnFilesRename',
       'zvukToken', 'btnZvukSave', 'btnZvukClear', 'zvukStatus', 'zvukQuery',
-      'btnZvukSearch', 'btnZvukWave', 'zvukResults', 'zvukNow',
+      'btnZvukSearch', 'btnZvukWave', 'zvukResults', 'zvukNow', 'btnZvukSite', 'btnZvukProfile',
       'spotifyId', 'spotifySecret', 'btnSpotifySave', 'btnSpotifyClear', 'spotifyStatus',
       'spotifyQuery', 'btnSpotifySearch', 'spotifyResults',
       'extQuery', 'btnExtSearch', 'extStatus', 'extNow', 'extResults',
