@@ -2480,6 +2480,35 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   </section>
 
   <!-- ───────── нейросеть ───────── -->
+  <section class="card c-youtube" data-group="sound" data-card-id="youtube" data-legacy-card-id="YouTube Music" aria-labelledby="h-youtube">
+    <h2 id="h-youtube"><span class="dot"></span>YouTube Music</h2>
+    <div class="seg-note" style="margin-top:8px">Экспериментально: поиск и поток через yt-dlp. YouTube может заблокировать поток или изменить API.</div>
+    <div class="zvuk-search">
+      <input id="youtubeQuery" class="net-input" placeholder="Трек или исполнитель" autocomplete="off">
+      <button class="btn sm" id="btnYoutubeSearch">Найти</button>
+    </div>
+    <div class="zvuk-status" id="youtubeStatus">Экспериментальный режим</div>
+    <div class="zvuk-now" id="youtubeNow"></div>
+    <div class="zvuk-results" id="youtubeResults"></div>
+  </section>
+
+  <section class="card c-spotify" data-group="sound" data-card-id="spotify" data-legacy-card-id="Spotify" aria-labelledby="h-spotify">
+    <h2 id="h-spotify"><span class="dot"></span>Spotify</h2>
+    <div class="seg-note" style="margin-top:8px">Экспериментально: поиск по Web API и открытие в Spotify. Звук на станции — только через отдельный Spotify Connect, не через Glagol.</div>
+    <div class="zvuk-token-wrap">
+      <input id="spotifyId" class="net-input" placeholder="Client ID" autocomplete="off">
+      <input id="spotifySecret" class="net-input" type="password" placeholder="Client Secret" autocomplete="off">
+      <button class="btn sm" id="btnSpotifySave">Сохранить</button>
+      <button class="btn sm ghost" id="btnSpotifyClear">Убрать</button>
+    </div>
+    <div class="zvuk-status" id="spotifyStatus">Ключи не сохранены</div>
+    <div class="zvuk-search">
+      <input id="spotifyQuery" class="net-input" placeholder="Трек или исполнитель" autocomplete="off">
+      <button class="btn sm" id="btnSpotifySearch">Найти</button>
+    </div>
+    <div class="zvuk-results" id="spotifyResults"></div>
+  </section>
+
   <section class="card c-llm" data-group="ai" aria-labelledby="h-llm">
     <h2 id="h-llm"><span class="dot"></span>Нейросеть</h2>
 
@@ -9751,6 +9780,187 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       .catch(function (err) { zvukSetStatus('Ошибка: ' + err.message, 'bad'); });
   }
 
+  /* ─────────── YouTube Music / Spotify ─────────── */
+  function extStatus(node, text, kind) {
+    if (!node) return;
+    node.textContent = text;
+    node.className = 'zvuk-status' + (kind ? ' ' + kind : '');
+  }
+
+  function youtubeRender(tracks) {
+    if (!el.youtubeResults) return;
+    el.youtubeResults.textContent = '';
+    if (!tracks || !tracks.length) {
+      var empty = document.createElement('div');
+      empty.className = 'zvuk-empty';
+      empty.textContent = 'Ничего не найдено';
+      el.youtubeResults.appendChild(empty);
+      return;
+    }
+    tracks.forEach(function (track) {
+      var row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'zvuk-track';
+      var img = document.createElement('img');
+      img.alt = '';
+      img.loading = 'lazy';
+      if (track.cover) img.src = track.cover;
+      var info = document.createElement('div');
+      var title = document.createElement('div');
+      title.className = 'zt-title';
+      title.textContent = track.title || 'YouTube Music';
+      var artist = document.createElement('div');
+      artist.className = 'zt-artist';
+      artist.textContent = track.artist || 'YouTube Music';
+      info.appendChild(title);
+      info.appendChild(artist);
+      var play = document.createElement('span');
+      play.className = 'zt-play';
+      play.textContent = '▶';
+      row.appendChild(img);
+      row.appendChild(info);
+      row.appendChild(play);
+      row.addEventListener('click', function () { youtubePlay(track); });
+      el.youtubeResults.appendChild(row);
+    });
+  }
+
+  function youtubeNow(track) {
+    if (!el.youtubeNow) return;
+    el.youtubeNow.textContent = '';
+    if (!track) return;
+    var b = document.createElement('b');
+    b.textContent = track.title || 'YouTube Music';
+    var a = document.createElement('div');
+    a.textContent = track.artist || '';
+    var stop = document.createElement('button');
+    stop.type = 'button';
+    stop.className = 'btn sm ghost';
+    stop.style.marginTop = '8px';
+    stop.textContent = 'Остановить';
+    stop.addEventListener('click', function () {
+      cgi('media.py', { action: 'pause' }, { timeout: 12000 })
+        .then(function () { youtubeNow(null); extStatus(el.youtubeStatus, 'Остановлено'); })
+        .catch(function (err) { extStatus(el.youtubeStatus, 'Ошибка: ' + err.message, 'bad'); });
+    });
+    el.youtubeNow.appendChild(b);
+    el.youtubeNow.appendChild(a);
+    el.youtubeNow.appendChild(stop);
+  }
+
+  function youtubePlay(track) {
+    if (!track || !track.id) return;
+    extStatus(el.youtubeStatus, 'Получаю поток…');
+    youtubeNow(track);
+    cgi('youtube.py', {
+      action: 'play', id: track.id, title: track.title || '',
+      artist: track.artist || '', cover: track.cover || ''
+    }, { timeout: 120000 })
+      .then(function (data) {
+        extStatus(el.youtubeStatus, 'Играет: ' + ((data.track && data.track.title) || track.title), 'ok');
+        youtubeNow(data.track || track);
+      })
+      .catch(function (err) {
+        extStatus(el.youtubeStatus, 'Ошибка: ' + err.message, 'bad');
+        toast('YouTube Music: ' + err.message, 'bad');
+      });
+  }
+
+  function youtubeSearch() {
+    var q = (el.youtubeQuery && el.youtubeQuery.value || '').trim();
+    if (!q) return;
+    extStatus(el.youtubeStatus, 'Ищу на YouTube Music…');
+    cgi('youtube.py', { action: 'search', q: q, limit: 15 }, { timeout: 60000 })
+      .then(function (data) {
+        youtubeRender(data.tracks || []);
+        extStatus(el.youtubeStatus, 'Найдено: ' + ((data.tracks || []).length));
+      })
+      .catch(function (err) { extStatus(el.youtubeStatus, 'Ошибка: ' + err.message, 'bad'); });
+  }
+
+  function youtubeLoadStatus() {
+    return cgi('youtube.py', { action: 'status' }, { timeout: 12000, silent: true })
+      .then(function (data) {
+        extStatus(el.youtubeStatus, data.has_ytdlp ? 'yt-dlp готов' : 'yt-dlp не установлен', data.has_ytdlp ? 'ok' : 'bad');
+        if (data.track && data.track.id) youtubeNow(data.track);
+      }).catch(function () { extStatus(el.youtubeStatus, 'YouTube Music недоступен', 'bad'); });
+  }
+
+  function spotifyRender(tracks) {
+    if (!el.spotifyResults) return;
+    el.spotifyResults.textContent = '';
+    if (!tracks || !tracks.length) {
+      var empty = document.createElement('div');
+      empty.className = 'zvuk-empty';
+      empty.textContent = 'Ничего не найдено';
+      el.spotifyResults.appendChild(empty);
+      return;
+    }
+    tracks.forEach(function (track) {
+      var row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'zvuk-track';
+      row.title = 'Открыть в Spotify';
+      var img = document.createElement('img');
+      img.alt = '';
+      img.loading = 'lazy';
+      if (track.cover) img.src = track.cover;
+      var info = document.createElement('div');
+      var title = document.createElement('div');
+      title.className = 'zt-title';
+      title.textContent = track.title || 'Spotify';
+      var artist = document.createElement('div');
+      artist.className = 'zt-artist';
+      artist.textContent = track.artist || '';
+      info.appendChild(title);
+      info.appendChild(artist);
+      var open = document.createElement('span');
+      open.className = 'zt-play';
+      open.textContent = '↗';
+      row.appendChild(img);
+      row.appendChild(info);
+      row.appendChild(open);
+      row.addEventListener('click', function () {
+        if (track.url) window.open(track.url, '_blank');
+      });
+      el.spotifyResults.appendChild(row);
+    });
+  }
+
+  function spotifySave() {
+    var cid = (el.spotifyId && el.spotifyId.value || '').trim();
+    var sec = (el.spotifySecret && el.spotifySecret.value || '').trim();
+    if (!cid || !sec) { extStatus(el.spotifyStatus, 'Нужны Client ID и Client Secret', 'bad'); return; }
+    extStatus(el.spotifyStatus, 'Проверяю ключи…');
+    cgi('spotify.py', { action: 'credentials', client_id: cid, secret: sec }, { timeout: 40000 })
+      .then(function () {
+        if (el.spotifyId) el.spotifyId.value = '';
+        if (el.spotifySecret) el.spotifySecret.value = '';
+        extStatus(el.spotifyStatus, 'Ключи сохранены', 'ok');
+      })
+      .catch(function (err) { extStatus(el.spotifyStatus, 'Ошибка: ' + err.message, 'bad'); });
+  }
+
+  function spotifySearch() {
+    var q = (el.spotifyQuery && el.spotifyQuery.value || '').trim();
+    if (!q) return;
+    extStatus(el.spotifyStatus, 'Ищу в Spotify…');
+    cgi('spotify.py', { action: 'search', q: q, limit: 15 }, { timeout: 30000 })
+      .then(function (data) {
+        spotifyRender(data.tracks || []);
+        extStatus(el.spotifyStatus, 'Найдено: ' + ((data.tracks || []).length));
+      })
+      .catch(function (err) { extStatus(el.spotifyStatus, 'Ошибка: ' + err.message, 'bad'); });
+  }
+
+  function spotifyLoadStatus() {
+    return cgi('spotify.py', { action: 'status' }, { timeout: 12000, silent: true })
+      .then(function (data) {
+        extStatus(el.spotifyStatus, data.has_credentials ? 'Ключи сохранены' : 'Ключи не сохранены',
+          data.has_credentials ? 'ok' : '');
+      }).catch(function () { extStatus(el.spotifyStatus, 'Spotify недоступен', 'bad'); });
+  }
+
   /* ─────────── файлы ─────────── */
   var filesCurrent = '/data/mypult';
   var filesEditing = '';
@@ -12551,7 +12761,23 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     if (el.zvukQuery) el.zvukQuery.addEventListener('keydown', function (event) {
       if (event.key === 'Enter') { event.preventDefault(); zvukSearch(); }
     });
+    if (el.btnYoutubeSearch) el.btnYoutubeSearch.addEventListener('click', youtubeSearch);
+    if (el.youtubeQuery) el.youtubeQuery.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') { event.preventDefault(); youtubeSearch(); }
+    });
+    if (el.btnSpotifySave) el.btnSpotifySave.addEventListener('click', spotifySave);
+    if (el.btnSpotifyClear) el.btnSpotifyClear.addEventListener('click', function () {
+      cgi('spotify.py', { action: 'clear' }, { timeout: 12000 }).then(function () {
+        extStatus(el.spotifyStatus, 'Ключи удалены');
+      }).catch(function (err) { extStatus(el.spotifyStatus, 'Ошибка: ' + err.message, 'bad'); });
+    });
+    if (el.btnSpotifySearch) el.btnSpotifySearch.addEventListener('click', spotifySearch);
+    if (el.spotifyQuery) el.spotifyQuery.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') { event.preventDefault(); spotifySearch(); }
+    });
     zvukLoadStatus();
+    youtubeLoadStatus();
+    spotifyLoadStatus();
     if (el.btnFilesClose) el.btnFilesClose.addEventListener('click', function () { el.filesDlg.close(); });
     if (el.btnFilesRefresh) el.btnFilesRefresh.addEventListener('click', function () { filesLoad(filesCurrent); });
     if (el.btnFilesUp) el.btnFilesUp.addEventListener('click', function () {
@@ -14029,6 +14255,9 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       'btnFilesSave', 'btnFilesEditorClose', 'btnFilesRename',
       'zvukToken', 'btnZvukSave', 'btnZvukClear', 'zvukStatus', 'zvukQuery',
       'btnZvukSearch', 'btnZvukWave', 'zvukResults', 'zvukNow',
+      'youtubeQuery', 'btnYoutubeSearch', 'youtubeStatus', 'youtubeNow', 'youtubeResults',
+      'spotifyId', 'spotifySecret', 'btnSpotifySave', 'btnSpotifyClear', 'spotifyStatus',
+      'spotifyQuery', 'btnSpotifySearch', 'spotifyResults',
       'btnNetcheck', 'btnCleanup', 'btnReboot', 'btnPoweroff', 'maintBox', 'autoBright', 'autoBrightStatus',
       'displayAuto', 'displayAutoStatus',
       'btnSpeed', 'btnBackup', 'backupFile',

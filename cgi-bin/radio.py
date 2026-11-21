@@ -154,9 +154,9 @@ def _pb_string(out, field, value):
     out.extend(data)
 
 
-def audio_play_data(url, title="", subtitle=""):
+def audio_play_data(url, title="", subtitle="", fmt="MP3"):
     """base64(protobuf {1:"audio_play", 2: JSON{stream:{…},set_pause}})."""
-    stream = {"url": url, "format": "MP3", "type": "Track", "offset_ms": 0}
+    stream = {"url": url, "format": fmt or "MP3", "type": "Track", "offset_ms": 0}
     if title:
         stream["title"] = title
     if subtitle:
@@ -181,10 +181,11 @@ def state_brief():
     }
 
 
-def play_stream(name, url):
+def play_stream(name, url, fmt="MP3", subtitle=""):
     """Отдать ссылку штатному плееру. Возвращает краткое состояние."""
     reply = glagol.send({"command": "externalCommandBypass",
-                         "data": audio_play_data(url, title=name)}, timeout=12)
+                         "data": audio_play_data(url, title=name, subtitle=subtitle, fmt=fmt)},
+                        timeout=12)
     status = (reply or {}).get("status")
     if status not in (None, "SUCCESS"):
         raise RuntimeError("станция отклонила ссылку: %s" % status)

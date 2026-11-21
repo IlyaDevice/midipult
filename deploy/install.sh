@@ -71,6 +71,11 @@ for f in "$SRC"/cgi-bin/*.py; do
     cp -f "$f" "$WEB/cgi-bin/" || die "не скопировался $f"
 done
 chmod 755 "$WEB"/cgi-bin/*.py 2>/dev/null
+if [ -f "$SRC/bin/yt-dlp" ]; then
+    mkdir -p /data/mypult/bin
+    cp -f "$SRC/bin/yt-dlp" /data/mypult/bin/yt-dlp || warn "не скопировался yt-dlp"
+    chmod 755 /data/mypult/bin/yt-dlp 2>/dev/null || true
+fi
 # Устаревший CGI звука отклика: удаляем, чтобы не оставался после обновления.
 rm -f "$WEB/cgi-bin/soundcfg.py"
 rm -f "$WEB/cgi-bin/timezone.py"
