@@ -2596,29 +2596,6 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       </button>
       <output id="volumeVal">40%</output>
     </div>
-    <details class="ym-auth" id="ymAuth">
-      <summary>
-        <span>Яндекс Музыка</span>
-        <span class="ym-summary-side">
-          <b id="ymStatus">не подключена</b>
-          <span class="ym-expand" id="btnYmExpand" role="button" tabindex="0"
-                aria-label="Открыть музыку на весь экран" title="Открыть музыку">⤢</span>
-        </span>
-      </summary>
-      <div class="ym-auth-body">
-        <div id="ymLoggedOut">
-          <p class="seg-note" style="margin:0 0 8px">Вход по QR — для своих плейлистов и «Моей волны». Ссылки и токены вставлять не нужно.</p>
-          <div class="row">
-            <button class="btn sm" id="btnYmLogin">Войти в Яндекс</button>
-          </div>
-        </div>
-        <div id="ymLoggedIn" hidden>
-          <div class="seg-note" id="ymAccount" style="margin-bottom:8px"></div>
-          <div class="ym-playlists" id="ymPlaylists"></div>
-          <button class="btn sm ghost" id="btnYmLogout" style="margin-top:8px">Выйти</button>
-        </div>
-      </div>
-    </details>
   </section>
 
   <!-- ───────── голос ───────── -->
@@ -2715,11 +2692,34 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     </div>
 
     <div class="prov-pane" id="provPaneYandex" role="tabpanel" data-provider-pane="yandex">
-      <div class="seg-note">Полный плеер: поиск, плейлисты, «Моя волна», текст песни и очередь. Вход в Яндекс — в карточке «Плеер».</div>
+      <div class="seg-note">Полный плеер: поиск, плейлисты, «Моя волна», текст песни и очередь. Вход и выход из Яндекс Музыки — здесь, в этом окне.</div>
       <div class="prov-ym-row">
         <button class="btn sm primary" id="btnProviderYm">Открыть Яндекс Музыку</button>
         <span class="seg-note" id="provYmStatus">не подключена</span>
       </div>
+      <details class="ym-auth" id="ymAuth">
+        <summary>
+          <span>Аккаунт Яндекс Музыки</span>
+          <span class="ym-summary-side">
+            <b id="ymStatus">не подключена</b>
+            <span class="ym-expand" id="btnYmExpand" role="button" tabindex="0"
+                  aria-label="Открыть музыку на весь экран" title="Открыть музыку">⤢</span>
+          </span>
+        </summary>
+        <div class="ym-auth-body">
+          <div id="ymLoggedOut">
+            <p class="seg-note" style="margin:0 0 8px">Вход по QR — для своих плейлистов и «Моей волны». Ссылки и токены вставлять не нужно.</p>
+            <div class="row">
+              <button class="btn sm" id="btnYmLogin">Войти в Яндекс</button>
+            </div>
+          </div>
+          <div id="ymLoggedIn" hidden>
+            <div class="seg-note" id="ymAccount" style="margin-bottom:8px"></div>
+            <div class="ym-playlists" id="ymPlaylists"></div>
+            <button class="btn sm ghost" id="btnYmLogout" style="margin-top:8px">Выйти</button>
+          </div>
+        </div>
+      </details>
     </div>
 
     <div class="prov-pane" id="provPaneZvuk" role="tabpanel" data-provider-pane="zvuk" hidden>
@@ -6012,8 +6012,17 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     if (!dialog) return;
     if (!State.ymLoggedIn) {
       toast('Сначала войдите в Яндекс Музыку', 'warn');
+      showTab('sound');
+      var providerTab = document.querySelector('#provTabs .prov-tab[data-provider="yandex"]');
+      if (providerTab) providerTab.click();
       var auth = document.getElementById('ymAuth');
-      if (auth) auth.open = true;
+      if (auth) {
+        auth.open = true;
+        var card = auth.closest('.c-providers');
+        if (card && card.scrollIntoView) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
       return;
     }
     clearTimeout(ymCloseTimer);
