@@ -1839,15 +1839,17 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 
 .c-led{display:grid;grid-template-columns:190px minmax(0,1fr);column-gap:18px;row-gap:8px;align-items:start;align-content:start}
 .c-led>.card-head{grid-column:1/-1}
-.c-led>.auto-bright{grid-column:1/-1;grid-row:2;margin:0!important;align-self:start}
-.c-led>.ring{grid-column:1;grid-row:3;margin:0 auto}
+.c-led>.led-footer{grid-column:1/-1;grid-row:2;margin:0;gap:8px}
+.c-led>.led-footer .btn{flex:0 0 auto;width:auto;height:32px;padding:0 14px;font-size:13px}
+.c-led>.auto-bright{grid-column:1/-1;grid-row:3;margin:0!important;align-self:start}
+.c-led>.ring{grid-column:1;grid-row:4;margin:0 auto}
 .c-led>.led-hint{display:none}
-.c-led>.led-right{grid-column:2;grid-row:3;display:grid;gap:8px;align-content:start}
+.c-led>.led-right{grid-column:2;grid-row:4;display:grid;gap:8px;align-content:start}
 .c-led>.led-right .field{margin-top:0}
-.c-led>.led-controls{grid-column:1;grid-row:4;margin-top:0}
+.c-led>.led-controls{grid-column:1;grid-row:5;margin-top:0}
 .c-led>.led-bright #ringBrightness,.c-led>.led-speed #ringSpeed,
 .c-led>.led-right .field-top{max-width:100%}
-.c-led>#presets{grid-column:2;grid-row:4;margin-top:0;display:grid;
+.c-led>#presets{grid-column:2;grid-row:5;margin-top:0;display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
 .c-led>#presets .chip{width:100%;height:30px;font-size:13px;padding:0 6px}
 .c-led .logo-modes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
@@ -1855,11 +1857,10 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .c-led .led-right .field-top,
 .c-led .led-right #ringBrightness,
 .c-led .led-right #ringSpeed{max-width:100%}
-.c-led>.led-anims{grid-column:1/-1;grid-row:5;margin-top:4px}
+.c-led>.led-anims{grid-column:1/-1;grid-row:6;margin-top:4px}
 .c-led .ring-anim-row .ring-picker{flex:1 1 160px;min-width:0}
 .c-led .ring-anim-row .btn{flex:0 0 80px;height:30px;padding:0 6px;font-size:13px}
-.c-led>.led-footer{grid-column:1/-1;grid-row:6;margin-top:6px;gap:8px}
-.c-led>.led-footer .btn{flex:0 0 auto;width:auto;height:32px;padding:0 14px;font-size:13px}
+
 .c-led .chips{justify-content:flex-start}
 
 .c-clock,.c-led{container-type:inline-size}
@@ -1898,6 +1899,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   .c-led>.led-footer{grid-column:1/-1!important;grid-row:auto!important}
   .c-clock>.display-actions{flex-wrap:wrap}
   .c-clock>.display-actions .btn{flex:1 1 150px;min-width:0}
+  .c-led>.led-footer{order:0}
   .c-led>.auto-bright{order:1}
   .c-led>.ring{order:2;margin:0 auto;max-width:260px}
   .c-led>.led-controls{order:3;max-width:260px;margin:0 auto}
@@ -1906,7 +1908,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
   .c-led>.led-right{order:5;max-width:none;margin:0;grid-template-columns:1fr;gap:6px}
   .c-led>.led-right .field{margin-top:0!important}
   .c-led>.led-anims{order:6;max-width:none;margin:4px 0 0!important}
-  .c-led>.led-footer{order:7;max-width:none;margin:6px 0 0}
+  .c-led>.led-footer{order:0;max-width:none;margin:0}
   .c-led .logo-modes{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 
@@ -2820,6 +2822,10 @@ body.light dialog.queue-dlg.ym-look{
   <!-- ───────── кольцо ───────── -->
   <section class="card c-led" data-group="display" aria-labelledby="h-led">
     <h2 id="h-led"><span class="dot"></span>Кольцо</h2>
+    <div class="row led-footer" style="margin-top:12px">
+      <button class="btn danger sm" id="btnLedOff">Выключить</button>
+      <button class="btn ghost sm" id="btnRingReset">Сбросить</button>
+    </div>
     <div class="row auto-bright" style="margin-top:10px">
       <label class="llm-toggle"><input type="checkbox" id="autoBright"><span>Автояркость кольца по свету</span></label>
       <span class="seg-note" id="autoBrightStatus"></span>
@@ -2884,10 +2890,7 @@ body.light dialog.queue-dlg.ym-look{
         <button class="chip" id="btnRingRestoreHidden" hidden>Вернуть анимации</button>
       </div>
     </div>
-    <div class="row led-footer" style="margin-top:12px">
-      <button class="btn danger sm" id="btnLedOff">Выключить кольцо</button>
-      <button class="btn ghost sm" id="btnRingReset">Сбросить кольцо</button>
-    </div>
+    
   </section>
 
   <!-- ───────── плеер ───────── -->
