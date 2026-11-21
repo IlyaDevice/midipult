@@ -52,6 +52,47 @@ class AuthError(Error):
     pass
 
 
+def account_profile(token):
+    """Проверить токен через профиль, не через лишний GraphQL-запрос."""
+    import http.cookiejar
+
+    token = (token or "").strip()
+    if not token:
+        raise AuthError("токен «Звука» пустой")
+    jar = http.cookiejar.CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+    headers = {
+        "User-Agent": UA,
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "ru-RU,ru;q=0.9",
+        "Referer": "https://zvuk.com/",
+        "X-Auth-Token": token,
+    }
+    try:
+        with opener.open(urllib.request.Request("https://zvuk.com/", headers=headers), timeout=20):
+            pass
+        with opener.open(urllib.request.Request(PROFILE_URL, headers=headers), timeout=20) as response:
+            raw = response.read() or b"{}"
+            status = getattr(response, "status", 200)
+    except urllib.error.HTTPError as exc:
+        if exc.code in (401, 403):
+            raise AuthError("Звук не принял токен (HTTP %s)" % exc.code) from None
+        raise Error("Звук: HTTP %s" % exc.code) from None
+    except OSError as exc:
+        raise Error("Звук: нет связи (%s)" % exc) from None
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        snippet = raw[:80].decode("utf-8", "replace").replace("\n", " ")
+        raise AuthError("Звук вернул не JSON на профиль (HTTP %s): %s" % (status, snippet)) from None
+    result = data.get("result") if isinstance(data, dict) else None
+    if not isinstance(result, dict) or not result.get("token"):
+        raise AuthError("В ответе профиля нет токена — скопируйте поле token заново")
+    if result.get("is_anonymous"):
+        raise AuthError("Это анонимный токен. Войдите на zvuk.com и скопируйте токен профиля")
+    return result
+
+
 class Auth:
     """Токен веб-сессии zvuk.com. Хранится только на компьютере панели, права 600."""
 

@@ -105,9 +105,15 @@ def main():
         if not token:
             raise zvuk_api.AuthError("Токен пустой")
         try:
-            zvuk_api.Api(token).personal_wave(1)
-        except zvuk_api.Error as exc:
-            raise zvuk_api.AuthError("Токен не принят: %s" % exc)
+            zvuk_api.account_profile(token)
+        except zvuk_api.Error as profile_error:
+            # Иногда профиль отдаёт анонимный ответ, хотя GraphQL с токеном
+            # уже работает. Проверяем ещё и поиск.
+            try:
+                zvuk_api.Api(token).search("music", 1)
+            except zvuk_api.Error as search_error:
+                raise zvuk_api.AuthError(
+                    "Токен не принят: %s; поиск: %s" % (profile_error, search_error))
         auth.save(token)
         common.ok(has_token=True)
         return
