@@ -18,6 +18,7 @@ $shaFile = "$archive.sha256"
 $items = @(
     'index.html', 'index.py', 'manifest.json', 'version.json',
     'favicon.ico', 'icon-192.png', 'icon-512.png', 'icon.png', 'icon-circle.png',
+    'vk_callback.html', 'vk_oauth.html',
     'assets', 'cgi-bin', 'service', 'init.d', 'lighttpd', 'deploy', 'bin'
 ) | Where-Object { Test-Path (Join-Path $root $_) }
 

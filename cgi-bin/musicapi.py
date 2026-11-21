@@ -181,6 +181,18 @@ def _tracks(items):
     return out
 
 
+def _unique_tracks(tracks):
+    out, seen = [], set()
+    for track in tracks or []:
+        track_id = str(track.get("id") or "")
+        if track_id and track_id in seen:
+            continue
+        if track_id:
+            seen.add(track_id)
+        out.append(track)
+    return out
+
+
 def _player():
     if player is None:
         return {}
@@ -235,6 +247,7 @@ def queue():
         title = title or ("Моя волна" if playlist_id == "user:onyourwave"
                           else "Сейчас играет")
     index = 0
+    tracks = _unique_tracks(tracks)
     for pos, track in enumerate(tracks):
         if track.get("id") == current:
             index = pos
@@ -250,8 +263,24 @@ def similar():
     token, _uid = account()
     data = _request(token, "/tracks/%s/similar" % track_id)
     result = data.get("result") or data
-    return {"title": "Похожие на «%s»" % (snap.get("title") or "трек"),
-            "tracks": _tracks(result.get("similarTracks") or [])[:30]}
+    tracks = _unique_tracks(_tracks(result.get("similarTracks") or []))
+    if not tracks:
+        # Для новых/редких треков Яндекс иногда возвращает пустой similar.
+        # Fallback — популярные треки исполнителя, кроме текущего.
+        track = result.get("track") or {}
+        artist_ids = [str(a.get("id")) for a in (track.get("artists") or [])
+                      if isinstance(a, dict) and a.get("id")]
+        for artist_id in artist_ids[:2]:
+            try:
+                artist = _request(token, "/artists/%s/tracks" % artist_id,
+                                  query={"page-size": 30})
+            except Exception:  # noqa: BLE001
+                continue
+            artist_result = artist.get("result") or artist
+            tracks.extend(_tracks(artist_result.get("tracks") or []))
+        tracks = [t for t in _unique_tracks(tracks) if t.get("id") != track_id]
+    title = "Похожие на «%s»" % (snap.get("title") or "трек")
+    return {"title": title, "tracks": tracks[:30]}
 
 
 def favorites(limit=20):

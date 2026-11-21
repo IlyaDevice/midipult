@@ -2281,6 +2281,11 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   vertical-align:middle}
 .prov-beta{font-size:9px;font-weight:800;letter-spacing:.04em;color:#fbbf24;
   border:1px solid rgba(245,158,11,.35);border-radius:999px;padding:1px 5px;line-height:1.2}
+.prov-soon{margin-left:6px;font-size:8px;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;color:#8f95a8;border:1px solid var(--stroke);
+  border-radius:999px;padding:1px 5px;line-height:1.2}
+.prov-tab:disabled{opacity:.48;cursor:default}
+.prov-tab:disabled:hover{color:var(--muted);background:rgba(255,255,255,.045)}
 @media(max-width:520px){
   .prov-tab{flex:1 1 calc(50% - 6px);justify-content:center;padding:0 8px}
 }
@@ -2738,8 +2743,8 @@ body.light dialog.queue-dlg.ym-look{
       <button type="button" class="prov-tab" role="tab" data-provider="zvuk" aria-controls="provPaneZvuk" aria-pressed="false">
         <span class="prov-dot" data-prov-dot="zvuk"></span>Сбер Звук
       </button>
-      <button type="button" class="prov-tab" role="tab" data-provider="vk" aria-controls="provPaneVk" aria-pressed="false">
-        <span class="prov-dot" data-prov-dot="vk"></span>VK Музыка<span class="prov-beta">β</span>
+      <button type="button" class="prov-tab" role="tab" data-provider="vk" aria-controls="provPaneVk" aria-pressed="false" disabled aria-disabled="true">
+        <span class="prov-dot" data-prov-dot="vk"></span>VK Музыка<span class="prov-soon">скоро</span>
       </button>
       <button type="button" class="prov-tab" role="tab" data-provider="ext" aria-controls="provPaneExt" aria-pressed="false">
         <span class="prov-dot" data-prov-dot="ext"></span>YouTube + SoundCloud
@@ -7879,7 +7884,11 @@ body.light dialog.queue-dlg.ym-look{
     if (!tracks.length) {
       var note = document.createElement('div');
       note.className = 'q-note';
-      note.textContent = 'Пусто — для радио очередь ограничена соседними треками.';
+      note.textContent = State.queueTab === 'similar'
+        ? 'Похожих для этого трека не нашлось.'
+        : State.queueTab === 'favorites'
+          ? 'В избранном пока пусто.'
+          : 'Пусто — для радио очередь ограничена соседними треками.';
       el.queueList.appendChild(note);
       return;
     }
@@ -10657,11 +10666,16 @@ body.light dialog.queue-dlg.ym-look{
       store.set('musicProvider', name);
     }
     tabs.forEach(function (tab) {
-      tab.addEventListener('click', function () { show(tab.dataset.provider); });
+      tab.addEventListener('click', function () {
+        if (tab.disabled) return;
+        show(tab.dataset.provider);
+      });
     });
     show((function () {
       var saved = store.get('musicProvider', 'yandex');
-      return (saved === 'youtube' || saved === 'soundcloud') ? 'ext' : saved;
+      if (saved === 'youtube' || saved === 'soundcloud') return 'ext';
+      if (saved === 'vk') return 'yandex';
+      return saved;
     })());
     var open = document.getElementById('btnProviderYm');
     if (open) open.addEventListener('click', function () { ymOpen(); });
