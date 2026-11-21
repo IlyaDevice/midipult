@@ -18,13 +18,20 @@ import subprocess
 import sys
 import time
 
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - Windows/тесты
+    fcntl = None
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
 
 DAEMON = "/data/mypult/voice_daemon.py"
 PIDFILE = "/data/mypult/voice.pid"
 LOG = "/data/mypult/voice.log"
+LOCK = "/tmp/mypult-voice.lock"
 PY = "/opt/bin/python3"
+LOG_LIMIT = 1024 * 1024
 
 
 def read_pid():
@@ -35,44 +42,70 @@ def read_pid():
         return None
 
 
-def alive(pid):
+def pid_matches(pid):
+    """PID из файла должен быть именно нашим демоном, а не чужим после reuse."""
     if not pid:
         return False
     try:
         os.kill(pid, 0)
-        return True
+        with open("/proc/%d/cmdline" % pid, "rb") as fh:
+            cmd = fh.read().replace(b"\0", b" ").decode("utf-8", "replace")
+        return "voice_daemon.py" in cmd
     except OSError:
         return False
 
 
+def rotate_log():
+    try:
+        if os.path.getsize(LOG) > LOG_LIMIT:
+            os.replace(LOG, LOG + ".1")
+    except OSError:
+        pass
+
+
 def start():
-    pid = read_pid()
-    if alive(pid):
-        return
-    if not os.path.isfile(DAEMON):
-        raise RuntimeError("нет %s — обновите установку" % DAEMON)
-    log_file = open(LOG, "ab")
-    proc = subprocess.Popen(
-        [PY, DAEMON],
-        stdout=log_file, stderr=subprocess.STDOUT,
-        start_new_session=True, close_fds=True,
-    )
-    with open(PIDFILE, "w", encoding="utf-8") as fh:
-        fh.write(str(proc.pid))
-    time.sleep(1.0)
-    if proc.poll() is not None:
-        raise RuntimeError("демон завершился сразу, см. %s" % LOG)
+    handle = open(LOCK, "a+", encoding="utf-8")
+    try:
+        if fcntl is not None:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        pid = read_pid()
+        if pid_matches(pid):
+            return
+        if not os.path.isfile(DAEMON):
+            raise RuntimeError("нет %s — обновите установку" % DAEMON)
+        rotate_log()
+        log_file = open(LOG, "ab")
+        try:
+            proc = subprocess.Popen(
+                [PY, DAEMON],
+                stdout=log_file, stderr=subprocess.STDOUT,
+                start_new_session=True, close_fds=True,
+            )
+        finally:
+            log_file.close()
+        with open(PIDFILE, "w", encoding="utf-8") as fh:
+            fh.write(str(proc.pid))
+        time.sleep(1.0)
+        if proc.poll() is not None:
+            raise RuntimeError("демон завершился сразу, см. %s" % LOG)
+    finally:
+        if fcntl is not None:
+            try:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            except OSError:
+                pass
+        handle.close()
 
 
 def stop():
     pid = read_pid()
-    if alive(pid):
+    if pid_matches(pid):
         try:
             os.kill(pid, signal.SIGTERM)
         except OSError:
             pass
         for _ in range(20):
-            if not alive(pid):
+            if not pid_matches(pid):
                 break
             time.sleep(0.1)
     try:
@@ -83,10 +116,11 @@ def stop():
 
 def status():
     pid = read_pid()
+    running = pid_matches(pid)
     return {
         "ok": True,
-        "running": alive(pid),
-        "pid": pid if alive(pid) else None,
+        "running": running,
+        "pid": pid if running else None,
         "daemon_present": os.path.isfile(DAEMON),
         "log": None,
     }

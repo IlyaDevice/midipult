@@ -230,9 +230,11 @@ body.light #ringMusicPop{background:#fff}
 .radio-picker .radio-list .picker-search{position:sticky;top:0;z-index:1;background:#0f1420;
   padding:2px 0 6px}
 @keyframes radioPop{from{opacity:0;transform:translateY(-5px) scale(.99)}to{opacity:1;transform:none}}
-.radio-list .radio-option{font-size:13.5px;padding:9px 10px;border-radius:8px}
+.radio-list .radio-option{font-size:13.5px;padding:9px 10px;border-radius:8px;
+  -webkit-tap-highlight-color:transparent}
 .radio-list .radio-option + .radio-option{margin-top:2px}
 .radio-list .radio-option:hover{background:rgba(124,92,255,.20)}
+.radio-list .radio-option:active{background:rgba(124,92,255,.28)}
 .radio-option{display:flex;align-items:center;gap:8px;width:100%}
 .radio-option .radio-label{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;
   white-space:nowrap;text-align:left}
@@ -413,6 +415,13 @@ body.light #ringMusicPop{background:#fff}
     .c-llm{grid-column:span 12}
     .c-radio{grid-column:span 5}
     .c-alarm{grid-column:span 7}
+    .c-vpn{grid-column:span 12}
+    .c-sys{grid-column:span 12}
+    .c-bt,.c-net{grid-column:span 6}
+    .c-zigbee{grid-column:span 12}
+    .c-scenarios{grid-column:span 12}
+  }
+
 .alarm-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px}
 .alarm-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:8px;margin-top:10px;min-width:0}
 .alarm-empty{grid-column:1/-1;color:var(--muted);font-size:13px;padding:18px;border:1px dashed var(--stroke);
@@ -506,12 +515,6 @@ body.light .alarm-station-list{background:#fff}
 @keyframes alarmPulse{50%{box-shadow:0 14px 44px rgba(124,92,255,.5)}}
 .alarm-ring-kicker{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#cfc7ff}
 .alarm-ring-label{font-size:17px;font-weight:700;margin-top:2px}
-    .c-vpn{grid-column:span 12}
-    .c-sys{grid-column:span 12}
-    .c-bt,.c-net{grid-column:span 6}
-    .c-zigbee{grid-column:span 12}
-    .c-scenarios{grid-column:span 12}
-  }
   @media(min-width:760px) and (max-width:860px){
     .c-bt,.c-net{grid-column:span 12}
   }
@@ -3433,6 +3436,17 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   var pad = function (n) { return String(n).padStart(2, '0'); };
   var clamp = function (v, lo, hi) { return Math.min(hi, Math.max(lo, v)); };
 
+  // Таймеры, которые не должны крутиться в фоновой вкладке/на чужой вкладке:
+  // на телефоне это лишние запросы, нагрев и расход батареи.
+  function every(ms, fn) {
+    return setInterval(function () { if (!document.hidden) fn(); }, ms);
+  }
+  function everyHome(ms, fn) {
+    return setInterval(function () {
+      if (!document.hidden && State.tab === 'home') fn();
+    }, ms);
+  }
+
   var store = {
     get: function (k, dflt) {
       try { var v = localStorage.getItem('mypult.' + k); return v === null ? dflt : JSON.parse(v); }
@@ -4564,7 +4578,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
         syncLogo();
       });
     });
-    setInterval(syncLogo, 450);
+    every(450, syncLogo);
     syncLogo();
   }
 
@@ -4598,7 +4612,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   }
 
   function initRingStatePolling() {
-    setInterval(pollRingState, 400);
+    every(400, pollRingState);
     setTimeout(pollRingState, 900);
   }
 
@@ -7044,9 +7058,11 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       if (el.alarmTz) {
         el.alarmTz.textContent = 'Время по поясу ' + (savedTz || browserTz || 'станции');
       }
-      // Будильник должен звонить по местному времени браузера, а не по UTC
-      // станции: при первом открытии сохраняем пояс панели.
-      if (browserTz && savedTz !== browserTz && !State.alarmTzSynced) {
+      // Будильник должен звонить по местному времени браузера. Пояс задаём
+      // только один раз — при первом открытии, когда в alarms.json его ещё
+      // нет. Иначе второе устройство в другом поясе молча сдвигало бы все
+      // будильники.
+      if (browserTz && !savedTz && !State.alarmTzSynced) {
         State.alarmTzSynced = true;
         cgi('alarm.py', { timezone: browserTz }, { timeout: 10000, silent: true })
           .then(function () { loadAlarms(true); })
@@ -11672,7 +11688,12 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       el.pinInsecure.hidden = !(data.enabled && location.protocol === 'http:');
       showPinGate(!!data.enabled && !data.authed);
       return data;
-    }).catch(function () { /* панель без PIN */ });
+    }).catch(function (err) {
+      // Ошибка проверки не должна выглядеть как «панель без PIN»: сервер всё
+      // равно отдаст 401, а пользователь должен видеть, что нужен вход.
+      showPinGate(true);
+      if (el.pinError) el.pinError.textContent = 'Не удалось проверить PIN: ' + err.message;
+    });
   }
 
   function enablePin() {
@@ -12726,7 +12747,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       el.btnChatHistoryRefresh.addEventListener('click', function () {
         withBusy(el.btnChatHistoryRefresh, function () { return loadChatHistory(true); });
       });
-      setInterval(pollChatHistory, 15000);
+      every(15000, pollChatHistory);
     }
     el.btnChatRename.addEventListener('click', openChatRename);
     el.btnChatRenameYes.addEventListener('click', saveChatRename);
@@ -13193,8 +13214,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     scene.add(rim);
     var state = { renderer: renderer, scene: scene, camera: camera, model: null,
       screenMesh: null, screenPlane: null, ringMaterials: [],
-      yaw: -0.44, pitch: 0.16, distance: 6.55 };
-    window.__stationFBX = state;
+      yaw: 0.44, pitch: 0.16, distance: 6.55 };
     window.__stationGLTF = state;
     var drag = null;
     stage.addEventListener('pointerdown', function (event) {
@@ -13203,12 +13223,12 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     });
     stage.addEventListener('pointermove', function (event) {
       if (!drag) return;
-      state.yaw = drag.yaw + (event.clientX - drag.x) * 0.007;
+      state.yaw = drag.yaw - (event.clientX - drag.x) * 0.007;
       state.pitch = Math.max(-0.25, Math.min(0.7, drag.pitch - (event.clientY - drag.y) * 0.004));
     });
     stage.addEventListener('pointerup', function () { drag = null; });
     stage.addEventListener('pointercancel', function () { drag = null; });
-    stage.addEventListener('dblclick', function () { state.yaw = -0.44; state.pitch = 0.16; });
+    stage.addEventListener('dblclick', function () { state.yaw = 0.44; state.pitch = 0.16; });
     function resize() {
       var w = stage.clientWidth || 600;
       var h = stage.clientHeight || 500;
@@ -13517,112 +13537,10 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       requestAnimationFrame(frame);
       drawHomeScreen();
       syncHomeRing();
-      setInterval(drawHomeScreen, 1000);
-      setInterval(syncHomeRing, 130);
+      everyHome(1000, drawHomeScreen);
+      everyHome(130, syncHomeRing);
     }, undefined, function (error) {
       console.warn('GLTF load failed', error);
-      window.__stationFBX = null;
-      stage.classList.remove('gl-on');
-    });
-    return true;
-  }
-
-  function initStationFBX() {
-    if (!window.THREE || !THREE.FBXLoader) return false;
-    var canvas = document.getElementById('stationGL');
-    var stage = document.getElementById('stationStage');
-    if (!canvas || !stage) return false;
-    var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
-    renderer.setSize(stage.clientWidth || 600, stage.clientHeight || 500, false);
-    if (THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    var scene = new THREE.Scene();
-    var camera = new THREE.PerspectiveCamera(30, (stage.clientWidth || 600) / (stage.clientHeight || 500), 0.1, 100);
-    scene.add(new THREE.HemisphereLight(0xd9d6ff, 0x111218, 1.0));
-    var key = new THREE.DirectionalLight(0xffffff, 1.5);
-    key.position.set(2.4, 4.0, 3.2);
-    key.castShadow = true;
-    scene.add(key);
-    var fill = new THREE.DirectionalLight(0x8b5cf6, 0.7);
-    fill.position.set(-3, 1.6, -2);
-    scene.add(fill);
-    var rim = new THREE.DirectionalLight(0x22d3ee, 0.5);
-    rim.position.set(0, 2, -4);
-    scene.add(rim);
-    var state = { renderer: renderer, scene: scene, camera: camera, model: null,
-      yaw: -0.38, pitch: 0.12, distance: 3.05 };
-    window.__stationFBX = state;
-    var drag = null;
-    stage.addEventListener('pointerdown', function (event) {
-      drag = { x: event.clientX, y: event.clientY, yaw: state.yaw, pitch: state.pitch };
-      try { stage.setPointerCapture(event.pointerId); } catch (e) {}
-    });
-    stage.addEventListener('pointermove', function (event) {
-      if (!drag) return;
-      state.yaw = drag.yaw + (event.clientX - drag.x) * 0.007;
-      state.pitch = Math.max(-0.25, Math.min(0.7, drag.pitch - (event.clientY - drag.y) * 0.004));
-    });
-    stage.addEventListener('pointerup', function () { drag = null; });
-    stage.addEventListener('pointercancel', function () { drag = null; });
-    stage.addEventListener('dblclick', function () { state.yaw = -0.38; state.pitch = 0.12; });
-    function resize() {
-      var w = stage.clientWidth || 600;
-      var h = stage.clientHeight || 500;
-      renderer.setSize(w, h, false);
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-    }
-    if (window.ResizeObserver) new ResizeObserver(resize).observe(stage);
-    else window.addEventListener('resize', resize);
-    var loader = new THREE.FBXLoader();
-    loader.load('assets/station-midi.fbx', function (model) {
-      var box = new THREE.Box3().setFromObject(model);
-      var size = new THREE.Vector3();
-      box.getSize(size);
-      var scale = 2.15 / Math.max(size.y, 0.001);
-      model.scale.setScalar(scale);
-      box.setFromObject(model);
-      var center = new THREE.Vector3();
-      box.getCenter(center);
-      model.position.x -= center.x;
-      model.position.y -= center.y;
-      model.position.z -= center.z;
-      model.traverse(function (node) {
-        if (node.isMesh) {
-          node.castShadow = true;
-          node.receiveShadow = true;
-          if (node.material) {
-            node.material.side = THREE.FrontSide;
-            if (node.material.map) node.material.map.anisotropy = 4;
-          }
-        }
-      });
-      scene.add(model);
-      state.model = model;
-      stage.classList.add('gl-on');
-      var last = 0;
-      function frame(now) {
-        requestAnimationFrame(frame);
-        if (document.hidden || now - last < 33) return;
-        last = now;
-        camera.position.set(
-          Math.sin(state.yaw) * state.distance,
-          0.35 + Math.sin(state.pitch) * state.distance,
-          Math.cos(state.yaw) * state.distance
-        );
-        camera.lookAt(0, 0, 0);
-        renderer.render(scene, camera);
-      }
-      requestAnimationFrame(frame);
-      drawHomeScreen();
-      syncHomeRing();
-      setInterval(drawHomeScreen, 1000);
-      setInterval(syncHomeRing, 130);
-    }, undefined, function (error) {
-      console.warn('FBX load failed', error);
-      window.__stationFBX = null;
       stage.classList.remove('gl-on');
     });
     return true;
@@ -13775,7 +13693,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       uRing: gl.getUniformLocation(program, 'u_ring'),
       uScreen: gl.getUniformLocation(program, 'u_screen'),
       uFabric: gl.getUniformLocation(program, 'u_fabric'),
-      ring: [0.55, 0.36, 0.96], yaw: -0.42, pitch: 0.24
+      ring: [0.55, 0.36, 0.96], yaw: 0.42, pitch: 0.24
     };
     window.__stationGL = state;
     gl.clearColor(0, 0, 0, 0);
@@ -13793,12 +13711,12 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     });
     stage.addEventListener('pointermove', function (event) {
       if (!drag) return;
-      state.yaw = drag.yaw + (event.clientX - drag.x) * 0.005;
+      state.yaw = drag.yaw - (event.clientX - drag.x) * 0.005;
       state.pitch = Math.max(-0.08, Math.min(0.42, drag.pitch - (event.clientY - drag.y) * 0.003));
     });
     stage.addEventListener('pointerup', function () { drag = null; });
     stage.addEventListener('pointercancel', function () { drag = null; });
-    stage.addEventListener('dblclick', function () { state.yaw = -0.42; state.pitch = 0.24; });
+    stage.addEventListener('dblclick', function () { state.yaw = 0.42; state.pitch = 0.24; });
     function resize() {
       var rect = stage.getBoundingClientRect();
       var dpr = Math.min(window.devicePixelRatio || 1, 1.75);
@@ -13956,8 +13874,8 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     if (initStationGL()) {
       drawHomeScreen();
       syncHomeRing();
-      setInterval(drawHomeScreen, 1000);
-      setInterval(syncHomeRing, 130);
+      everyHome(1000, drawHomeScreen);
+      everyHome(130, syncHomeRing);
       return;
     }
     var fallback = document.getElementById('stationFallback');
@@ -14432,7 +14350,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     }, 5000);
     tickClock();
     setInterval(tickClock, 1000);
-    setInterval(tickRingAnims, 130);
+    every(130, tickRingAnims);
     setInterval(function () {
       if (State.tab === 'home' && !document.hidden) refreshSystem();
     }, 15000);

@@ -207,6 +207,15 @@ def check(force=False):
             "cached": False,
         }
         common.write_json(CACHE_PATH, data, mode=0o600)
+        # Держим update-status.json в согласии с реально установленной версией:
+        # иначе после ручной заливки там годами висит старое «0.4.46 -> 0.4.47».
+        try:
+            status = read_status()
+            if status.get("installed") not in (None, "", current):
+                write_status(installed=current, current=current,
+                             checked_at=now, latest=release["version"])
+        except OSError:
+            pass
         return data
     except Exception as exc:  # noqa: BLE001
         if cache:
@@ -435,7 +444,7 @@ def worker(version, archive_url, sha_url):
             log.write(("\n== update %s -> %s ==\n" % (from_version, version)).encode("utf-8"))
             completed = subprocess.run(
                 ["/bin/sh", str(source / "deploy" / "install.sh")],
-                cwd=str(source), stdout=log, stderr=subprocess.STDOUT, timeout=240,
+                cwd=str(source), stdout=log, stderr=subprocess.STDOUT, timeout=600,
             )
         if completed.returncode != 0:
             raise RuntimeError("install.sh завершился с кодом %s" % completed.returncode)

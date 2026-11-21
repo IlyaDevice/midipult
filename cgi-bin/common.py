@@ -222,6 +222,8 @@ WRITE_ACTIONS = frozenset({
     "unpair", "power", "on", "off", "restart", "start", "add", "remove",
     "delete", "rename", "apply", "set", "toggle", "run", "draw", "send",
     "clear", "launch", "wake", "dns_apply_saved",
+    # без этих имён GET-запрос мог менять DNS или забывать Wi-Fi сеть
+    "dns", "dns_reset", "forget", "connect_saved",
 })
 
 
@@ -536,3 +538,28 @@ def which(name: str):
             if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
                 return candidate
     return None
+
+
+# --------------------------------------------------------------------------- #
+#  Лог
+# --------------------------------------------------------------------------- #
+
+LOG_PATH = os.environ.get("MYPULT_LOG") or "/data/mypult/mypult.log"
+LOG_LIMIT = 512 * 1024
+
+
+def log(tag: str, message: str) -> None:
+    """Короткая запись в общий лог пульта с ротацией по размеру."""
+    try:
+        folder = os.path.dirname(LOG_PATH)
+        if folder:
+            os.makedirs(folder, exist_ok=True)
+        try:
+            if os.path.getsize(LOG_PATH) > LOG_LIMIT:
+                os.replace(LOG_PATH, LOG_PATH + ".1")
+        except OSError:
+            pass
+        with open(LOG_PATH, "a", encoding="utf-8") as fh:
+            fh.write("%s %s: %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), tag, message))
+    except OSError:
+        pass

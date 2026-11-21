@@ -38,7 +38,29 @@ LOG="/tmp/mypult.log"
 LIGHTTPD_PIDFILE="/tmp/mypult-lighttpd.pid"
 
 log() {
+    # В режиме ensure (раз в минуту) не засоряем лог сообщениями «уже работает».
+    if [ "${QUIET:-0}" = "1" ]; then
+        case "$*" in
+            *"уже"*|*"не трогаю"*) return 0 ;;
+        esac
+    fi
+    if [ -f "$LOG" ] && [ "$(wc -c <"$LOG" 2>/dev/null || echo 0)" -gt 1048576 ]; then
+        mv -f "$LOG" "$LOG.1" 2>/dev/null
+    fi
     printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >>"$LOG"
+}
+
+# PID из файла должен принадлежать именно нашему процессу: после перезагрузки
+# PID переиспользуется, и проверка «kill -0» может принять чужой процесс за свой.
+pid_matches() {
+    _file="$1"
+    _pattern="$2"
+    [ -f "$_file" ] || return 1
+    _pid=$(cat "$_file" 2>/dev/null)
+    [ -n "$_pid" ] || return 1
+    kill -0 "$_pid" 2>/dev/null || return 1
+    tr '\000' ' ' <"/proc/$_pid/cmdline" 2>/dev/null | grep -q "$_pattern" || return 1
+    return 0
 }
 
 # Проверка TCP-порта через /proc/net/tcp (без netstat и nc).
@@ -139,24 +161,18 @@ start_web() {    if is_listening 8055; then
 # ----------------------------------------------------------- голос -----------
 start_voice() {
     [ -f /data/mypult/voice_daemon.py ] || return 0
-    if [ -f /data/mypult/voice.pid ]; then
-        _pid=$(cat /data/mypult/voice.pid 2>/dev/null)
-        if [ -n "$_pid" ] && kill -0 "$_pid" 2>/dev/null; then
-            log "голосовой пульт: уже работает (pid $_pid)"
-            return 0
-        fi
+    if pid_matches /data/mypult/voice.pid "voice_daemon.py"; then
+        log "голосовой пульт: уже работает (pid $(cat /data/mypult/voice.pid 2>/dev/null))"
+        return 0
     fi
     if [ -x /opt/bin/curl ]; then
         /opt/bin/curl -s -m 30 -X POST http://127.0.0.1:8055/cgi-bin/voicectl.py \
             -H 'Content-Type: application/json' -d '{"start":1}' >/dev/null 2>&1
     fi
     sleep 2
-    if [ -f /data/mypult/voice.pid ]; then
-        _pid=$(cat /data/mypult/voice.pid 2>/dev/null)
-        if [ -n "$_pid" ] && kill -0 "$_pid" 2>/dev/null; then
-            log "голосовой пульт: запущен (pid $_pid)"
-            return 0
-        fi
+    if pid_matches /data/mypult/voice.pid "voice_daemon.py"; then
+        log "голосовой пульт: запущен (pid $(cat /data/mypult/voice.pid 2>/dev/null))"
+        return 0
     fi
     log "голосовой пульт: НЕ стартовал"
     return 1
@@ -176,17 +192,14 @@ stop_voice() {
 
 start_state() {
     [ -f /data/mypult/state_daemon.py ] || return 0
-    if [ -f /tmp/mypult-state.pid ]; then
-        _pid=$(cat /tmp/mypult-state.pid 2>/dev/null)
-        if [ -n "$_pid" ] && kill -0 "$_pid" 2>/dev/null; then
-            log "state: уже работает (pid $_pid)"
-            return 0
-        fi
+    if pid_matches /tmp/mypult-state.pid "state_daemon.py"; then
+        log "state: уже работает (pid $(cat /tmp/mypult-state.pid 2>/dev/null))"
+        return 0
     fi
     nohup /opt/bin/python3 /data/mypult/state_daemon.py >>/tmp/mypult.log 2>&1 &
     echo $! > /tmp/mypult-state.pid
     sleep 1
-    if kill -0 "$(cat /tmp/mypult-state.pid)" 2>/dev/null; then
+    if pid_matches /tmp/mypult-state.pid "state_daemon.py"; then
         log "state: запущен на 8057"
     else
         log "state: НЕ стартовал (панель использует CGI)"
@@ -194,11 +207,29 @@ start_state() {
 }
 
 stop_state() {
-    if [ -f /tmp/mypult-state.pid ]; then
-        _pid=$(cat /tmp/mypult-state.pid 2>/dev/null)
-        [ -n "$_pid" ] && kill "$_pid" 2>/dev/null
-        rm -f /tmp/mypult-state.pid
+    if pid_matches /tmp/mypult-state.pid "state_daemon.py"; then
+        kill "$(cat /tmp/mypult-state.pid 2>/dev/null)" 2>/dev/null
     fi
+    rm -f /tmp/mypult-state.pid
+}
+
+# --------------------------------------------------------------- watchdog ----
+# Раз в минуту проверяем только критичные процессы и поднимаем то, что упало.
+# Без этого voice_daemon (вместе с будильниками) и state_daemon жили до
+# перезагрузки, даже если умирали от OOM или исключения.
+start_watchdog() {
+    if pid_matches "$RUNDIR/watchdog.pid" "S99mypult"; then
+        log "watchdog: уже работает"
+        return 0
+    fi
+    nohup sh -c 'while :; do sleep 60; /opt/etc/init.d/S99mypult ensure >>/tmp/mypult.log 2>&1; done' \
+        >/dev/null 2>&1 &
+    echo $! >"$RUNDIR/watchdog.pid"
+    log "watchdog: запущен (pid $!)"
+}
+
+stop_watchdog() {
+    stop_pidfile "$RUNDIR/watchdog.pid" "watchdog"
 }
 
 # ------------------------------------------------ IPC-мост на 9875 (опция) --
@@ -285,6 +316,7 @@ restore_volume() {
 }
 
 stop_all() {
+    stop_watchdog
     stop_voice
     stop_state
     stop_web
@@ -304,6 +336,21 @@ status_all() {
     if is_listening 8099; then echo "luna       : up   (8099)"; else echo "luna       : down"; fi
     if is_listening 9875; then echo "ipc 9875   : up"; else echo "ipc 9875   : down"; fi
     if is_listening 8055; then echo "lighttpd   : up   (8055)"; else echo "lighttpd   : down"; fi
+    if pid_matches /data/mypult/voice.pid "voice_daemon.py"; then
+        echo "voice      : up   (pid $(cat /data/mypult/voice.pid 2>/dev/null))"
+    else
+        echo "voice      : down"
+    fi
+    if pid_matches /tmp/mypult-state.pid "state_daemon.py"; then
+        echo "state      : up   (8057)"
+    else
+        echo "state      : down"
+    fi
+    if pid_matches "$RUNDIR/watchdog.pid" "S99mypult"; then
+        echo "watchdog   : up"
+    else
+        echo "watchdog   : down"
+    fi
 }
 
 # ------------------------------------------------ подсветка кольца -----------
@@ -376,6 +423,20 @@ case "$1" in
         start_ring_backlight
         start_dns_auto
         start_vpn_auto
+        start_watchdog
+        ;;
+    ensure)
+        # Только то, что должно работать постоянно; watchdog вызывает это раз
+        # в минуту. Никаких сетевых настроек и перезапусков Luna.
+        QUIET=1
+        wait_root || exit 1
+        start_luna
+        start_web
+        start_voice
+        start_state
+        ;;
+    watch)
+        start_watchdog
         ;;
     stop)
         stop_all
@@ -394,6 +455,7 @@ case "$1" in
         start_ring_backlight
         start_dns_auto
         start_vpn_auto
+        start_watchdog
         ;;
     reload)
         # SIGHUP в этой сборке не перечитывает конфиг, поэтому применяем
@@ -407,12 +469,13 @@ case "$1" in
         restore_volume
         start_voice
         start_state
+        start_watchdog
         ;;
     status)
         status_all
         ;;
     *)
-        echo "Использование: $0 {start|stop|restart|reload|status}"
+        echo "Использование: $0 {start|stop|restart|reload|ensure|watch|status}"
         exit 1
         ;;
 esac

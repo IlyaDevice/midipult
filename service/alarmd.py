@@ -27,8 +27,12 @@ DATA = "/data/mypult/alarms.json"
 STATE = "/tmp/mypult-alarm-state.json"
 CMD = "/tmp/mypult-alarm-cmd.json"
 FIRED = "/tmp/mypult-alarm-fired.json"
+SNOOZE = "/data/mypult/alarm_snooze.json"
 MAIND_LOG = "/data/quasar/daemons_logs/maind.log"
 DEFAULT = {"alarms": []}
+# Если колонка перезагрузилась/обновилась в момент срабатывания, будильник
+# догоняем в пределах этого окна, а не теряем до следующего дня.
+CATCHUP_MINUTES = 5
 
 
 def log(message):
@@ -58,6 +62,7 @@ class AlarmScheduler(threading.Thread):
         self.ringing = None
         self.snooze_until = 0.0
         self.snooze_alarm = None
+        self._load_snooze()
         self.fired = self._load_fired()
         self.base_volume = None
         self._mixer = None
@@ -66,6 +71,32 @@ class AlarmScheduler(threading.Thread):
         self.last_check = 0.0
 
     # -- служебное --------------------------------------------------------- #
+
+    def _load_snooze(self):
+        data = common.read_json(SNOOZE, {}) or {}
+        alarm = data.get("alarm")
+        until = float(data.get("until") or 0)
+        if isinstance(alarm, dict) and until > 0:
+            self.snooze_alarm = alarm
+            self.snooze_until = until
+
+    def _save_snooze(self):
+        try:
+            if self.snooze_alarm and self.snooze_until:
+                common.write_json(SNOOZE, {"until": self.snooze_until,
+                                           "alarm": self.snooze_alarm})
+            else:
+                self._clear_snooze()
+        except OSError:
+            pass
+
+    def _clear_snooze(self):
+        self.snooze_until = 0.0
+        self.snooze_alarm = None
+        try:
+            os.unlink(SNOOZE)
+        except OSError:
+            pass
 
     def _load_fired(self):
         data = common.read_json(FIRED, {"keys": []}) or {}
@@ -89,7 +120,17 @@ class AlarmScheduler(threading.Thread):
         return not (alarm.get("days") or [])
 
     def _due(self, alarm, now):
-        if not alarm.get("enabled") or alarm.get("time") != now.strftime("%H:%M"):
+        if not alarm.get("enabled"):
+            return False
+        try:
+            hour, minute = [int(part) for part in str(alarm.get("time") or "").split(":")]
+            target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        except (TypeError, ValueError):
+            return False
+        if target.date() != now.date():
+            return False
+        delta = (now - target).total_seconds() / 60.0
+        if delta < 0 or delta > CATCHUP_MINUTES:
             return False
         if self._is_once(alarm):
             return True
@@ -138,10 +179,9 @@ class AlarmScheduler(threading.Thread):
         now = self._now()
         if self.snooze_until and time.time() >= self.snooze_until:
             alarm = self.snooze_alarm
-            self.snooze_until = 0.0
-            self.snooze_alarm = None
+            self._clear_snooze()
             if alarm:
-                self.fire(alarm, snoozed=True)
+                self._start_fire(alarm, snoozed=True)
                 return
         for alarm in read_alarms():
             if not self._due(alarm, now):
@@ -153,7 +193,7 @@ class AlarmScheduler(threading.Thread):
             self._save_fired()
             if self._is_once(alarm):
                 self._disable_once(alarm.get("id"))
-            self.fire(alarm)
+            self._start_fire(alarm)
             return
 
     def handle_command(self):
@@ -173,6 +213,8 @@ class AlarmScheduler(threading.Thread):
             self.stop("snooze")
             self.snooze_alarm = alarm
             self.snooze_until = time.time() + minutes * 60
+            self._save_snooze()
+            log("отложен на %d мин" % minutes)
         elif action == "test":
             alarm = next((item for item in read_alarms()
                           if item.get("id") == command.get("id")), None)
@@ -237,7 +279,20 @@ class AlarmScheduler(threading.Thread):
 
     # -- запуск и остановка ------------------------------------------------ #
 
+    def _start_fire(self, alarm, **kwargs):
+        """Запуск будильника в отдельном потоке.
+
+        Раньше fire() крутился прямо в tick(): запуск своего звука мог занять
+        до 120 с, и на это время планировщик переставал видеть команды
+        «выключить/отложить» и следующие будильники.
+        """
+        thread = threading.Thread(target=self.fire, args=(alarm,), kwargs=kwargs,
+                                  daemon=True, name="alarm-fire")
+        thread.start()
+
     def fire(self, alarm, snoozed=False, test=False):
+        if snoozed:
+            self._clear_snooze()
         self.base_volume = self._volume_percent()
         self.log_offset = 0
         try:
@@ -339,6 +394,8 @@ class AlarmScheduler(threading.Thread):
     def stop(self, why):
         state = self.ringing.get("state") if self.ringing else {}
         self.ringing = None
+        if why == "dismiss":
+            self._clear_snooze()
         try:
             display.animation_stop()
         except Exception:  # noqa: BLE001

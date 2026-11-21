@@ -19,6 +19,19 @@ PY="/opt/bin/python3"
 LIGHTTPD="/opt/sbin/lighttpd"
 STAMP=$(date '+%Y%m%d-%H%M%S')
 BACKUP="/tmp/mypult-backup-$STAMP"
+STAGE=""
+OLD=""
+
+cleanup() {
+    if [ -n "$OLD" ] && [ -d "$OLD" ] && [ ! -d "$WEB" ]; then
+        mv "$OLD" "$WEB" 2>/dev/null
+    fi
+    if [ -n "$STAGE" ]; then
+        rm -rf "$STAGE" 2>/dev/null
+    fi
+    return 0
+}
+trap cleanup EXIT INT TERM
 
 say() { printf '\033[1;36m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[!]\033[0m %s\n' "$*"; }
@@ -52,35 +65,51 @@ for f in "$WEB"/cgi-bin/*.py; do
 done
 [ -f "$CONF" ] && cp -f "$CONF" "$BACKUP/myweb.conf"
 [ -f "$INIT" ] && cp -f "$INIT" "$BACKUP/S99mypult"
+# Полный снимок веб-рута — для ручного отката при потере питания.
+if [ -d "$WEB" ]; then
+    tar -cf "$BACKUP/myweb.tar" -C "$(dirname "$WEB")" "$(basename "$WEB")" 2>/dev/null || \
+        warn "полный бэкап веб-рута не сделан"
+fi
 
 say "копирую фронтенд и CGI"
-mkdir -p "$WEB/cgi-bin" || die "не могу создать $WEB/cgi-bin"
-cp -f "$SRC/index.html" "$WEB/index.html" || die "не скопировался index.html"
-[ -f "$SRC/index.py" ] && cp -f "$SRC/index.py" "$WEB/index.py"
-[ -f "$SRC/manifest.json" ] && cp -f "$SRC/manifest.json" "$WEB/manifest.json"
+STAGE="${WEB}.new"
+OLD="${WEB}.old.$$"
+rm -rf "$STAGE" || die "не могу очистить $STAGE"
+mkdir -p "$STAGE/cgi-bin" || die "не могу создать $STAGE/cgi-bin"
+# Сохраняем файлы, которых нет в архиве (например, glagol.conf с локальными
+# переопределениями), чтобы обновление их не потеряло.
+if [ -d "$WEB" ]; then
+    cp -a "$WEB/." "$STAGE/" 2>/dev/null || warn "не всё скопировалось из $WEB"
+fi
+cp -f "$SRC/index.html" "$STAGE/index.html" || die "не скопировался index.html"
+[ -f "$SRC/index.py" ] && cp -f "$SRC/index.py" "$STAGE/index.py"
+[ -f "$SRC/manifest.json" ] && cp -f "$SRC/manifest.json" "$STAGE/manifest.json"
 for asset in favicon.ico icon-192.png icon-512.png icon.png icon-circle.png; do
-    [ -f "$SRC/$asset" ] && cp -f "$SRC/$asset" "$WEB/$asset"
+    [ -f "$SRC/$asset" ] && cp -f "$SRC/$asset" "$STAGE/$asset"
 done
 if [ -d "$SRC/assets" ]; then
-    mkdir -p "$WEB/assets"
-    cp -f "$SRC/assets/"* "$WEB/assets/" 2>/dev/null || warn "не скопировались assets"
+    mkdir -p "$STAGE/assets"
+    cp -f "$SRC/assets/"* "$STAGE/assets/" 2>/dev/null || warn "не скопировались assets"
 fi
-rm -f "$WEB/icon.svg"
-[ -f "$SRC/version.json" ] && cp -f "$SRC/version.json" "$WEB/version.json"
+rm -f "$STAGE/icon.svg"
+# Мёртвые ассеты старого FBX-рендера: убираем и из staging, и из живого рута
+# после подмены, чтобы не тащить их через обновления.
+rm -f "$STAGE/assets/station-midi.fbx" "$STAGE/assets/FBXLoader.js" "$STAGE/assets/fflate.min.js"
+[ -f "$SRC/version.json" ] && cp -f "$SRC/version.json" "$STAGE/version.json"
 for f in "$SRC"/cgi-bin/*.py; do
-    cp -f "$f" "$WEB/cgi-bin/" || die "не скопировался $f"
+    cp -f "$f" "$STAGE/cgi-bin/" || die "не скопировался $f"
 done
-chmod 755 "$WEB"/cgi-bin/*.py 2>/dev/null
+chmod 755 "$STAGE"/cgi-bin/*.py 2>/dev/null
 if [ -f "$SRC/bin/yt-dlp" ]; then
     mkdir -p /data/mypult/bin
     cp -f "$SRC/bin/yt-dlp" /data/mypult/bin/yt-dlp || warn "не скопировался yt-dlp"
     chmod 755 /data/mypult/bin/yt-dlp 2>/dev/null || true
 fi
 # Устаревший CGI звука отклика: удаляем, чтобы не оставался после обновления.
-rm -f "$WEB/cgi-bin/soundcfg.py"
-rm -f "$WEB/cgi-bin/timezone.py"
-[ -f "$SRC/cgi-bin/glagol.conf" ] && [ ! -f "$WEB/cgi-bin/glagol.conf" ] && \
-    cp -f "$SRC/cgi-bin/glagol.conf" "$WEB/cgi-bin/glagol.conf"
+rm -f "$STAGE/cgi-bin/soundcfg.py"
+rm -f "$STAGE/cgi-bin/timezone.py"
+[ -f "$SRC/cgi-bin/glagol.conf" ] && [ ! -f "$STAGE/cgi-bin/glagol.conf" ] && \
+    cp -f "$SRC/cgi-bin/glagol.conf" "$STAGE/cgi-bin/glagol.conf"
 
 if [ -f "$SRC/service/voice_daemon.py" ]; then
     say "копирую голосовой демон"
@@ -111,18 +140,6 @@ fi
 say "копирую конфиг lighttpd и init-скрипт"
 cp -f "$SRC/lighttpd/myweb.conf" "$CONF" || die "не скопировался myweb.conf"
 
-# На части прошивок /data — симлинк на /bkupgrade/data. lighttpd с
-# server.follow-symlink = "disable" не идёт по симлинкам и отдаёт 403 на всё,
-# если document-root указан через /data: панель «устанавливается», но проверка
-# по HTTP падает и self-update откатывается. Пишем в конфиг реальный путь —
-# хардening остаётся включённым. На обычной прошивке readlink вернёт тот же
-# /data/myweb, и конфиг не меняется.
-DOC_REAL=$(readlink -f "$WEB" 2>/dev/null || true)
-if [ -n "$DOC_REAL" ] && [ "$DOC_REAL" != "$WEB" ] && [ -d "$DOC_REAL" ]; then
-    say "document-root: $WEB -> $DOC_REAL (обход симлинка /data)"
-    sed -i "s#^server\.document-root.*#server.document-root = \"$DOC_REAL\"#" "$CONF"
-fi
-
 # /etc на прошивке обычно read-only: пробуем /etc/init.d, затем Entware
 # (/opt/etc/init.d — его запускает rc.unslung), затем кладём рядом с веб-рутом.
 INIT_TARGET="$INIT"
@@ -132,8 +149,8 @@ if ! cp -f "$SRC/init.d/S99mypult" "$INIT_TARGET" 2>/dev/null; then
     mkdir -p /opt/etc/init.d 2>/dev/null
     if cp -f "$SRC/init.d/S99mypult" /opt/etc/init.d/S99mypult 2>/dev/null; then
         INIT_TARGET="/opt/etc/init.d/S99mypult"
-    elif mkdir -p "$WEB/init.d" 2>/dev/null && \
-         cp -f "$SRC/init.d/S99mypult" "$WEB/init.d/S99mypult" 2>/dev/null; then
+    elif mkdir -p "$STAGE/init.d" 2>/dev/null && \
+         cp -f "$SRC/init.d/S99mypult" "$STAGE/init.d/S99mypult" 2>/dev/null; then
         INIT_TARGET="$WEB/init.d/S99mypult"
     fi
     [ -n "$INIT_TARGET" ] || die "некуда положить S99mypult"
@@ -147,12 +164,39 @@ if [ -f "$SRC/deploy/autostart.sh" ]; then
 fi
 
 say "убираю CRLF после копирования с Windows"
-for f in "$WEB/index.html" "$WEB/cgi-bin/"*.py "$CONF" "$INIT_TARGET"; do
+for f in "$STAGE/index.html" "$STAGE/cgi-bin/"*.py "$CONF" "$INIT_TARGET"; do
     [ -f "$f" ] && sed -i 's/\r$//' "$f"
 done
 
 say "права на запуск"
-chmod 755 "$WEB/cgi-bin/"*.py || die "chmod не удался"
+chmod 755 "$STAGE/cgi-bin/"*.py || die "chmod не удался"
+
+# Атомарная подмена: старый веб-рут уводим в сторону, новый переименовываем
+# целиком. Если что-то пойдёт не так, старый возвращается на место.
+say "подменяю $WEB целиком"
+if [ -d "$WEB" ]; then
+    mv "$WEB" "$OLD" || die "не могу отодвинуть старый $WEB"
+fi
+if ! mv "$STAGE" "$WEB"; then
+    [ -d "$OLD" ] && mv "$OLD" "$WEB"
+    die "не удалось подменить $WEB — старый возвращён"
+fi
+STAGE=""
+sync
+rm -rf "$OLD"
+OLD=""
+
+# На части прошивок /data — симлинк на /bkupgrade/data. lighttpd с
+# server.follow-symlink = "disable" не идёт по симлинкам и отдаёт 403 на всё,
+# если document-root указан через /data: панель «устанавливается», но проверка
+# по HTTP падает и self-update откатывается. Пишем в конфиг реальный путь —
+# хардening остаётся включённым. На обычной прошивке readlink вернёт тот же
+# /data/myweb, и конфиг не меняется.
+DOC_REAL=$(readlink -f "$WEB" 2>/dev/null || true)
+if [ -n "$DOC_REAL" ] && [ "$DOC_REAL" != "$WEB" ] && [ -d "$DOC_REAL" ]; then
+    say "document-root: $WEB -> $DOC_REAL (обход симлинка /data)"
+    sed -i "s#^server\.document-root.*#server.document-root = \"$DOC_REAL\"#" "$CONF"
+fi
 
 if ! "$PY" -c 'import websocket' >/dev/null 2>&1; then
     say "ставлю python3-websocket-client"
@@ -205,6 +249,14 @@ case "$STATUS_JSON" in
         exit 2
         ;;
 esac
+
+# update-status.json — история последней установки. Раньше файл годами хранил
+# запись 0.4.46 -> 0.4.47, хотя на колонке уже стояла другая версия.
+NOW=$(date +%s)
+printf '{"state":"done","from":"%s","to":"%s","message":"Установлено заливкой","error":"","installed":"%s","rolled_back":false,"updated_at":%s,"finished_at":%s}\n' \
+    "${OLD_VERSION:-}" "${VERSION:-}" "${VERSION:-}" "$NOW" "$NOW" \
+    >/data/mypult/update-status.json 2>/dev/null || \
+    warn "не удалось обновить update-status.json"
 
 say "готово. Откройте http://<ip-колонки>:8055/"
 

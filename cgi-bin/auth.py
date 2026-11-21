@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import hmac
 import json
@@ -18,6 +19,11 @@ import os
 import secrets
 import sys
 import time
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - Windows/тесты
+    fcntl = None
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
@@ -30,6 +36,8 @@ MAX_FAILS = 5
 FAIL_WINDOW = 10 * 60
 LOCK_SECONDS = 5 * 60
 MAX_IPS = 50
+PIN_ITERATIONS = 120_000
+TOKEN_BYTES = 32
 
 
 def load():
@@ -67,45 +75,98 @@ def _guard_key():
     return str(os.environ.get("REMOTE_ADDR") or "?")
 
 
+@contextlib.contextmanager
+def _guard_lock():
+    """Сериализуем чтение-изменение-запись счётчика попыток.
+
+    Без блокировки параллельные запросы теряли инкремент, и лимит
+    «5 ошибок за 10 минут» обходился простым параллельным перебором.
+    """
+    if fcntl is None:
+        yield
+        return
+    try:
+        handle = open(GUARD + ".lock", "a+", encoding="utf-8")
+    except OSError:
+        yield
+        return
+    try:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        yield
+    finally:
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        finally:
+            handle.close()
+
+
+def _retry_seconds(data):
+    entry = data.get(_guard_key()) or {}
+    until = float(entry.get("until") or 0)
+    return max(0, int(until - time.time() + 0.999)) if until > time.time() else 0
+
+
 def guard_retry():
     """Сколько секунд ещё нельзя пробовать PIN (0 — можно)."""
-    now = time.time()
-    entry = (_guard_load().get(_guard_key()) or {})
-    until = float(entry.get("until") or 0)
-    return max(0, int(until - now + 0.999)) if until > now else 0
+    with _guard_lock():
+        return _retry_seconds(_guard_load())
 
 
 def guard_fail():
     now = time.time()
-    data = _guard_load()
-    key = _guard_key()
-    entry = data.get(key) if isinstance(data.get(key), dict) else {}
-    first = float(entry.get("first") or 0)
-    count = int(entry.get("count") or 0)
-    if not first or now - first > FAIL_WINDOW:
-        first = now
-        count = 0
-    count += 1
-    data[key] = {"first": first, "count": count,
-                 "until": now + LOCK_SECONDS if count >= MAX_FAILS else 0}
-    # не даём файлу расти бесконечно
-    if len(data) > MAX_IPS:
-        data = dict(list(data.items())[-MAX_IPS:])
-    _guard_save(data)
-    return guard_retry()
+    with _guard_lock():
+        data = _guard_load()
+        key = _guard_key()
+        entry = data.get(key) if isinstance(data.get(key), dict) else {}
+        first = float(entry.get("first") or 0)
+        count = int(entry.get("count") or 0)
+        if not first or now - first > FAIL_WINDOW:
+            first = now
+            count = 0
+        count += 1
+        until = now + LOCK_SECONDS if count >= MAX_FAILS else 0
+        data[key] = {"first": first, "count": count, "until": until}
+        # не даём файлу расти бесконечно
+        if len(data) > MAX_IPS:
+            data = dict(list(data.items())[-MAX_IPS:])
+        _guard_save(data)
+        return max(0, int(until - now + 0.999)) if until > now else 0
 
 
 def guard_success():
-    data = _guard_load()
-    if data.pop(_guard_key(), None) is not None:
-        _guard_save(data)
+    with _guard_lock():
+        data = _guard_load()
+        if data.pop(_guard_key(), None) is not None:
+            _guard_save(data)
 
 
-def pin_hash(pin, salt):
+def pin_hash(pin, salt, iterations=PIN_ITERATIONS):
+    """PBKDF2-SHA256 вместо одного SHA-256: 4–8 цифр перебираются офлайн."""
+    return hashlib.pbkdf2_hmac("sha256", pin.encode("utf-8"),
+                               salt.encode("utf-8"), int(iterations)).hex()
+
+
+def legacy_hash(pin, salt):
     return hashlib.sha256((salt + ":" + pin).encode("utf-8")).hexdigest()
 
 
+def verify_pin(pin, config):
+    stored = str(config.get("pin_hash") or "")
+    salt = str(config.get("salt") or "")
+    if not stored:
+        return False
+    if config.get("algo") == "pbkdf2_sha256":
+        iterations = common.to_int(config.get("iterations"), PIN_ITERATIONS, 10_000, 1_000_000)
+        return hmac.compare_digest(pin_hash(pin, salt, iterations), stored)
+    return hmac.compare_digest(legacy_hash(pin, salt), stored)
+
+
+def new_token():
+    return secrets.token_hex(TOKEN_BYTES)
+
+
 def make_token(salt, hashed):
+    """Старый детерминированный токен — только для совместимости."""
     return hashlib.sha256(("mypult:" + salt + ":" + hashed).encode("utf-8")).hexdigest()
 
 
@@ -168,15 +229,20 @@ def main():
         if retry:
             common.fail(429, "Слишком много попыток. Подождите %d с" % retry)
             return
-        if not pin or not hmac.compare_digest(pin_hash(pin, config.get("salt", "")),
-                                              str(config.get("pin_hash", ""))):
+        if not pin or not verify_pin(pin, config):
             retry = guard_fail()
             common.fail(403, "Неверный PIN" + (". Блокировка на %d с" % retry if retry else ""))
             return
         guard_success()
+        # Старые установки хранили токен, выведенный из хеша PIN. После
+        # первого удачного входа меняем его на случайный: утечка auth.json
+        # больше не даёт вечную куку.
         token = str(config.get("token") or "")
-        if not token:
-            token = make_token(config.get("salt", ""), config.get("pin_hash", ""))
+        if not token or not config.get("token_random"):
+            token = new_token()
+            config["token"] = token
+            config["token_random"] = True
+            save(config)
         common.respond(200, {"ok": True, "authed": True}, [cookie_header(token)])
         return
 
@@ -206,7 +272,8 @@ def main():
         salt = secrets.token_hex(8)
         hashed = pin_hash(pin, salt)
         config = {"enabled": True, "salt": salt, "pin_hash": hashed,
-                  "token": make_token(salt, hashed)}
+                  "algo": "pbkdf2_sha256", "iterations": PIN_ITERATIONS,
+                  "token": new_token(), "token_random": True}
         save(config)
         # Не оставляем текущий браузер «уже вошедшим»: новая соль
         # инвалидирует старые куки, а эту — гасим.

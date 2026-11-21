@@ -62,6 +62,8 @@ def player_now(force=False):
 
 def cookie_ok(headers):
     config = common.auth_config()
+    if config.get("broken"):
+        return False
     if not config.get("enabled"):
         return True
     token = str(config.get("token") or "")
@@ -72,6 +74,21 @@ def cookie_ok(headers):
         if name == "mypult_token" and hmac.compare_digest(value.strip(), token):
             return True
     return False
+
+
+def same_origin_ok(headers):
+    """POST на /ring и /clock не должен приходить с чужого сайта."""
+    origin = (headers.get("Origin") or headers.get("Referer") or "").strip()
+    if origin:
+        try:
+            parsed = urllib.parse.urlsplit(origin)
+        except ValueError:
+            return False
+        if parsed.scheme not in ("http", "https"):
+            return False
+        host = (headers.get("Host") or "").strip().lower()
+        return bool(host) and parsed.netloc.lower() == host
+    return headers.get("X-Requested-With") == "MidiPult"
 
 
 def ring_forward(colors):
@@ -379,6 +396,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if not cookie_ok(self.headers):
             self._json(401, {"ok": False, "error": "Нужен PIN", "auth": True})
+            return
+        if not same_origin_ok(self.headers):
+            self._json(403, {"ok": False, "error": "Запрос с другого сайта запрещён"})
             return
         try:
             length = min(int(self.headers.get("Content-Length") or 0), 65536)

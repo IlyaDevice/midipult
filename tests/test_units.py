@@ -1238,8 +1238,12 @@ def test_alarm_rules():
     rule = {"enabled": True, "time": "07:30", "days": [1, 2, 3, 4, 5], "id": "a1"}
     check("будильник: срабатывает в срок",
           scheduler._due(rule, friday) is True)
-    check("будильник: не срабатывает в другую минуту",
-          scheduler._due(rule, friday.replace(minute=31)) is False)
+    check("будильник: догоняет в пределах 5 минут",
+          scheduler._due(rule, friday.replace(minute=34)) is True)
+    check("будильник: не догоняет спустя 6 минут",
+          scheduler._due(rule, friday.replace(minute=36)) is False)
+    check("будильник: не срабатывает раньше времени",
+          scheduler._due(rule, friday.replace(minute=29)) is False)
     once_rule = {"enabled": True, "time": "07:30", "days": [],
                  "once": True, "id": "a2"}
     check("будильник: одноразовый срабатывает",
@@ -1266,6 +1270,28 @@ def test_alarm_rules():
     check("будильник: ключ уникален по дате",
           scheduler._key(rule, friday) == "a1|2026-11-20|07:30",
           scheduler._key(rule, friday))
+
+    old_snooze = alarmd.SNOOZE
+    fd3, snooze_path = tempfile.mkstemp(prefix="mypult-snooze-", suffix=".json")
+    os.close(fd3)
+    os.remove(snooze_path)
+    try:
+        alarmd.SNOOZE = snooze_path
+        scheduler.snooze_alarm = dict(rule)
+        scheduler.snooze_until = 1795200000.0
+        scheduler._save_snooze()
+        restored = alarmd.AlarmScheduler()
+        check("будильник: отложенный переживает перезапуск",
+              restored.snooze_alarm == rule and restored.snooze_until == 1795200000.0,
+              str((restored.snooze_alarm, restored.snooze_until)))
+        restored._clear_snooze()
+        check("будильник: отложенный очищается", not os.path.exists(snooze_path))
+    finally:
+        alarmd.SNOOZE = old_snooze
+        try:
+            os.remove(snooze_path)
+        except OSError:
+            pass
 
 
 def test_clock_animation():
@@ -1911,10 +1937,45 @@ def test_files_safety():
         shutil.rmtree(root, ignore_errors=True)
 
 
+def test_security_fixes():
+    """Аудит 0.5.65: чтение файлов, удаление корней, PIN и POST-гард DNS."""
+    check("файлы: /etc вне чтения", files._can_read("/etc/passwd") is False)
+    check("файлы: /data/mypult читается", files._can_read("/data/mypult/ring.json") is True)
+    check("файлы: auth.json не читается", files._can_read("/data/mypult/auth.json") is False)
+
+    old_forbidden = files.FORBIDDEN_DELETE
+    files.FORBIDDEN_DELETE = tuple(old_forbidden) + (os.path.realpath("/data/mypult"),)
+    try:
+        for root in ("/data", "/data/mypult"):
+            try:
+                files._delete(root)
+                blocked = False
+            except files.FileError:
+                blocked = True
+            check("файлы: удаление %s запрещено" % root, blocked)
+    finally:
+        files.FORBIDDEN_DELETE = old_forbidden
+
+    salt = "abc"
+    pin = "1234"
+    pbkdf2 = {"algo": "pbkdf2_sha256", "salt": salt, "iterations": 10000,
+              "pin_hash": auth.pin_hash(pin, salt, 10000)}
+    check("auth: PBKDF2 проверяется", auth.verify_pin(pin, pbkdf2) is True)
+    check("auth: неверный PIN отклонён", auth.verify_pin("0000", pbkdf2) is False)
+    check("auth: старый SHA-256 ещё работает",
+          auth.verify_pin(pin, {"salt": salt, "pin_hash": auth.legacy_hash(pin, salt)}) is True)
+    check("auth: токен случайный и длинный",
+          auth.new_token() != auth.new_token() and len(auth.new_token()) == 64)
+
+    check("сеть: dns требует POST", "dns" in common.WRITE_ACTIONS)
+    check("сеть: dns_reset требует POST", "dns_reset" in common.WRITE_ACTIONS)
+
+
 def main():
     for test in (
         test_generic_helpers,
         test_files_safety,
+        test_security_fixes,
         test_volume_discovery,
         test_volume_parse,
         test_volume_set,

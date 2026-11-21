@@ -32,7 +32,13 @@ import common  # noqa: E402
 MAX_TEXT = 2 * 1024 * 1024
 MAX_UPLOAD = 64 * 1024 * 1024
 READ_ROOTS = ("/data", "/opt", "/tmp", "/root", "/etc", "/var/log")
+# Содержимое (не листинг) отдаём только из этих каталогов: там нет системных
+# секретов вроде /etc/shadow, wpa_supplicant.conf, ключей SSH и токенов
+# Яндекс-аккаунта. Остальные корни можно листать, но не читать.
+CONTENT_ROOTS = ("/data/mypult", "/data/myweb", "/tmp", "/var/log")
 WRITE_ROOTS = ("/data/mypult", "/tmp")
+FORBIDDEN_DELETE = ("/", "/data", "/data/mypult", "/data/myweb", "/opt",
+                    "/tmp", "/root", "/etc", "/var/log", "/var")
 ROOT_CHOICES = (
     {"path": "/data", "label": "Данные"},
     {"path": "/opt", "label": "Entware"},
@@ -83,6 +89,11 @@ def _sensitive(path):
     return name in SENSITIVE_NAMES or name.endswith(SENSITIVE_EXT)
 
 
+def _can_read(path):
+    """Содержимое разрешено только в CONTENT_ROOTS и не для секретов."""
+    return _inside(os.path.realpath(path), CONTENT_ROOTS) and not _sensitive(path)
+
+
 def _can_write(path):
     return _inside(os.path.realpath(path), WRITE_ROOTS) and not _sensitive(path)
 
@@ -111,7 +122,8 @@ def _entry(path, name):
         "mtime": int(target.st_mtime),
         "link": is_link,
         "locked": locked,
-        "writable": _can_write(full) if not is_dir else _can_write(full),
+        "readable": _can_read(full),
+        "writable": _can_write(full),
     }
 
 
@@ -145,6 +157,9 @@ def _read(path):
         raise FileError("Файл не найден", 404)
     if _sensitive(path):
         raise FileError("Файл с секретами нельзя открыть здесь", 403)
+    if not _can_read(path):
+        raise FileError("Просмотр файлов вне /data/mypult, /data/myweb, "
+                        "/tmp и /var/log отключён", 403)
     size = os.path.getsize(path)
     if size > MAX_TEXT:
         raise FileError("Файл больше 2 МБ — скачайте его", 413)
@@ -207,6 +222,8 @@ def _new_name(value):
 
 def _rename(path, name):
     name = _new_name(name)
+    if os.path.realpath(path) in FORBIDDEN_DELETE:
+        raise FileError("Корень переименовывать нельзя", 403)
     target = os.path.join(os.path.dirname(path), name)
     if not _can_write(path) or not _can_write(target):
         raise FileError("Переименовывать здесь нельзя", 403)
@@ -219,9 +236,10 @@ def _rename(path, name):
 
 
 def _delete(path):
-    if path in ("/", "/data", "/opt", "/tmp", "/root", "/etc"):
+    real = os.path.realpath(path)
+    if real in FORBIDDEN_DELETE:
         raise FileError("Корень удалять нельзя", 403)
-    if not _can_write(path):
+    if not _can_write(real):
         raise FileError("Удалять здесь нельзя", 403)
     try:
         if os.path.isdir(path) and not os.path.islink(path):
@@ -237,6 +255,9 @@ def _raw(path, download=False):
         raise FileError("Файл не найден", 404)
     if _sensitive(path):
         raise FileError("Файл с секретами нельзя открыть здесь", 403)
+    if not _can_read(path):
+        raise FileError("Скачивание файлов вне /data/mypult, /data/myweb, "
+                        "/tmp и /var/log отключено", 403)
     size = os.path.getsize(path)
     ctype = mimetypes.guess_type(path)[0] or "application/octet-stream"
     if path.endswith(".opus"):
@@ -350,7 +371,10 @@ def main():
 
     data = common.params()
     action = str(data.get("action") or action or "list").strip().lower()
-    path = _resolve(data.get("path") or qs.get("path") or "/data/mypult",
+    explicit = data.get("path") or qs.get("path")
+    if action in ("write", "mkdir", "rename", "delete") and not explicit:
+        raise FileError("Укажите путь явно", 400)
+    path = _resolve(explicit or "/data/mypult",
                     write=action in ("write", "mkdir", "rename", "delete"))
 
     if action in ("write", "mkdir", "rename", "delete") and method not in ("POST", "PUT"):
