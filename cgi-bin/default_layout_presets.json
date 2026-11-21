@@ -1,8 +1,8 @@
 {
   "presets": [
     {
-      "id": "layout-default",
-      "name": "По умолчанию",
+      "id": "layout-test",
+      "name": "Тест",
       "mode": "wide",
       "layout": {
         "order": [
