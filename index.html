@@ -2607,13 +2607,9 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       </summary>
       <div class="ym-auth-body">
         <div id="ymLoggedOut">
-          <p class="seg-note" style="margin:0 0 8px">Необязательный вход — для своих плейлистов и «Моей волны». Токен хранится только на станции.</p>
+          <p class="seg-note" style="margin:0 0 8px">Вход по QR — для своих плейлистов и «Моей волны». Ссылки и токены вставлять не нужно.</p>
           <div class="row">
             <button class="btn sm" id="btnYmLogin">Войти в Яндекс</button>
-          </div>
-          <div class="row" style="margin-top:8px">
-            <input type="text" id="ymTokenUrl" placeholder="Вставьте адрес страницы после входа" autocomplete="off">
-            <button class="btn sm ghost" id="btnYmSave">Сохранить</button>
           </div>
         </div>
         <div id="ymLoggedIn" hidden>
@@ -3544,7 +3540,6 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
         <div class="seg-note" id="ymQrStatus">Запрашиваю ссылку…</div>
         <div class="row" style="gap:6px;flex-wrap:wrap">
           <button type="button" class="btn sm ghost" id="btnYmQrRetry">Новый QR</button>
-          <button type="button" class="btn sm ghost" id="btnYmQrFallback">Войти по ссылке</button>
         </div>
       </div>
     </div>
@@ -6324,37 +6319,15 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
 
   function initYandexMusic() {
     var login = document.getElementById('btnYmLogin');
-    var save = document.getElementById('btnYmSave');
     var logout = document.getElementById('btnYmLogout');
-    var input = document.getElementById('ymTokenUrl');
-    if (!login || !save || !logout) return;
+    if (!login || !logout) return;
     login.addEventListener('click', openYmLogin);
     var dlg = document.getElementById('ymLoginDlg');
     var close = document.getElementById('btnYmLoginClose');
     var retry = document.getElementById('btnYmQrRetry');
-    var fallback = document.getElementById('btnYmQrFallback');
     if (close) close.addEventListener('click', function () { if (dlg) dlg.close(); });
     if (retry) retry.addEventListener('click', startYmQr);
-    if (fallback) fallback.addEventListener('click', function () {
-      if (dlg) dlg.close();
-      var auth = document.getElementById('ymAuth');
-      if (auth) auth.open = true;
-      if (input) input.focus();
-    });
     if (dlg) dlg.addEventListener('close', stopYmQr);
-    save.addEventListener('click', function () {
-      var value = (input && input.value || '').trim();
-      if (!value) { toast('Вставьте адрес после входа', 'warn'); return; }
-      withBusy(save, function () {
-        return cgi('yandex_auth.py', { url: value }, { timeout: 20000 }).then(function (data) {
-          if (input) input.value = '';
-          applyYmAuth(data);
-          toast('Яндекс Музыка подключена', 'ok');
-        }).catch(function (err) {
-          toast('Яндекс Музыка: ' + err.message, 'bad');
-        });
-      });
-    });
     logout.addEventListener('click', function () {
       cgi('yandex_auth.py', { logout: 1 }, { timeout: 10000 }).then(applyYmAuth)
         .catch(function (err) { toast('Яндекс Музыка: ' + err.message, 'bad'); });
@@ -10842,9 +10815,13 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
 
   var VK_CLIENT_KEY = 'mypult-vk-client-id';
   var VK_OAUTH_STATE = 'vk_oauth';
+  var VK_OAUTH_STORAGE = 'mypult-vk-oauth';
+  var vkOAuthWindow = null;
+  var vkOAuthToken = null;
+  var vkOAuthPoll = null;
 
   function vkRedirectUri() {
-    return location.origin + '/';
+    return location.origin + '/vk_oauth.html';
   }
 
   function vkInitOAuth() {
@@ -10852,7 +10829,51 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     var clientId = store.get(VK_CLIENT_KEY, '');
     if (clientId && el.vkClientId) el.vkClientId.value = clientId;
     vkHandleOAuthReturn();
+    vkConsumeStoredOAuth();
   }
+
+  function vkConsumeStoredOAuth() {
+    var raw = '';
+    try { raw = localStorage.getItem(VK_OAUTH_STORAGE) || ''; } catch (e) { return; }
+    if (!raw) return;
+    try { localStorage.removeItem(VK_OAUTH_STORAGE); } catch (e) {}
+    var data = null;
+    try { data = JSON.parse(raw); } catch (e) { return; }
+    if (data && data.token) vkOAuthAccept(data.token);
+  }
+
+  function vkOAuthAccept(token) {
+    token = String(token || '').trim();
+    if (!token || token === vkOAuthToken) return;
+    vkOAuthToken = token;
+    if (vkOAuthPoll) { clearInterval(vkOAuthPoll); vkOAuthPoll = null; }
+    if (vkOAuthWindow && !vkOAuthWindow.closed) {
+      try { vkOAuthWindow.close(); } catch (e) {}
+    }
+    vkOAuthWindow = null;
+    try { window.focus(); } catch (e) {}
+    extStatus(el.vkStatus, 'Сохраняю токен VK…');
+    cgi('vk.py', { action: 'token', token: token }, { timeout: 30000 })
+      .then(function (data) {
+        extStatus(el.vkStatus, 'VK подключена' + (data.login ? ' · ' + data.login : ''), 'ok');
+        setProvDot('vk', 'ok');
+        toast('VK Музыка подключена', 'ok');
+      })
+      .catch(function (err) {
+        vkOAuthToken = null;
+        extStatus(el.vkStatus, 'Ошибка VK: ' + err.message, 'bad');
+        toast('VK Музыка: ' + err.message, 'bad');
+      });
+  }
+
+  window.addEventListener('message', function (event) {
+    if (event.origin !== location.origin) return;
+    var data = event.data || {};
+    if (data.type === 'mipult-vk-oauth' && data.token) vkOAuthAccept(data.token);
+  });
+  window.addEventListener('storage', function (event) {
+    if (event.key === VK_OAUTH_STORAGE) vkConsumeStoredOAuth();
+  });
 
   function vkOAuthStart() {
     var clientId = (el.vkClientId && el.vkClientId.value || '').trim();
@@ -10862,6 +10883,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       return;
     }
     store.set(VK_CLIENT_KEY, clientId);
+    vkOAuthToken = null;
     var query = new URLSearchParams({
       client_id: clientId,
       display: 'page',
@@ -10871,9 +10893,28 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       state: VK_OAUTH_STATE,
       v: '5.199'
     });
-    // VK отдаёт токен во фрагменте; его перехватит vkHandleOAuthReturn()
-    // после возврата на эту же страницу.
-    window.location.href = 'https://oauth.vk.com/authorize?' + query.toString();
+    var url = 'https://oauth.vk.com/authorize?' + query.toString();
+    var popup = window.open(url, 'vk_oauth',
+      'popup=yes,width=520,height=720,resizable=yes,scrollbars=yes');
+    if (!popup) {
+      // Браузер заблокировал окно — входим в этой же вкладке, а
+      // vk_oauth.html вернёт нас обратно и закроет страницу.
+      extStatus(el.vkStatus, 'Открываю VK в этой вкладке…');
+      window.location.href = url;
+      return;
+    }
+    vkOAuthWindow = popup;
+    extStatus(el.vkStatus, 'Окно входа VK открыто…');
+    try { popup.focus(); } catch (e) {}
+    if (vkOAuthPoll) clearInterval(vkOAuthPoll);
+    vkOAuthPoll = setInterval(function () {
+      if (!vkOAuthWindow || vkOAuthWindow.closed) {
+        clearInterval(vkOAuthPoll);
+        vkOAuthPoll = null;
+        vkOAuthWindow = null;
+        if (!vkOAuthToken) extStatus(el.vkStatus, 'Вход VK отменён', 'warn');
+      }
+    }, 800);
   }
 
   function vkCopyRedirect() {
@@ -10911,18 +10952,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       extStatus(el.vkStatus, 'VK: ' + error, 'bad');
       return;
     }
-    if (!token) return;
-    extStatus(el.vkStatus, 'Сохраняю токен VK…');
-    cgi('vk.py', { action: 'token', token: token }, { timeout: 30000 })
-      .then(function (data) {
-        extStatus(el.vkStatus, 'VK подключена' + (data.login ? ' · ' + data.login : ''), 'ok');
-        setProvDot('vk', 'ok');
-        toast('VK Музыка подключена', 'ok');
-      })
-      .catch(function (err) {
-        extStatus(el.vkStatus, 'Ошибка VK: ' + err.message, 'bad');
-        toast('VK Музыка: ' + err.message, 'bad');
-      });
+    if (token) vkOAuthAccept(token);
   }
 
   function vkLoadStatus() {

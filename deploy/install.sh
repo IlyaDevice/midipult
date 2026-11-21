@@ -92,6 +92,7 @@ if [ -d "$WEB" ]; then
     cp -a "$WEB/." "$STAGE/" 2>/dev/null || warn "не всё скопировалось из $WEB"
 fi
 cp -f "$SRC/index.html" "$STAGE/index.html" || die "не скопировался index.html"
+[ -f "$SRC/vk_oauth.html" ] && cp -f "$SRC/vk_oauth.html" "$STAGE/vk_oauth.html"
 [ -f "$SRC/index.py" ] && cp -f "$SRC/index.py" "$STAGE/index.py"
 [ -f "$SRC/manifest.json" ] && cp -f "$SRC/manifest.json" "$STAGE/manifest.json"
 for asset in favicon.ico icon-192.png icon-512.png icon.png icon-circle.png; do
