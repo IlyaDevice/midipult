@@ -356,7 +356,8 @@ main.grid{
 #ringMusicPop[hidden]{display:none}
 body.light #ringMusicPop{background:#fff}
 .ring-picker .alarm-select{height:36px}
-.ring-picker .ring-list{position:static;left:auto;right:auto;top:auto;max-height:none;
+.ring-picker .ring-list{position:fixed;left:auto;right:auto;top:auto;bottom:auto;
+  z-index:120;max-height:none;
   margin-top:6px;padding:6px;background:#0f1420;border-radius:12px;overflow:visible}
 .ring-option{display:flex;align-items:center;gap:8px;width:100%;font-size:13px}
 .ring-option .ring-raw{margin-left:auto;color:var(--muted);font-size:10px;opacity:.6}
@@ -12751,13 +12752,38 @@ body.light dialog.queue-dlg.ym-look{
     });
   }
 
+  function placeRingPick() {
+    if (!el.ringPickPop || !el.btnRingPick || el.ringPickPop.hidden) return;
+    var rect = el.btnRingPick.getBoundingClientRect();
+    var width = Math.max(240, Math.min(420, rect.width));
+    var left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
+    var below = window.innerHeight - rect.bottom - 12;
+    var above = rect.top - 12;
+    var up = below < 220 && above > below;
+    var height = Math.max(140, Math.min(340, up ? above : below));
+    el.ringPickPop.style.position = 'fixed';
+    el.ringPickPop.style.width = width + 'px';
+    el.ringPickPop.style.left = left + 'px';
+    el.ringPickPop.style.maxHeight = height + 'px';
+    el.ringPickPop.style.overflow = 'auto';
+    if (up) {
+      el.ringPickPop.style.top = 'auto';
+      el.ringPickPop.style.bottom = (window.innerHeight - rect.top + 6) + 'px';
+    } else {
+      el.ringPickPop.style.top = (rect.bottom + 6) + 'px';
+      el.ringPickPop.style.bottom = 'auto';
+    }
+  }
+
   function toggleRingPick(show) {
     if (!el.ringPickPop || !el.btnRingPick) return;
+    if (show) placeRingPick();
     el.ringPickPop.hidden = !show;
     el.btnRingPick.setAttribute('aria-expanded', show ? 'true' : 'false');
     if (show) {
       el.ringSearch.value = '';
       filterRingAnims();
+      placeRingPick();
       focusOnDesktop(el.ringSearch, 30);
     }
   }
