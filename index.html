@@ -1835,19 +1835,21 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .c-led>.auto-bright{grid-column:1/-1;grid-row:2;margin:0!important;align-self:start}
 .c-led>.ring{grid-column:1;grid-row:3;margin:0 auto}
 .c-led>.led-hint{display:none}
-.c-led>.led-bright{grid-column:2;grid-row:3;margin-top:0}
+.c-led>.led-right{grid-column:2;grid-row:3;display:grid;gap:8px;align-content:start}
+.c-led>.led-right .field{margin-top:0}
 .c-led>.led-controls{grid-column:1;grid-row:4;margin-top:0}
-.c-led>.led-speed{grid-column:2;grid-row:4;margin-top:0}
 .c-led>.led-bright #ringBrightness,.c-led>.led-speed #ringSpeed,
-.c-led>.led-bright>.field-top,.c-led>.led-speed>.field-top{max-width:100%}
-.c-led>#presets{grid-column:1;grid-row:5;margin-top:0;display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;justify-content:stretch}
+.c-led>.led-right .field-top{max-width:100%}
+.c-led>#presets{grid-column:2;grid-row:4;margin-top:0;display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
 .c-led>#presets .chip{width:100%;height:30px;font-size:13px;padding:0 6px}
-.c-led>.led-logo{grid-column:2;grid-row:5;margin-top:0}
 .c-led .logo-modes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
 .c-led .logo-modes .chip{width:100%;height:30px;font-size:13px;padding:0 6px}
-.c-led>.led-anims{grid-column:1/-1;grid-row:6;margin-top:4px}
-.c-led>.led-footer{grid-column:1/-1;grid-row:7;margin-top:6px}
+.c-led>.led-anims{grid-column:1/-1;grid-row:5;margin-top:4px}
+.c-led .ring-anim-row .ring-picker{flex:1 1 160px;min-width:0}
+.c-led .ring-anim-row .btn{flex:0 0 80px;height:30px;padding:0 6px;font-size:13px}
+.c-led>.led-footer{grid-column:1/-1;grid-row:6;margin-top:6px;gap:8px}
+.c-led>.led-footer .btn{flex:0 0 auto;width:auto;height:32px;padding:0 14px;font-size:13px}
 .c-led .chips{justify-content:flex-start}
 
 @media(max-width:900px){
@@ -2784,7 +2786,8 @@ body.light dialog.queue-dlg.ym-look{
       <label class="llm-toggle"><input type="checkbox" id="autoBright"><span>Автояркость кольца по свету</span></label>
       <span class="seg-note" id="autoBrightStatus"></span>
     </div>
-    <div class="field slider-narrow led-bright" style="margin-top:14px">
+    <div class="led-right">
+    <div class="field slider-narrow led-bright" style="margin-top:0">
       <div class="field-top"><label for="ringBrightness">Яркость кольца</label><output id="ringBrightVal">255</output></div>
       <input type="range" id="ringBrightness" min="0" max="255" step="1" value="255" aria-label="Яркость кольца">
     </div>
@@ -2800,6 +2803,7 @@ body.light dialog.queue-dlg.ym-look{
         <button type="button" class="chip" data-logo-mode="white" aria-pressed="false">Белый</button>
         <button type="button" class="chip" data-logo-mode="off" aria-pressed="false">Выкл</button>
       </div>
+    </div>
     </div>
     <div class="field led-anims" style="margin-top:14px">
       <div class="field-top"><label>Анимации с колонки</label><output id="ringAnimStatus">—</output></div>
