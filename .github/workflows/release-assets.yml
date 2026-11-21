@@ -41,7 +41,7 @@ jobs:
                  favicon.ico icon-192.png icon-512.png icon.png icon-circle.png
                  assets cgi-bin service init.d lighttpd deploy)
           [ -d bin ] && items+=(bin)
-          tar -czf "midipult-$version.tar.gz" "${items[@]}"
+          tar -czf "midipult-$version.tar.gz" --exclude='deploy/push-to-station.ps1' "${items[@]}"
           sha256sum "midipult-$version.tar.gz" > "midipult-$version.tar.gz.sha256"
           cat "midipult-$version.tar.gz.sha256"
 
