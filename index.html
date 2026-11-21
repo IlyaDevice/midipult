@@ -16204,6 +16204,9 @@ body.light dialog.queue-dlg.ym-look{
     var button = document.getElementById('btnHomeExtra');
     var pop = document.getElementById('homeExtraPop');
     if (!button || !pop) return;
+    // Попап вне карточки: иначе её transform делает fixed относительным
+    // карточки, и список обрезается/съезжает.
+    document.body.appendChild(pop);
     var saved = store.get('homeExtra', 'resources');
     State.homeExtra = HOME_EXTRAS[saved] ? saved : 'resources';
     renderHomeExtraOptions();
@@ -16212,8 +16215,15 @@ body.light dialog.queue-dlg.ym-look{
     button.addEventListener('click', function (event) {
       event.stopPropagation();
       pop.hidden = !pop.hidden;
+      if (!pop.hidden) placeHomeExtraPop();
       button.setAttribute('aria-expanded', pop.hidden ? 'false' : 'true');
     });
+    window.addEventListener('resize', function () {
+      if (!pop.hidden) placeHomeExtraPop();
+    });
+    document.addEventListener('scroll', function () {
+      if (!pop.hidden) placeHomeExtraPop();
+    }, true);
     pop.addEventListener('click', function (event) { event.stopPropagation(); });
     document.addEventListener('click', function (event) {
       if (!event.target.closest('#btnHomeExtra') && !event.target.closest('#homeExtraPop')) {
