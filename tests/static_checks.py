@@ -562,7 +562,7 @@ def test_yapanel_features():
           and "ring_anim_stop: 1, keep: 1" in html
           and 'data.get("keep")' in display_py)
     check("автояркость: Luna time и применение после перезагрузки",
-          "time_text or time.strftime" in display_py
+          "time_text or clock_text()" in display_py and "def format_clock" in display_py
           and "def auto_loop" in daemon_py
           and "display.display_auto_apply()" in daemon_py
           and 'reason === ' in html)

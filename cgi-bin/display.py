@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import glob
 import json
+from datetime import datetime, timezone
 import os
 import re
 import signal
@@ -23,6 +24,11 @@ import subprocess
 import sys
 import time
 import urllib.request
+
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:  # pragma: no cover
+    ZoneInfo = None
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
@@ -184,10 +190,43 @@ def segment_brightness(value):
     return changed
 
 
+TZ_SOURCES = (
+    ("/data/mypult/alarms.json", "timezone"),
+    ("/data/mypult/llm.json", "timezone"),
+)
+
+
+def timezone_name():
+    """Часовой пояс пользователя: он же используется для будильников."""
+    for path, key in TZ_SOURCES:
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                value = json.load(fh).get(key)
+        except (OSError, ValueError, TypeError):
+            continue
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def format_clock(moment, tz_name=""):
+    """Время для LED-часов в поясе пользователя, а не в UTC станции."""
+    if tz_name and ZoneInfo is not None:
+        try:
+            moment = moment.astimezone(ZoneInfo(tz_name))
+        except Exception:  # noqa: BLE001
+            pass
+    return moment.strftime("%H:%M")
+
+
+def clock_text():
+    return format_clock(datetime.now(timezone.utc), timezone_name())
+
+
 def luna_clock(brightness, time_text=None):
     """Яркость дисплея; Luna требует time или segments даже для яркости."""
     payload = {"brightness": max(10, min(int(brightness), 255))}
-    payload["time"] = time_text or time.strftime("%H:%M")
+    payload["time"] = time_text or clock_text()
     try:
         body = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(LUNA_CLOCK, data=body,

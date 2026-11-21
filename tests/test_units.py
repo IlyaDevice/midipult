@@ -2240,6 +2240,17 @@ def test_dns_probe_and_skip():
         network.dns_probe, network.dns_servers = old
 
 
+def test_display_clock_timezone():
+    from datetime import datetime, timezone
+    moment = datetime(2026, 1, 1, 20, 0, tzinfo=timezone.utc)
+    check("часы: UTC → Екатеринбург +5",
+          display.format_clock(moment, "Asia/Yekaterinburg") == "01:00",
+          display.format_clock(moment, "Asia/Yekaterinburg"))
+    check("часы: UTC остаётся UTC", display.format_clock(moment, "UTC") == "20:00")
+    check("часы: неизвестный пояс — без сдвига",
+          display.format_clock(moment, "Nowhere/Zone") == "20:00")
+
+
 def main():
     for test in (
         test_generic_helpers,
@@ -2270,6 +2281,7 @@ def main():
         test_media_config_override,
         test_speak_frames,
         test_display_auto,
+        test_display_clock_timezone,
         test_display_segment_guard,
         test_display_reset,
         test_auth_guard,
