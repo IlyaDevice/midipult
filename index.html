@@ -10259,7 +10259,8 @@ body.light dialog.queue-dlg.ym-look{
         // каждый лишний сброс height вызывал reflow и прыжки прокрутки.
         var currentSpan = parseInt(String(card.style.gridRowEnd || '').replace(/[^0-9]/g, ''), 10) || 0;
         var height;
-        if (card.dataset.forceFit) {
+        var forceFit = !!card.dataset.forceFit;
+        if (forceFit) {
           var prevHeight = card.style.height;
           var prevAlign = card.style.alignSelf;
           card.style.height = 'auto';
@@ -10276,7 +10277,10 @@ body.light dialog.queue-dlg.ym-look{
         var span = Math.max(1, Math.ceil((height + PACK_GAP) / (PACK_UNIT + PACK_GAP)));
         var wanted = Number(card.dataset.rows || 0);
         if (wanted > span) span = wanted;
-        if (currentSpan && span < currentSpan) span = currentSpan;
+        // Без forceFit карточка не сжимается (чтобы не дёргалась на опросах),
+        // но после сворачивания/удаления контента — сжимается до контента
+        // или до вручную выставленной высоты.
+        if (!forceFit && currentSpan && span < currentSpan) span = currentSpan;
         var box = span * (PACK_UNIT + PACK_GAP) - PACK_GAP;
         var before = Number(card.dataset.packBox || 0);
         if (currentSpan !== span) card.style.gridRowEnd = 'span ' + span;
@@ -10296,6 +10300,25 @@ body.light dialog.queue-dlg.ym-look{
     }
   }
 
+  function fitCardToContent(card) {
+    if (!card || card.classList.contains('is-hidden')) return;
+    var prevHeight = card.style.height;
+    var prevAlign = card.style.alignSelf;
+    card.style.height = 'auto';
+    card.style.alignSelf = 'start';
+    var height = Math.ceil(card.getBoundingClientRect().height);
+    card.style.height = prevHeight;
+    card.style.alignSelf = prevAlign;
+    var span = Math.max(1, Math.ceil((height + PACK_GAP) / (PACK_UNIT + PACK_GAP)));
+    var wanted = Number(card.dataset.rows || 0);
+    if (wanted > span) span = wanted;
+    var box = span * (PACK_UNIT + PACK_GAP) - PACK_GAP;
+    card.style.gridRowEnd = 'span ' + span;
+    card.style.height = box + 'px';
+    card.dataset.packBox = String(box);
+    card.dataset.packH = String(Math.ceil(card.scrollHeight));
+  }
+
   // Раскрытие/сворачивание details внутри карточки: разрешаем карточке
   // и вырасти, и сжаться обратно (forceFit), иначе после сворачивания
   // оставалась пустая высота.
@@ -10305,8 +10328,20 @@ body.light dialog.queue-dlg.ym-look{
     var card = target.closest('main.grid > .card');
     if (!card) return;
     card.dataset.forceFit = '1';
+    fitCardToContent(card);
     schedulePack();
   }, true);
+
+  function contentChanged() {
+    var cards = document.querySelectorAll('main.grid > .card');
+    for (var i = 0; i < cards.length; i++) {
+      var card = cards[i];
+      if (card.classList.contains('is-hidden')) continue;
+      var stored = Number(card.dataset.packH || 0);
+      if (Math.abs(card.scrollHeight - stored) > 1) return true;
+    }
+    return false;
+  }
 
   function schedulePack() {
     clearTimeout(packTimer);
@@ -10324,11 +10359,16 @@ body.light dialog.queue-dlg.ym-look{
       function (card) { packObserver.observe(card); });
     // Раскрыли блок внутри карточки, подгрузился текст или список — высота
     // содержимого меняется, хотя сама карточка ещё нет. Пересобираем сетку.
-    var contentObserver = new MutationObserver(function () {
-      if (!packing && !cardResizing &&
-          !document.body.classList.contains('card-dragging')) {
-        schedulePack();
-      }
+    var contentObserver = new MutationObserver(function (records) {
+      if (packing || cardResizing ||
+          document.body.classList.contains('card-dragging')) return;
+      records.forEach(function (record) {
+        var node = record.target;
+        if (node && node.nodeType !== 1) node = node.parentElement;
+        var card = node && node.closest ? node.closest('main.grid > .card') : null;
+        if (card) card.dataset.forceFit = '1';
+      });
+      schedulePack();
     });
     var grid = document.querySelector('main.grid');
     if (grid) {
