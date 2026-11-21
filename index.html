@@ -7049,14 +7049,18 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     highlightNowLyrics(true);
   }
 
+  // Небольшой запас: локальные часы панели чуть обгоняют станцию, из-за чего
+  // строка включалась раньше звука. 0.22 с убирает этот забег.
+  var LYRICS_DELAY = 0.22;
+
   function highlightNowLyrics(force) {
     var lines = State.nowLyricsLines;
     if (!lines || !lines.length) return;
-    var now = State.audioProgress || State.mediaProgress || 0;
+    var now = Math.max(0, (State.audioProgress || State.mediaProgress || 0) - LYRICS_DELAY);
     var active = null;
     lines.forEach(function (line) {
       var moment = parseFloat(line.dataset.t);
-      if (!isNaN(moment) && moment <= now + 0.08) active = line;
+      if (!isNaN(moment) && moment <= now + 0.03) active = line;
     });
     if (!force && State.nowLyricsActive === active) return;
     State.nowLyricsActive = active;
@@ -7112,11 +7116,11 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       updateInlineLine();
       return;
     }
-    var now = State.audioProgress || State.mediaProgress || 0;
+    var now = Math.max(0, (State.audioProgress || State.mediaProgress || 0) - LYRICS_DELAY);
     var active = null;
     lines.forEach(function (line) {
       var moment = parseFloat(line.dataset.t);
-      if (!isNaN(moment) && moment <= now + 0.08) active = line;
+      if (!isNaN(moment) && moment <= now + 0.03) active = line;
     });
     if (State.lyricsActive === active) {
       highlightNowLyrics();
@@ -7833,6 +7837,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     var trackChanged = title !== (State.mediaTitle || '');
     var incoming = (Number(data.progress) || 0) + (Number(data.age) || 0);
     var local = currentProgress();
+    var wasPlaying = State.playing;
 
     // Ожидаемое состояние после нажатия важнее задержанного state станции.
     var expected = null;
@@ -7881,6 +7886,10 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       }
     } else if (!trackChanged && playing && local > 0 && incoming < local - 1.5) {
       // Старый снапшот (watcher/демон) не должен откатывать ползунок назад.
+      incoming = local;
+    } else if (!trackChanged && !playing && wasPlaying && incoming < local - 0.2) {
+      // На паузе станция иногда отдаёт позицию чуть позже, чем та, на которой
+      // реально остановился звук. Не откатываем строку текста назад.
       incoming = local;
     }
     // Точка отсчёта для локальной интерполяции: progress + age, дальше
