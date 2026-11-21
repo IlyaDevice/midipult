@@ -1828,6 +1828,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .c-clock>.seg7{max-width:460px;padding:0 8px 8px}
 .c-clock>.field.slider-narrow{grid-column:1;grid-row:4;margin-top:0}
 .c-clock>.field.slider-narrow #brightness{max-width:100%}
+.c-clock>.field.slider-narrow>.field-top{max-width:none}
 .c-clock .bright-chips{grid-template-columns:repeat(4,minmax(0,1fr))}
 .c-clock>.display-extra{grid-column:2;grid-row:4;margin-top:0;align-self:start}
 .c-clock>.seg-note{grid-column:1/-1;grid-row:5;margin-top:0!important;font-size:12px}
@@ -2729,10 +2730,10 @@ body.light dialog.queue-dlg.ym-look{
     <h2 id="h-clock"><span class="dot"></span>Дисплей</h2>
     <div class="display-actions">
       <button class="btn ghost" id="btnDisplayReset">
-        <svg class="ic" aria-hidden="true"><use href="#i-sync"/></svg>Сбросить дисплей
+        <svg class="ic" aria-hidden="true"><use href="#i-sync"/></svg>Сбросить
       </button>
       <button class="btn ghost" id="btnScreenOff">
-        <svg class="ic" aria-hidden="true"><use href="#i-power"/></svg>Погасить экран
+        <svg class="ic" aria-hidden="true"><use href="#i-power"/></svg>Погасить
       </button>
     </div>
     <div class="field slider-narrow">
