@@ -1277,9 +1277,21 @@ body.light .reboot-bar{background:rgba(76,62,48,.1)}
 .np-lyric.swap .np-lyric-text{animation:lyricSwap .5s cubic-bezier(.22,.61,.36,1)}
 @keyframes lyricSwap{0%{opacity:0;transform:translateY(7px);filter:blur(3px)}
   100%{opacity:1;transform:none;filter:none}}
-.lyr-head-actions{display:flex;align-items:center;gap:14px;flex:0 0 auto}
-.lyr-inline{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer}
-.lyr-inline input{accent-color:#7c5cff;width:15px;height:15px}
+.lyr-head-actions{display:flex;align-items:center;gap:12px;flex:0 0 auto}
+.lyr-source{font-size:10px;color:#777780;margin-top:3px;min-height:12px;letter-spacing:.04em}
+.lyr-switch{display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:11.5px;
+  color:#c3c8d6;white-space:nowrap;user-select:none;padding:3px 8px 3px 5px;border-radius:999px;
+  background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08)}
+.lyr-switch:hover{border-color:rgba(255,255,255,.18)}
+.lyr-switch input{position:absolute;opacity:0;width:1px;height:1px}
+.lyr-switch-track{position:relative;width:32px;height:18px;flex:0 0 auto;border-radius:999px;
+  background:#252b3a;border:1px solid rgba(255,255,255,.2);transition:background .15s,border-color .15s}
+.lyr-switch-track i{position:absolute;left:2px;top:2px;width:12px;height:12px;border-radius:50%;
+  background:#c7ccda;transition:left .15s,background .15s}
+.lyr-switch input:checked + .lyr-switch-track{background:rgba(124,92,255,.6);
+  border-color:rgba(124,92,255,.85)}
+.lyr-switch input:checked + .lyr-switch-track i{left:16px;background:#fff}
+.lyr-switch input:focus-visible + .lyr-switch-track{outline:2px solid var(--accent2);outline-offset:2px}
 .lyr-head{position:relative;z-index:1;flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;
   gap:14px;padding:22px 26px 14px;
   background:linear-gradient(180deg,rgba(11,14,22,.96),rgba(11,14,22,.6) 72%,transparent)}
@@ -1341,8 +1353,7 @@ body.light .reboot-bar{background:rgba(76,62,48,.1)}
   .lyr-head-actions{width:100%;justify-content:space-between;gap:8px;flex-wrap:nowrap}
   .lyr-title{font-size:16px}
   .lyr-artist{font-size:12px}
-  .lyr-inline{font-size:11px;gap:5px}
-  .lyr-inline input{width:14px;height:14px}
+  .lyr-switch{font-size:11px;gap:6px}
   #lyricsStatus{font-size:10px}
   #btnLyricsClose{flex:0 0 auto;height:30px;padding:0 10px}
   .lyr-lines{padding:30% 16px}
@@ -3490,15 +3501,15 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
 <dialog id="lyricsDlg" class="lyrics-dlg" aria-labelledby="lyrTitle">
   <div class="lyr-bg" id="lyrBg"></div>
   <div class="lyr-head">
-    <div>
+    <div class="lyr-head-title">
       <div class="lyr-title" id="lyrTitle">Текст песни</div>
-      <div class="lyr-artist" id="lyrArtist"></div>
+      <div class="lyr-source" id="lyricsStatus"></div>
     </div>
     <div class="lyr-head-actions">
-      <span class="seg-note" id="lyricsStatus"></span>
-      <label class="lyr-inline">
-        <input type="checkbox" id="lyricsInline">
-        <span>Строка в плеере</span>
+      <label class="lyr-switch" title="Показывать строку в плеере">
+        <input type="checkbox" id="lyricsInline" aria-label="Строка в плеере">
+        <span class="lyr-switch-track" aria-hidden="true"><i></i></span>
+        <span class="lyr-switch-label">В плеере</span>
       </label>
       <button class="btn sm ghost" id="btnLyricsClose">Закрыть</button>
     </div>
@@ -7537,8 +7548,6 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       toast('Сейчас ничего не играет', 'warn');
       return;
     }
-    if (el.lyrTitle) el.lyrTitle.textContent = State.mediaTitle;
-    if (el.lyrArtist) el.lyrArtist.textContent = State.mediaArtist || '';
     if (el.lyrBg) {
       el.lyrBg.style.backgroundImage = State.mediaCover
         ? 'url("' + State.mediaCover + '")' : 'none';
@@ -14578,7 +14587,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       'mediaTitle', 'mediaSub', 'btnPrev', 'btnPlay', 'btnNext', 'mediaCover', 'mediaArtIcon',
       'btnMusic', 'mediaKind', 'mediaSeek', 'mediaPos', 'mediaDur', 'mediaProgress',
       'btnLyrics', 'lyricsStatus', 'lyricsBox',
-      'btnLike', 'btnDislike', 'lyricsDlg', 'lyrBg', 'lyrTitle', 'lyrArtist',
+      'btnLike', 'btnDislike', 'lyricsDlg', 'lyrBg',
       'btnLyricsClose', 'lyrStage', 'npGlow',
       'btnQueue', 'queueDlg', 'queueName', 'queueList', 'btnQueueClose', 'queueKicker',
       'lyricsNow', 'lyricsInline', 'lyricsNowText',
