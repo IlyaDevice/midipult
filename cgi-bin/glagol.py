@@ -21,6 +21,7 @@ import os
 import re
 import socket
 import ssl
+import sys
 import threading
 import time
 import urllib.error
@@ -165,15 +166,23 @@ def _fetch_token(device_id=None, platform=None):
     raise GlagolError("Яндекс не выдал glagol-токен")
 
 
-def _jwt_exp(value):
-    """Вернуть exp JWT без проверки подписи (нам нужен только срок)."""
+def _jwt_claims(value):
+    """Поля JWT без проверки подписи: нужны exp и sub (device_id)."""
     try:
         part = str(value).split(".")[1]
         part += "=" * (-len(part) % 4)
-        payload = json.loads(base64.urlsafe_b64decode(part).decode("utf-8"))
-        exp = payload.get("exp")
-        return float(exp) if exp else 0.0
+        claims = json.loads(base64.urlsafe_b64decode(part).decode("utf-8"))
+        return claims if isinstance(claims, dict) else {}
     except (ValueError, TypeError, KeyError, IndexError, UnicodeDecodeError):
+        return {}
+
+
+def _jwt_exp(value):
+    """Вернуть exp JWT без проверки подписи (нам нужен только срок)."""
+    exp = _jwt_claims(value).get("exp")
+    try:
+        return float(exp) if exp else 0.0
+    except (TypeError, ValueError):
         return 0.0
 
 
@@ -407,6 +416,23 @@ def _read_text(path):
         return ""
 
 
+def _resolve(host):
+    try:
+        infos = socket.getaddrinfo(host, 443, proto=socket.IPPROTO_TCP)
+    except OSError:
+        return []
+    return sorted({info[4][0] for info in infos})
+
+
+def _is_private(ip):
+    parts = str(ip or "").split(".")
+    if len(parts) != 4 or not all(part.isdigit() for part in parts):
+        return False
+    first, second = int(parts[0]), int(parts[1])
+    return (first == 10 or first == 127 or (first == 192 and second == 168)
+            or (first == 172 and 16 <= second <= 31))
+
+
 def _status(url, access_token):
     request = urllib.request.Request(url, headers={"Authorization": "OAuth " + access_token})
     try:
@@ -415,11 +441,28 @@ def _status(url, access_token):
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read(200).decode("utf-8", "replace")
     except Exception as exc:  # noqa: BLE001
-        return 0, str(exc)[:120]
+        return 0, str(exc)[:200]
 
 
-def probe():
-    """Что известно про устройство и что отвечает токен-эндпоинт."""
+def probe(argv=None):
+    """Что известно про устройство и что отвечает токен-эндпоинт.
+
+        glagol.py --probe [--device-id R...] [--platform ...] [--host ...]
+    """
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Glagol token probe")
+    parser.add_argument("--probe", action="store_true")
+    parser.add_argument("--device-id", default="")
+    parser.add_argument("--platform", default="")
+    parser.add_argument("--host", default="",
+                        help="другой хост вместо quasar.yandex.net (для проверки подмены DNS)")
+    args = parser.parse_args(argv)
+
+    host = args.host or "quasar.yandex.net"
+    token_url = "https://%s/glagol/token" % host
+    resolved = _resolve(host)
+
     devices = []
     try:
         with open(DEVICES, "r", encoding="utf-8") as fh:
@@ -434,15 +477,18 @@ def probe():
         tokens, token_error = [], str(exc)
 
     manual = _override()
-    device_id = manual[0] if manual else ""
-    platform = manual[1] if manual else ""
+    device_id = args.device_id or (manual[0] if manual else "")
+    platform = args.platform or (manual[1] if manual else "")
     if not device_id and devices:
         device_id = str(devices[0].get("id") or "")
-        platform = str(devices[0].get("platform") or "yandexmidi")
+        platform = platform or str(devices[0].get("platform") or "yandexmidi")
+    platform = platform or "yandexmidi"
 
     report = {
         "model": _read_text("/proc/device-tree/model"),
         "compatible": _read_text("/proc/device-tree/compatible"),
+        "host": host,
+        "resolved": resolved,
         "devices_json": bool(devices),
         "devices": [{key: item.get(key) for key in ("id", "platform")} for item in devices],
         "override": manual,
@@ -452,22 +498,33 @@ def probe():
         "checks": [],
     }
 
+    if resolved and all(_is_private(ip) for ip in resolved):
+        report["dns_hint"] = ("%s резолвится в локальный адрес (%s) — возможно, "
+                              "подмена DNS; тогда 403/404 ниже ничего не значат"
+                              % (host, ", ".join(resolved)))
     if not device_id:
-        report["hint"] = ("device_id неизвестен: положите его в %s как "
-                          "{\"device_id\": \"R...\", \"platform\": \"yandexmidi\"}"
-                          % OVERRIDE_PATH)
+        report["hint"] = ("device_id неизвестен: укажите --device-id R... или "
+                          "положите его в %s" % OVERRIDE_PATH)
+
     for index, value in enumerate(tokens):
         if not device_id:
             break
-        code, body = _status("%s?device_id=%s&platform=%s" % (TOKEN_URL, device_id, platform), value)
-        report["checks"].append({
+        code, body = _status("%s?device_id=%s&platform=%s" % (token_url, device_id, platform), value)
+        entry = {
             "index": index,
             "token": value[:5] + "…",
             "code": code,
-            "message": body[:160],
-        })
+            "message": body[:200],
+        }
+        if code == 200:
+            try:
+                claims = _jwt_claims(json.loads(body).get("token") or "")
+                entry["sub"] = claims.get("sub")
+            except Exception:  # noqa: BLE001
+                pass
+        report["checks"].append(entry)
     print(json.dumps(report, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":
-    probe()
+    probe(sys.argv[1:])
