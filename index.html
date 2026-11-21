@@ -1709,7 +1709,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .ym-content.now-open .ym-main{padding-right:30px}
 .ym-content.now-open ~ .ym-bar{display:none}
 .ym-now{overflow-x:hidden!important}
-.ym-now-lyrics{position:relative;max-height:240px;overflow-y:auto;margin-top:26px;
+.ym-now-lyrics{position:relative;max-height:240px;overflow-y:auto;margin-top:16px;
   padding:10px 0;scrollbar-width:none;
   mask-image:linear-gradient(180deg,transparent,#000 14%,#000 86%,transparent)}
 .ym-now-lyrics::-webkit-scrollbar{display:none}
@@ -1762,7 +1762,7 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .ym-now-info h2{font-size:clamp(26px,3.2vw,42px);line-height:1.06;letter-spacing:-.045em;margin:0;
   overflow-wrap:anywhere}
 .ym-now-artist{font-size:15px;color:#9a9aa3;margin-top:10px}
-.ym-now-actions{display:flex;gap:6px;margin-top:24px}
+.ym-now-actions{display:flex;gap:6px;margin-top:12px}
 .ym-now-icon{display:grid;place-items:center;width:38px;height:38px;border:0;border-radius:50%;
   background:transparent;color:#b8b8c1;cursor:pointer;transition:.15s}
 .ym-now-icon:hover{background:#222228;color:#ffdb4d}
@@ -1782,6 +1782,51 @@ body.booting main.grid,body.booting .tabs,body.booting footer{visibility:hidden}
 .ym-now-volume input{flex:1;min-width:0;accent-color:#ffdb4d}
 .ym-now-volume output{font-size:10px;min-width:34px;text-align:right}
 .ym-now-bottom{margin-top:auto;flex:0 0 auto}
+/* Ползунки громкости и перемотки в плеере Яндекс Музыки и окне текста:
+   общая высота, заливка до бегунка и аккуратный thumb вместо тонкой линии. */
+.ym-now-seek input,.ym-now-volume input,.ym-volume-pop input,
+.lyr-player input[type="range"]{
+  --fill:0%;
+  -webkit-appearance:none;appearance:none;height:16px;padding:0;border:0;
+  background:transparent;border-radius:999px;outline:none;cursor:pointer;
+}
+.ym-now-seek input::-webkit-slider-runnable-track,
+.ym-now-volume input::-webkit-slider-runnable-track,
+.ym-volume-pop input::-webkit-slider-runnable-track,
+.lyr-player input[type="range"]::-webkit-slider-runnable-track{
+  height:4px;border-radius:999px;
+  background:linear-gradient(90deg,#ffdb4d 0 var(--fill,0%),#3d3d44 var(--fill,0%) 100%);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.04);
+}
+.ym-now-seek input::-webkit-slider-thumb,
+.ym-now-volume input::-webkit-slider-thumb,
+.ym-volume-pop input::-webkit-slider-thumb,
+.lyr-player input[type="range"]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:14px;height:14px;margin-top:-5px;border:0;border-radius:50%;
+  background:#ffdb4d;box-shadow:0 0 0 3px rgba(255,219,77,.16),0 2px 6px rgba(0,0,0,.45);
+  transition:transform .12s ease,box-shadow .12s ease;
+}
+.ym-now-seek input:hover::-webkit-slider-thumb,
+.ym-now-volume input:hover::-webkit-slider-thumb,
+.ym-volume-pop input:hover::-webkit-slider-thumb,
+.lyr-player input[type="range"]:hover::-webkit-slider-thumb{
+  transform:scale(1.12);box-shadow:0 0 0 4px rgba(255,219,77,.22),0 2px 8px rgba(0,0,0,.5);
+}
+.ym-now-seek input::-moz-range-track,
+.ym-now-volume input::-moz-range-track,
+.ym-volume-pop input::-moz-range-track,
+.lyr-player input[type="range"]::-moz-range-track{height:4px;border-radius:999px;background:#3d3d44}
+.ym-now-seek input::-moz-range-progress,
+.ym-now-volume input::-moz-range-progress,
+.ym-volume-pop input::-moz-range-progress,
+.lyr-player input[type="range"]::-moz-range-progress{height:4px;border-radius:999px;background:#ffdb4d}
+.ym-now-seek input::-moz-range-thumb,
+.ym-now-volume input::-moz-range-thumb,
+.ym-volume-pop input::-moz-range-thumb,
+.lyr-player input[type="range"]::-moz-range-thumb{
+  width:14px;height:14px;border:0;border-radius:50%;background:#ffdb4d;
+  box-shadow:0 0 0 3px rgba(255,219,77,.16);
+}
 @media(max-width:760px){
   /* Развёрнутый плеер занимает ровно экран: текст песни — над управлением,
      внутри текста своя прокрутка, вся страница не скроллится. */
@@ -3076,6 +3121,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
               <div class="ym-now-info">
                 <h2 id="ymNowTitle">Ничего не играет</h2>
                 <div class="ym-now-artist" id="ymNowArtist">Яндекс Музыка</div>
+                <div class="ym-now-lyrics" id="ymNowLyricsBox" hidden></div>
                 <div class="ym-now-actions">
                   <button type="button" class="ym-now-icon" id="ymNowLike" aria-label="Нравится">
                     <svg class="ic" aria-hidden="true"><use href="#i-like"/></svg>
@@ -3090,7 +3136,6 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
                     <svg class="ic" aria-hidden="true"><use href="#i-text"/></svg>
                   </button>
                 </div>
-                <div class="ym-now-lyrics" id="ymNowLyricsBox" hidden></div>
                 <div class="ym-now-bottom">
                   <div class="ym-now-seek">
                     <span id="ymNowPos">0:00</span>
@@ -3530,6 +3575,20 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   var $ = function (sel, root) { return (root || document).querySelector(sel); };
   var pad = function (n) { return String(n).padStart(2, '0'); };
   var clamp = function (v, lo, hi) { return Math.min(hi, Math.max(lo, v)); };
+
+  // Заливка ползунка до бегунка: CSS берёт процент из --fill.
+  function paintRange(input) {
+    if (!input || input.type !== 'range') return;
+    var min = Number(input.min) || 0;
+    var max = Number(input.max) || 100;
+    var value = Number(input.value) || 0;
+    var pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
+    input.style.setProperty('--fill', clamp(pct, 0, 100).toFixed(1) + '%');
+  }
+
+  function paintRanges() {
+    Array.prototype.forEach.call(document.querySelectorAll('input[type="range"]'), paintRange);
+  }
 
   // Таймеры, которые не должны крутиться в фоновой вкладке/на чужой вкладке:
   // на телефоне это лишние запросы, нагрев и расход батареи.
@@ -14578,6 +14637,14 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     initYmDialog();
     initLyricsPlayer();
     updateVolumeIcons();
+    paintRanges();
+    every(1000, paintRanges);
+    document.addEventListener('input', function (event) {
+      if (event.target && event.target.type === 'range') paintRange(event.target);
+    }, true);
+    document.addEventListener('change', function (event) {
+      if (event.target && event.target.type === 'range') paintRange(event.target);
+    }, true);
     renderAlarmDays();
     loadAlarms(true);
     clockAnimBind();
