@@ -3527,8 +3527,8 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     <div class="ym-login-body">
       <div class="ym-qr" id="ymQrBox"><div class="seg-note">Готовлю QR…</div></div>
       <div class="ym-login-side">
-        <p class="seg-note" style="margin:0">Отсканируйте QR камерой телефона, где уже выполнен вход в Яндекс, и подтвердите. Панель подключится сама — ссылку вставлять не нужно.</p>
-        <a class="btn sm primary" id="ymQrPhoneLink" href="#" target="_blank" rel="noopener" hidden>Открыть ссылку входа</a>
+        <p class="seg-note" style="margin:0">Отсканируйте QR камерой телефона, где уже выполнен вход в Яндекс, и подтвердите. Панель подключится сама. Если входите на этом устройстве — откройте окно входа, после подтверждения оно закроется.</p>
+        <button type="button" class="btn sm primary" id="ymQrPhoneLink" hidden>Открыть окно входа</button>
         <div class="seg-note" id="ymQrStatus">Запрашиваю ссылку…</div>
         <div class="row" style="gap:6px;flex-wrap:wrap">
           <button type="button" class="btn sm ghost" id="btnYmQrRetry">Новый QR</button>
@@ -6245,10 +6245,34 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   }
 
   var ymQrTimer = null;
+  var ymLoginWindow = null;
+  var ymLoginUrl = '';
 
   function stopYmQr() {
     if (ymQrTimer) clearInterval(ymQrTimer);
     ymQrTimer = null;
+  }
+
+  function closeYmLoginWindow() {
+    if (ymLoginWindow && !ymLoginWindow.closed) {
+      try { ymLoginWindow.close(); } catch (e) {}
+    }
+    ymLoginWindow = null;
+  }
+
+  function openYmLoginWindow() {
+    if (!ymLoginUrl) return;
+    if (ymLoginWindow && !ymLoginWindow.closed) {
+      try { ymLoginWindow.focus(); } catch (e) {}
+      return;
+    }
+    ymLoginWindow = window.open(ymLoginUrl, 'ym_login',
+      'popup=yes,width=520,height=720,resizable=yes,scrollbars=yes');
+    if (!ymLoginWindow) {
+      toast('Разрешите всплывающее окно для входа в Яндекс', 'warn');
+      return;
+    }
+    try { ymLoginWindow.focus(); } catch (e) {}
   }
 
   function setYmQrStatus(text, kind) {
@@ -6260,15 +6284,18 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
 
   function startYmQr() {
     stopYmQr();
+    closeYmLoginWindow();
+    ymLoginUrl = '';
     var box = document.getElementById('ymQrBox');
     var phone = document.getElementById('ymQrPhoneLink');
     if (box) box.innerHTML = '<div class="seg-note">Готовлю QR…</div>';
-    if (phone) { phone.hidden = true; phone.href = '#'; }
+    if (phone) phone.hidden = true;
     setYmQrStatus('Запрашиваю ссылку входа…');
     cgi('yandex_auth.py', { qr_start: 1 }, { timeout: 30000 })
       .then(function (data) {
         if (!data || !data.link) throw new Error('Яндекс не выдал ссылку');
-        if (phone) { phone.href = data.link; phone.hidden = false; }
+        ymLoginUrl = data.link;
+        if (phone) phone.hidden = false;
         if (box && typeof qrcode === 'function') {
           try {
             var qr = qrcode(0, 'M');
@@ -6293,6 +6320,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
         if (!data || data.state === 'waiting') return;
         if (data.state === 'done') {
           stopYmQr();
+          closeYmLoginWindow();
           setYmQrStatus('Готово: ' + (data.login || 'Яндекс') + ' подключён', 'ok');
           var dlg = document.getElementById('ymLoginDlg');
           if (dlg && dlg.open) dlg.close();
@@ -6302,6 +6330,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
         }
         if (data.state === 'expired' || data.state === 'none') {
           stopYmQr();
+          closeYmLoginWindow();
           setYmQrStatus('QR устарел — нажмите «Новый QR».', 'bad');
         }
       })
@@ -6326,9 +6355,14 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     var dlg = document.getElementById('ymLoginDlg');
     var close = document.getElementById('btnYmLoginClose');
     var retry = document.getElementById('btnYmQrRetry');
+    var phone = document.getElementById('ymQrPhoneLink');
     if (close) close.addEventListener('click', function () { if (dlg) dlg.close(); });
     if (retry) retry.addEventListener('click', startYmQr);
-    if (dlg) dlg.addEventListener('close', stopYmQr);
+    if (phone) phone.addEventListener('click', openYmLoginWindow);
+    if (dlg) dlg.addEventListener('close', function () {
+      stopYmQr();
+      closeYmLoginWindow();
+    });
     logout.addEventListener('click', function () {
       cgi('yandex_auth.py', { logout: 1 }, { timeout: 10000 }).then(applyYmAuth)
         .catch(function (err) { toast('Яндекс Музыка: ' + err.message, 'bad'); });
