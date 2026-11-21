@@ -267,6 +267,36 @@ count = 24               # 89 у Station 2
 есть ли в нём `[led]`, какой `profile`/`count` видит Luna и сколько диодов у
 модели, плюс предупреждение, если секции нет.
 
+### Если не работают плеер и радио (Glagol)
+
+Плееру нужен `conversationToken`: OAuth-токен из `/data/quasar/account_storage.dat`
+меняется на токен Glagol по `device_id`. Если `/data/quasar/devices.json` на
+прошивке нет (так на Station 2), `device_id` можно задать руками:
+
+```json
+{"device_id": "R…", "platform": "yandexmidi"}
+```
+
+в `/data/mypult/glagol_device.json` (приоритетнее `devices.json`).
+
+Проверка одной командой:
+
+```sh
+/opt/bin/python3 /data/myweb/cgi-bin/glagol.py --probe
+```
+
+Она печатает модель и `compatible`, найденные устройства, число OAuth-токенов
+и код ответа токен-эндпоинта на каждый токен (сами токены маскируются):
+
+- `200` — токен рабочий;
+- `403 AUTH_TOKEN_INVALID` — этот токен для Glagol не годится (в
+  `account_storage.dat` их несколько, и не все подходят);
+- `404 Unknown device … for user_id …` — токен рабочий, но `device_id` чужой.
+
+Параметр `platform` на деле почти ни на что не влияет: с рабочим токеном и
+верным `device_id` эндпоинт отвечает `200` и на `cucumber`, и на
+`yandexstation_2`.
+
 ### Сеть
 - VPN по https-подписке (sing-box, tun), выбор сервера, автозапуск;
 - Bluetooth: питание, режим сопряжения, скан, подключение, A2DP-приёмник

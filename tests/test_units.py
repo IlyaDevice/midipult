@@ -2015,6 +2015,38 @@ def test_device_classify():
           device.classify("", "", []) == "unknown")
 
 
+def test_glagol_device_override():
+    import json
+    import tempfile
+
+    old = glagol.OVERRIDE_PATH
+    handle, path = tempfile.mkstemp(prefix="mypult-glagol-dev-", suffix=".json")
+    os.close(handle)
+    try:
+        glagol.OVERRIDE_PATH = path
+        check("glagol: без override — None", glagol._override() is None)
+
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump({"device_id": "R103JQ000BMYYK", "platform": "yandexmidi"}, fh)
+        check("glagol: override читается",
+              glagol._override() == ("R103JQ000BMYYK", "yandexmidi"))
+
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump({"device_id": "X"}, fh)
+        check("glagol: platform по умолчанию",
+              glagol._override() == ("X", "yandexmidi"))
+
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump({"device_id": ""}, fh)
+        check("glagol: пустой override игнорируется", glagol._override() is None)
+    finally:
+        glagol.OVERRIDE_PATH = old
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
 def main():
     for test in (
         test_generic_helpers,
@@ -2065,6 +2097,7 @@ def main():
         test_voice_chat_actions,
         test_voice_idle_and_toggle,
         test_device_classify,
+        test_glagol_device_override,
     ):
         try:
             test()

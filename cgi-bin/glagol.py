@@ -23,10 +23,12 @@ import socket
 import ssl
 import threading
 import time
+import urllib.error
 import urllib.request
 
 CACHE_DIR = "/data/mypult"
 CACHE_PATH = os.path.join(CACHE_DIR, "glagol.json")
+OVERRIDE_PATH = os.path.join(CACHE_DIR, "glagol_device.json")
 ACCOUNT = "/data/quasar/account_storage.dat"
 DEVICES = "/data/quasar/devices.json"
 URL = "wss://127.0.0.1:1961"
@@ -94,7 +96,31 @@ def _network_info(device):
             {str(value).lower() for value in macs if value})
 
 
+def _override():
+    """Ручной device_id/platform в glagol_device.json — когда devices.json нет.
+
+    Формат: {"device_id": "R103JQ000BMYYK", "platform": "yandexmidi"}
+    Нужен для станций (например Station 2), где список устройств на колонке
+    не хранится, а id можно взять только из аккаунта.
+    """
+    try:
+        with open(OVERRIDE_PATH, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    device_id = str(data.get("device_id") or "").strip()
+    if not device_id:
+        return None
+    platform = str(data.get("platform") or "").strip() or "yandexmidi"
+    return device_id, platform
+
+
 def _device():
+    manual = _override()
+    if manual:
+        return manual
     try:
         with open(DEVICES, "r", encoding="utf-8") as fh:
             data = json.load(fh)
@@ -367,3 +393,81 @@ def send(payload, timeout=8.0):
                 pass
 
     raise GlagolError("glagol недоступен: %s" % last_error)
+
+
+# --------------------------------------------------------------------------- #
+#  Диагностика: /opt/bin/python3 /data/myweb/cgi-bin/glagol.py --probe
+# --------------------------------------------------------------------------- #
+
+def _read_text(path):
+    try:
+        with open(path, "rb") as fh:
+            return fh.read().replace(b"\x00", b"").decode("utf-8", "replace").strip()
+    except OSError:
+        return ""
+
+
+def _status(url, access_token):
+    request = urllib.request.Request(url, headers={"Authorization": "OAuth " + access_token})
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            return response.status, response.read(300).decode("utf-8", "replace")
+    except urllib.error.HTTPError as exc:
+        return exc.code, exc.read(200).decode("utf-8", "replace")
+    except Exception as exc:  # noqa: BLE001
+        return 0, str(exc)[:120]
+
+
+def probe():
+    """Что известно про устройство и что отвечает токен-эндпоинт."""
+    devices = []
+    try:
+        with open(DEVICES, "r", encoding="utf-8") as fh:
+            devices = (json.load(fh) or {}).get("devices") or []
+    except (OSError, ValueError, AttributeError):
+        pass
+
+    try:
+        tokens = _oauth_tokens()
+        token_error = ""
+    except GlagolError as exc:
+        tokens, token_error = [], str(exc)
+
+    manual = _override()
+    device_id = manual[0] if manual else ""
+    platform = manual[1] if manual else ""
+    if not device_id and devices:
+        device_id = str(devices[0].get("id") or "")
+        platform = str(devices[0].get("platform") or "yandexmidi")
+
+    report = {
+        "model": _read_text("/proc/device-tree/model"),
+        "compatible": _read_text("/proc/device-tree/compatible"),
+        "devices_json": bool(devices),
+        "devices": [{key: item.get(key) for key in ("id", "platform")} for item in devices],
+        "override": manual,
+        "account_tokens": len(tokens),
+        "token_error": token_error,
+        "checked_device_id": device_id,
+        "checks": [],
+    }
+
+    if not device_id:
+        report["hint"] = ("device_id неизвестен: положите его в %s как "
+                          "{\"device_id\": \"R...\", \"platform\": \"yandexmidi\"}"
+                          % OVERRIDE_PATH)
+    for index, value in enumerate(tokens):
+        if not device_id:
+            break
+        code, body = _status("%s?device_id=%s&platform=%s" % (TOKEN_URL, device_id, platform), value)
+        report["checks"].append({
+            "index": index,
+            "token": value[:5] + "…",
+            "code": code,
+            "message": body[:160],
+        })
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    probe()
