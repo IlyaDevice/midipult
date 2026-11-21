@@ -700,6 +700,8 @@ body.light .voice-panel{background:rgba(76,62,48,.035)}
 .voice-help{margin-top:9px;padding-top:8px;border-top:1px solid var(--stroke);
   font-size:var(--fs-11);line-height:1.45;color:var(--muted)}
 .voice-panel.off .voice-settings,.voice-panel.off .voice-help{opacity:.55}
+.voice-panel.off select{pointer-events:none;cursor:not-allowed}
+.voice-panel select:disabled{cursor:not-allowed}
 @media(max-width:560px){.voice-panel{padding:11px 12px}.voice-settings{grid-template-columns:1fr}}
 
 
@@ -9967,6 +9969,11 @@ body.light dialog.queue-dlg.ym-look{
       if (el.voiceIdleMode && data.idle) el.voiceIdleMode.value = data.idle;
       if (el.voiceMicMode && data.mic_mode) el.voiceMicMode.value = data.mic_mode;
       if (el.voicePanel) el.voicePanel.classList.toggle('off', !data.running);
+      [el.voiceIdleMode, el.voiceMicMode].forEach(function (select) {
+        if (!select) return;
+        select.disabled = !data.running;
+        select.setAttribute('aria-disabled', data.running ? 'false' : 'true');
+      });
       if (el.voiceMicNote) {
         el.voiceMicNote.textContent = data.mic_mode === 'econom'
           ? 'короткие сессии: Алисе легче, но команда может не попасть в паузу'
@@ -10205,6 +10212,7 @@ body.light dialog.queue-dlg.ym-look{
       loadZb();
       loadIpv6();
     } else if (name === 'system') {
+      loadVoice();
       loadLogs();
       loadSounds();
       refreshSystem();
