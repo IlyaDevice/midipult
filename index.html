@@ -1334,11 +1334,24 @@ body.light .reboot-bar{background:rgba(76,62,48,.1)}
 .lyr-player input[type="range"]::-moz-range-thumb{width:11px;height:11px;border:0;border-radius:50%;
   background:#ffdb4d;cursor:pointer}
 @media(max-width:560px){
-  .lyr-player{padding:9px 14px 12px;gap:8px}
+  .lyrics-dlg{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;
+    border-radius:0;margin:0}
+  .lyr-head{padding:14px 14px 8px;flex-wrap:wrap;gap:8px}
+  .lyr-head>div:first-child{flex:1 1 100%;min-width:0}
+  .lyr-head-actions{width:100%;justify-content:space-between;gap:8px;flex-wrap:nowrap}
+  .lyr-title{font-size:16px}
+  .lyr-artist{font-size:12px}
+  .lyr-inline{font-size:11px;gap:5px}
+  .lyr-inline input{width:14px;height:14px}
+  #lyricsStatus{font-size:10px}
+  #btnLyricsClose{flex:0 0 auto;height:30px;padding:0 10px}
+  .lyr-lines{padding:30% 16px}
+  .lyr-lines .line{font-size:19px}
+  .lyr-player{padding:8px 12px calc(10px + env(safe-area-inset-bottom));gap:7px}
   .lyr-player-controls{order:2}
   .lyr-player-progress{order:4;flex-basis:100%}
   .lyr-player-volume{order:3;flex:1 1 100%;max-width:none}
-  .lyr-player-now{flex-basis:calc(100% - 190px)}
+  .lyr-player-now{flex-basis:calc(100% - 180px)}
   .lyr-icon#lyrPlayerLike,.lyr-icon#lyrPlayerDislike{display:none}
 }
 .queue-dlg{width:min(620px,94vw);max-height:min(78vh,720px);border:0;border-radius:26px;padding:0;
@@ -3094,7 +3107,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
         <div class="ym-profile">
           <span class="ym-profile-label">Моя музыка</span>
           <span class="ym-avatar">Я</span>
-          <button type="button" class="ym-close" id="btnYmDlgClose" aria-label="Закрыть">✕</button>
+          <button type="button" class="ym-close" id="btnYmDlgClose" aria-label="Закрыть" autofocus>✕</button>
         </div>
       </header>
       <div class="ym-content">
@@ -3588,6 +3601,18 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
 
   function paintRanges() {
     Array.prototype.forEach.call(document.querySelectorAll('input[type="range"]'), paintRange);
+  }
+
+  // На телефоне автофокус поля поиска сразу поднимает клавиатуру и перекрывает
+  // список. Фокусируем только там, где есть настоящая мышь/трекпад.
+  function focusOnDesktop(node, delay) {
+    if (!node) return;
+    try {
+      if (!window.matchMedia || !window.matchMedia('(hover:hover) and (pointer:fine)').matches) return;
+    } catch (e) { return; }
+    setTimeout(function () {
+      try { node.focus(); } catch (e) {}
+    }, delay || 0);
   }
 
   // Таймеры, которые не должны крутиться в фоновой вкладке/на чужой вкладке:
@@ -8789,7 +8814,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     if (show) {
       el.radioSearch.value = '';
       filterRadio();
-      setTimeout(function () { el.radioSearch.focus(); }, 30);
+      focusOnDesktop(el.radioSearch, 30);
     }
   }
 
@@ -11247,7 +11272,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
     if (show) {
       el.ringSearch.value = '';
       filterRingAnims();
-      setTimeout(function () { el.ringSearch.focus(); }, 30);
+      focusOnDesktop(el.ringSearch, 30);
     }
   }
 
