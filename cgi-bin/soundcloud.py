@@ -116,6 +116,13 @@ def _cache_put(page_url, stream_url):
     common.write_json(URL_CACHE_PATH, data, mode=0o600)
 
 
+def _cache_drop(page_url):
+    data = common.read_json(URL_CACHE_PATH, {}) or {}
+    if page_url in data:
+        data.pop(page_url, None)
+        common.write_json(URL_CACHE_PATH, data, mode=0o600)
+
+
 def _stream(page_url):
     page_url = _check_url(page_url)
     cached = _cache_get(page_url)
@@ -163,10 +170,24 @@ def main():
             "fmt": "MP3", "stream": local,
         }
         _save_state(state)
-        try:
-            radio.play_stream(title, local, fmt="MP3", subtitle=artist)
-        except Exception as exc:  # noqa: BLE001
-            raise RuntimeError("Поток не запустился: %s" % exc)
+        last_error = None
+        for attempt in range(2):
+            try:
+                radio.play_stream(title, local, fmt="MP3", subtitle=artist, wait=7)
+                last_error = None
+                break
+            except Exception as exc:  # noqa: BLE001
+                last_error = exc
+                if attempt == 0:
+                    # HLS-ссылка могла устареть, пока играл предыдущий трек.
+                    _cache_drop(page_url)
+                    stream_url = _stream(page_url)
+                    state["url"] = stream_url
+                    _save_state(state)
+                    time.sleep(1)
+        if last_error is not None:
+            _save_state({})
+            raise RuntimeError("Поток не запустился: %s" % last_error)
         common.ok(playing=True, track=state)
         return
 

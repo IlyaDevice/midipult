@@ -95,6 +95,13 @@ def _cache_put(track_id, stream_url):
     common.write_json(URL_CACHE_PATH, data, mode=0o600)
 
 
+def _cache_drop(track_id):
+    data = common.read_json(URL_CACHE_PATH, {}) or {}
+    if track_id in data:
+        data.pop(track_id, None)
+        common.write_json(URL_CACHE_PATH, data, mode=0o600)
+
+
 def _stream(track_id):
     """Получить свежий прямой поток; MP3 собирается на лету в прокси."""
     if not ID_RE.fullmatch(track_id):
@@ -200,7 +207,25 @@ def main():
         title = str(data.get("title") or "YouTube Music")
         artist = str(data.get("artist") or "")
         stream_url = _stream(track_id)
-        hls_url = _start_hls(track_id, stream_url)
+        hls_url = ""
+        last_error = None
+        for attempt in range(2):
+            try:
+                hls_url = _start_hls(track_id, stream_url)
+                last_error = None
+                break
+            except Exception as exc:  # noqa: BLE001
+                last_error = exc
+                if attempt == 0:
+                    # Кэш прямой ссылки мог истечь; берём свежую и пробуем ещё.
+                    _cache_drop(track_id)
+                    _stop_hls()
+                    stream_url = _stream(track_id)
+                    time.sleep(1)
+        if last_error is not None:
+            _stop_hls()
+            _save_state({})
+            raise RuntimeError("Поток не запустился: %s" % last_error)
         state = {
             "id": track_id, "title": title, "artist": artist,
             "cover": str(data.get("cover") or ""), "url": stream_url,
@@ -210,6 +235,8 @@ def main():
         try:
             radio.play_stream(title, hls_url, fmt="MP3", subtitle=artist, wait=4)
         except Exception as exc:  # noqa: BLE001
+            _stop_hls()
+            _save_state({})
             raise RuntimeError("Поток не запустился: %s" % exc)
         common.ok(playing=True, track=state)
         return

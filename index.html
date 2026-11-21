@@ -8374,6 +8374,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       if (Date.now() - lastPlayerPoll < wait) return;
       lastPlayerPoll = Date.now();
       refreshPlayer();
+      extSyncRemote();
     }, 250);
   }
 
@@ -10705,6 +10706,36 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   var extSearchSeq = 0;
   var extPrefetched = {};
   var extPrepares = {};
+  var extSyncAt = 0;
+
+  function extSyncRemote() {
+    if (Date.now() - extSyncAt < 5000) return;
+    extSyncAt = Date.now();
+    Promise.all([
+      cgi('youtube.py', { action: 'status' }, { timeout: 12000, silent: true }).catch(function () { return {}; }),
+      cgi('soundcloud.py', { action: 'status' }, { timeout: 12000, silent: true }).catch(function () { return {}; })
+    ]).then(function (parts) {
+      var yt = parts[0] || {};
+      var sc = parts[1] || {};
+      var track = (yt.track && yt.track.id && yt.track) || (sc.track && sc.track.id && sc.track);
+      if (track) {
+        var source = (yt.track && yt.track.id === track.id) ? 'youtube' : 'soundcloud';
+        track.source = source;
+        if (!State.extTrack || State.extTrack.title !== track.title ||
+            State.extTrack.source !== source) {
+          extNow(track);
+          extApplyPlayer(track, source);
+          State.extRemote = true;
+        }
+      } else if (State.extRemote) {
+        // Трек запускали на другом устройстве, а теперь его остановили или
+        // включили Яндекс Музыку — убираем чужой now-playing.
+        extClearPlayer();
+        if (el.extNow) extNow(null);
+        State.extRemote = false;
+      }
+    }).catch(function () {});
+  }
 
   function extPrefetch(track) {
     if (!track || !track.id) return;
@@ -10850,6 +10881,7 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
 
   function extYieldToOther() {
     extClearPlayer();
+    State.extRemote = false;
     if (el.extNow) extNow(null);
     cgi('youtube.py', { action: 'stop' }, { timeout: 12000, silent: true }).catch(function () {});
     cgi('soundcloud.py', { action: 'stop' }, { timeout: 12000, silent: true }).catch(function () {});
@@ -10875,14 +10907,12 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
   function extPlay(track) {
     if (!track || !track.id) return;
     var source = track.source === 'youtube' ? 'youtube' : 'soundcloud';
-    extSetStatus('Останавливаю предыдущий трек…');
-    extNow(track);
+    extSetStatus('Запускаю ' + (EXT_LABELS[source] || '') + '…');
     var prepKey = source + ':' + track.id;
     var prepare = extPrepares[prepKey] || Promise.resolve();
     prepare.catch(function () {}).then(function () {
       extStopBackends();
     }).then(function () {
-      extSetStatus('Запускаю ' + (EXT_LABELS[source] || '') + '…');
       var payload = {
         action: 'play', id: track.id, title: track.title || '',
         artist: track.artist || '', cover: track.cover || ''
@@ -10897,8 +10927,13 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
         ' · ' + (EXT_LABELS[source] || ''), 'ok');
       extNow(played);
       extApplyPlayer(played, source);
+      State.extRemote = false;
       setProvDot('ext', 'ok');
     }).catch(function (err) {
+      // Ошибка запуска не должна оставлять «сейчас играет» и «Остановить».
+      extClearPlayer();
+      if (el.extNow) extNow(null);
+      extStopBackends();
       extSetStatus('Ошибка: ' + err.message, 'bad');
       toast('Музыка: ' + err.message, 'bad');
     });
@@ -10967,6 +11002,10 @@ details[open] > *:not(summary){animation:detailsIn .2s ease-out}
       var track = (yt.track && yt.track.id && yt.track) || (sc.track && sc.track.id && sc.track);
       if (track) {
         track.source = (yt.track && yt.track.id === track.id) ? 'youtube' : 'soundcloud';
+        if (!State.extTrack) {
+          extApplyPlayer(track, track.source);
+          State.extRemote = true;
+        }
         extNow(track);
       }
     });
