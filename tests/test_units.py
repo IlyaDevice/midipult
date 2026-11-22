@@ -943,7 +943,7 @@ def test_voice_speech_event_post():
 def test_voice_passive_mode():
     original = (voice_daemon.llm_profile_target, voice_daemon.scenario_may_match)
     voice_daemon.llm_profile_target = lambda low: None
-    voice_daemon.scenario_may_match = lambda text: False
+    voice_daemon.scenario_may_match = lambda text, missing=True: False
     try:
         wants = voice_daemon.passive_wants
         check("alice: «включи нейросеть» забираем даже при выключенной нейросети",
@@ -959,6 +959,24 @@ def test_voice_passive_mode():
     finally:
         voice_daemon.llm_profile_target, voice_daemon.scenario_may_match = original
     check("alice: режим в списке voicecfg", "alice" in voicecfg_module.MIC_MODES)
+
+    original_path, original_target = voice_daemon.SCENARIO_PATH, voice_daemon.llm_profile_target
+    voice_daemon.SCENARIO_PATH = "/nonexistent/scenarios.json"
+    voice_daemon._SCENARIO_MTIME = None
+    voice_daemon.llm_profile_target = lambda low: None
+    try:
+        check("alice: без scenarios.json фраза не перехватывается (нейросеть выкл.)",
+              not voice_daemon.passive_wants("Какая погода завтра", llm_on=False))
+        check("alice: без scenarios.json таймер остаётся Алисе (нейросеть вкл.)",
+              not voice_daemon.passive_wants("Поставь таймер на 2 минуты", llm_on=True)
+              and not voice_daemon.passive_wants("Удали таймер", llm_on=True))
+        check("сценарии: старый цикл без файла по-прежнему спрашивает CGI",
+              voice_daemon.scenario_may_match("что угодно"))
+    finally:
+        voice_daemon.SCENARIO_PATH, voice_daemon.llm_profile_target = original_path, original_target
+        voice_daemon._SCENARIO_MTIME = None
+    check("поиск: погода включает поиск", voice_daemon.search_wanted("Какая погода завтра"))
+    check("поиск: обычный вопрос — без поиска", not voice_daemon.search_wanted("Расскажи про Марс"))
 
     calls = []
     original_get = voice_daemon.get
