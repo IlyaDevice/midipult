@@ -42,6 +42,7 @@ import status  # noqa: E402
 import state_daemon  # noqa: E402
 import update  # noqa: E402
 import voice_daemon  # noqa: E402
+import voicecfg as voicecfg_module  # noqa: E402
 import volume  # noqa: E402
 import vpn  # noqa: E402
 import websearch  # noqa: E402
@@ -937,6 +938,50 @@ def test_voice_speech_event_post():
         voice_daemon.post, voice_daemon.get = original_post, original_get
     check("follow-up: cancel=true идёт через POST (Luna 0.2.36+ отклоняет GET)",
           len(calls) == 1 and calls[0][0] == "POST" and "cancel=true" in calls[0][1], str(calls))
+
+
+def test_voice_passive_mode():
+    original = (voice_daemon.llm_profile_target, voice_daemon.scenario_may_match)
+    voice_daemon.llm_profile_target = lambda low: None
+    voice_daemon.scenario_may_match = lambda text: False
+    try:
+        wants = voice_daemon.passive_wants
+        check("alice: «включи нейросеть» забираем даже при выключенной нейросети",
+              wants("Алиса, включи нейросеть", llm_on=False))
+        check("alice: при выключенной нейросети вопрос — Алисе",
+              not wants("какая погода завтра", llm_on=False))
+        check("alice: при включённой нейросети вопрос — нам",
+              wants("какая погода завтра", llm_on=True))
+        check("alice: «стоп» и таймер остаются Алисе",
+              not wants("Алиса стоп", llm_on=True) and not wants("таймер 15 минут", llm_on=True))
+        check("alice: «включи радио» — Алисе", not wants("включи радио максимум", llm_on=True))
+        check("alice: «свет» — реле, не нам", not wants("выключи свет в комнате", llm_on=True))
+    finally:
+        voice_daemon.llm_profile_target, voice_daemon.scenario_may_match = original
+    check("alice: режим в списке voicecfg", "alice" in voicecfg_module.MIC_MODES)
+
+    calls = []
+    original_get = voice_daemon.get
+    voice_daemon.get = lambda url, timeout=10: calls.append(url) or {
+        "phase": "busy", "request_id": "r9", "transcript": " Как дела ", "final": True}
+    try:
+        event = voice_daemon.native_phrase(1000)
+    finally:
+        voice_daemon.get = original_get
+    check("alice: фраза из /api/alice/command без cancel",
+          event == {"text": "Как дела", "request_id": "r9", "phase": "busy"}
+          and "/api/alice/command?" in calls[0] and "cancel" not in calls[0], str((event, calls)))
+
+    now = [0.0]
+    states = iter(["BUSY", "SPEAKING", "LISTENING"] + ["BUSY"] * 50)
+
+    def sleep(seconds):
+        now[0] += seconds
+
+    count = voice_daemon.guard_native_answer(
+        0.0, state=lambda: next(states), cancel=lambda: None,
+        clock=lambda: now[0], sleep=sleep)
+    check("guard: новый LISTENING завершает сторожа", count == 1, str(count))
 
 
 def test_status_probe_cache():
@@ -2372,6 +2417,7 @@ def main():
         test_voice_repeat_filter,
         test_voice_guard_native_answer,
         test_voice_speech_event_post,
+        test_voice_passive_mode,
         test_status_probe_cache,
         test_lyrics_parse,
         test_ring_animations_list,

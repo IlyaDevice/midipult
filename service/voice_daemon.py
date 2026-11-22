@@ -142,6 +142,10 @@ def guard_native_answer(started_at, state=alice_state, cancel=cancel_native_dial
             cancels += 1
             sleep(1.0)
             continue
+        if current == "LISTENING":
+            # Новый запрос (или продолжение диалога) — это уже не тот ответ,
+            # который мы гасим; дальше решает основной цикл.
+            break
         if current not in ("", "IDLE"):
             idle_since = None
         elif idle_since is None:
@@ -150,6 +154,16 @@ def guard_native_answer(started_at, state=alice_state, cancel=cancel_native_dial
             break
         sleep(0.5)
     return cancels
+
+
+def start_native_guard(recognized_at):
+    """Сторож в фоне: основной цикл должен слушать следующую фразу сразу."""
+    def worker():
+        cancels = guard_native_answer(recognized_at)
+        if cancels:
+            log("ответ Алисы AI отменён (%d)" % cancels)
+
+    threading.Thread(target=worker, daemon=True).start()
 
 
 FOLLOW_UP_STOP = ("хватит", "стоп", "спасибо", "пока", "до свидания",
@@ -841,9 +855,7 @@ def handle(text, recognized_at=None):
             say(answer)
             log("llm answer: %d символов, генерация %.1f с"
                 % (len(answer), generation))
-            cancels = guard_native_answer(recognized_at)
-            if cancels:
-                log("ответ Алисы AI отменён (%d)" % cancels)
+            start_native_guard(recognized_at)
             # issue #2: после ответа слушаем продолжение без «Алисы».
             if info.get("follow_up"):
                 follow_up(system)
@@ -851,6 +863,126 @@ def handle(text, recognized_at=None):
 
     log("без команды: %r" % text)
     return False
+
+
+# --------------------------------------------------------------------------- #
+#  Режим «alice»: слушаем фразы, которые распознала сама Алиса
+# --------------------------------------------------------------------------- #
+#
+# Своя сессия recognize мешает штатной Алисе, ждёт конца фразы ~10 с и ловит
+# разговоры в комнате без «Алиса». В режиме alice пульт ничего не открывает:
+# читает готовую фразу из потока aliced (через ~0.5–2 с после конца речи) и,
+# если фраза наша, отменяет запрос Алисы раньше, чем придёт ответ Алисы AI.
+
+# Это Алиса делает сама и лучше — даже при включённой нейросети не забираем.
+NATIVE_KEEP = ("стоп", "хватит", "пауза", "на паузу", "продолжи", "дальше",
+               "следующ", "предыдущ", "громче", "тише", "громкост",
+               "таймер", "будильник", "разбуди", "напомни")
+
+
+def native_keep(text):
+    low = normalize(text)
+    return any(word in low for word in NATIVE_KEEP)
+
+
+def llm_switch_may_match(text):
+    low = normalize(text)
+    if "чат" in low:
+        return True
+    if any(phrase in low for phrase in ("какая нейросеть", "что за нейросеть", "какой профиль")):
+        return True
+    if not any(word in low for word in
+               ("нейросет", "профил", "переключ", "включ", "выключ", "отключ", "запуст")):
+        return False
+    return bool(llm_profile_target(low))
+
+
+def passive_wants(text, llm_on=None):
+    """Заберёт ли пульт эту фразу у Алисы (без побочных действий)."""
+    low = normalize(text)
+    if len(low) <= 2:
+        return False
+    if scenario_may_match(text):
+        return True
+    intent = match(text)
+    if intent:
+        # «включи радио …» Алиса делает сама (см. perform).
+        return intent[0] != "radio"
+    if llm_switch_may_match(text):
+        return True
+    if "свет" in low or native_keep(text):
+        return False
+    return llm_enabled() if llm_on is None else bool(llm_on)
+
+
+def native_phrase(timeout_ms=25000):
+    """Следующая финальная фраза штатной Алисы: {"text", "request_id", "phase"}."""
+    url = "%s/api/alice/command?%s" % (LUNA, urllib.parse.urlencode(
+        {"timeout_ms": timeout_ms, "empty_on_timeout": "true"}))
+    try:
+        data = get(url, timeout=(timeout_ms / 1000.0) + 5) or {}
+    except Exception:  # noqa: BLE001 - сеть/таймаут = тишина
+        return {"text": "", "request_id": "", "phase": ""}
+    return {
+        "text": str(data.get("transcript") or "").strip(),
+        "request_id": str(data.get("request_id") or ""),
+        "phase": str(data.get("phase") or "").lower(),
+    }
+
+
+def mic_mode_now(config=None):
+    try:
+        config = voice_config() if config is None else config
+        return voicecfg.resolve_mic_mode(config) if voicecfg else "continuous"
+    except Exception:  # noqa: BLE001
+        return "continuous"
+
+
+def passive_main(config_reader):
+    """Цикл режима alice; возвращается, когда режим сменили в панели."""
+    log("режим alice: слушаю фразы после «Алиса», свой микрофон не открываю")
+    last = {}
+    seen = []
+    idle_logged = False
+    while True:
+        config = config_reader()
+        if mic_mode_now(config) != "alice":
+            log("режим alice выключен")
+            return
+        if config.get("enabled") is False:
+            if not idle_logged:
+                log("простой: выключен пользователем")
+                idle_logged = True
+            time.sleep(5)
+            continue
+        idle_logged = False
+        event = native_phrase()
+        text = event["text"]
+        if not text:
+            continue
+        request_id = event.get("request_id") or ""
+        if request_id and request_id in seen:
+            continue
+        if is_repeat(event, last, time.time()):
+            continue
+        if request_id:
+            seen.append(request_id)
+            del seen[:-32]
+        recognized_at = time.time()
+        last = {"text": text, "request_id": request_id, "ts": recognized_at}
+        if not passive_wants(text):
+            log("Алисе: %r" % text)
+            continue
+        # Отменяем до прихода AliceDeferred (Алиса AI отвечает через 5+ с).
+        cancel_native_dialog()
+        log("перехват: %r" % text)
+        try:
+            handle_started = time.time()
+            handle(text, recognized_at)
+            log("обработано за %.1f с" % (time.time() - handle_started))
+        except Exception as exc:  # noqa: BLE001
+            log("handle error: %s" % exc)
+            time.sleep(1)
 
 
 def scheduler_loop():
@@ -985,6 +1117,10 @@ def main():
     last = {}
     idle_reason = ""
     while True:
+        if mic_mode_now() == "alice":
+            passive_main(voice_config)
+            idle_reason = ""
+            continue
         allowed, why = listen_allowed()
         if not allowed:
             if why != idle_reason:

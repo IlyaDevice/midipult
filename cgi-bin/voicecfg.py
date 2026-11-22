@@ -27,7 +27,7 @@ import common  # noqa: E402
 STORE = "/data/mypult/voice.json"
 LUNA = "http://127.0.0.1:8099"
 IDLE_MODES = ("always", "auto")
-MIC_MODES = ("continuous", "econom")
+MIC_MODES = ("continuous", "econom", "alice")
 MIDI_MODELS = ("yandexmidi",)
 
 
