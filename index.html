@@ -3716,6 +3716,7 @@ body.light dialog.queue-dlg.ym-look{
               <select id="voiceMicMode" aria-label="Режим микрофона">
                 <option value="continuous">Непрерывно</option>
                 <option value="econom">Экономно (короткие сессии)</option>
+                <option value="alice">Только после «Алиса» (быстрее)</option>
               </select>
               <small class="seg-note" id="voiceMicNote">сессия не закрывается: Алиса может отвечать медленнее</small>
             </label>
@@ -10098,7 +10099,8 @@ body.light dialog.queue-dlg.ym-look{
       el.btnVoiceDaemon.textContent = data.running ? 'Выключить голосовой пульт' : 'Включить голосовой пульт';
       el.btnVoiceDaemon.setAttribute('aria-pressed', data.running ? 'true' : 'false');
       el.voiceDaemonStatus.textContent = data.running
-        ? (data.idle === 'auto' ? 'ждёт сценарии или нейросеть' : 'слушает «Алиса, …»')
+        ? (data.mic_mode === 'alice' ? 'слушает фразы после «Алиса»'
+          : data.idle === 'auto' ? 'ждёт сценарии или нейросеть' : 'слушает «Алиса, …»')
         : (data.enabled === false ? 'выключен — микрофон не используется' : 'не запущен');
       if (el.voiceIdleMode && data.idle) el.voiceIdleMode.value = data.idle;
       if (el.voiceMicMode && data.mic_mode) el.voiceMicMode.value = data.mic_mode;
@@ -10109,9 +10111,11 @@ body.light dialog.queue-dlg.ym-look{
         select.setAttribute('aria-disabled', data.running ? 'false' : 'true');
       });
       if (el.voiceMicNote) {
-        el.voiceMicNote.textContent = data.mic_mode === 'econom'
-          ? 'короткие сессии: Алисе легче, но команда может не попасть в паузу'
-          : 'сессия не закрывается: Алиса может отвечать медленнее';
+        el.voiceMicNote.textContent = data.mic_mode === 'alice'
+          ? 'свой микрофон не открывается: пульт берёт фразу, которую распознала Алиса'
+          : data.mic_mode === 'econom'
+            ? 'короткие сессии: Алисе легче, но команда может не попасть в паузу'
+            : 'сессия не закрывается: Алиса может отвечать медленнее';
       }
       if (el.voiceIdleNote) {
         el.voiceIdleNote.textContent = (data.idle || 'auto') === 'auto'
@@ -10138,7 +10142,8 @@ body.light dialog.queue-dlg.ym-look{
   function setVoiceMicMode(mode) {
     if (!mode) return Promise.resolve();
     return cgi('voicecfg.py', { mic_mode: mode }, { timeout: 10000 }).then(function () {
-      toast(mode === 'econom' ? 'Экономный режим микрофона' : 'Микрофон слушает непрерывно', 'ok');
+      toast(mode === 'alice' ? 'Пульт слушает фразы после «Алиса»'
+        : mode === 'econom' ? 'Экономный режим микрофона' : 'Микрофон слушает непрерывно', 'ok');
       return loadVoice();
     }).catch(function (err) {
       toast('Голос: ' + err.message, 'bad');
