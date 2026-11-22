@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -51,11 +52,40 @@ def read_version():
         return None, None
 
 
+PROBE_TTL = 60.0
+_PROBES = {}
+
+
+def cached_probe(key, probe, now=None):
+    """Проба порта maind не чаще раза в минуту (неудачная — каждый раз).
+
+    1961 — TLS-порт Glagol: голое TCP-соединение без рукопожатия maind пишет
+    в maind.log как «TLS handshake failed», а 9875 (aliced) — как «async send
+    data: Bad file descriptor». state_daemon вызывает build() каждые 2 с,
+    и maind.log перезаписывался за 3–4 минуты — прошлые запросы терялись.
+    """
+    now = time.monotonic() if now is None else now
+    at, value = _PROBES.get(key, (None, None))
+    if at is None or not value or now - at >= PROBE_TTL:
+        value = probe()
+        _PROBES[key] = (now, value)
+    return value
+
+
+def glagol_latency_cached(now=None, probe=None):
+    return cached_probe("glagol", probe or (lambda: common.tcp_latency(1961)), now)
+
+
+def ipc_tcp_cached(now=None, probe=None):
+    return cached_probe(
+        "ipc", probe or (lambda: common.port_open(common.IPC_PORT, timeout=0.3)), now)
+
+
 def build():
     version, build_date = read_version()
     luna_latency = common.tcp_latency(8099)
-    glagol_latency = common.tcp_latency(1961)
-    ipc_tcp = common.port_open(common.IPC_PORT, timeout=0.3)
+    glagol_latency = glagol_latency_cached()
+    ipc_tcp = ipc_tcp_cached()
     ipc_socket = ipc_socket_path()
     tts = bool(ipc_tcp or ipc_socket)
 
