@@ -881,6 +881,63 @@ def test_voice_follow_up_words():
           not voice_daemon.follow_up_wanted("а какая погода завтра?"))
 
 
+def test_voice_repeat_filter():
+    last = {"text": "Ты тут", "request_id": "r1", "ts": 100.0}
+    check("повтор: тот же request_id отсекается даже через 45 с",
+          voice_daemon.is_repeat({"text": "Ты тут", "request_id": "r1", "phase": "speaking"},
+                                 last, 145.0))
+    check("повтор: та же фраза в BUSY через 45 с (без id) — повтор",
+          voice_daemon.is_repeat({"text": "ты тут?", "request_id": "", "phase": "busy"},
+                                 last, 145.0))
+    check("повтор: та же фраза в LISTENING через 45 с с новым id — новая команда",
+          not voice_daemon.is_repeat({"text": "Ты тут", "request_id": "r2", "phase": "listening"},
+                                     last, 145.0))
+    check("повтор: та же фраза в первые 30 с — повтор",
+          voice_daemon.is_repeat({"text": "Ты тут", "request_id": "r2", "phase": "listening"},
+                                 last, 120.0))
+    check("повтор: другая фраза — не повтор",
+          not voice_daemon.is_repeat({"text": "Как дела", "request_id": "", "phase": "busy"},
+                                     last, 101.0))
+    check("повтор: первая фраза — не повтор",
+          not voice_daemon.is_repeat({"text": "Ты тут", "request_id": "r1", "phase": ""}, {}, 1.0))
+
+
+def test_voice_guard_native_answer():
+    now = [0.0]
+    states = iter(["IDLE", "BUSY", "BUSY", "SPEAKING", "IDLE"] + ["IDLE"] * 50)
+    cancels = []
+
+    def sleep(seconds):
+        now[0] += seconds
+
+    count = voice_daemon.guard_native_answer(
+        0.0, state=lambda: next(states), cancel=lambda: cancels.append(now[0]),
+        clock=lambda: now[0], sleep=sleep)
+    check("guard: BUSY отменяется, SPEAKING (наш ответ) — нет", count == 2 and len(cancels) == 2,
+          str(cancels))
+    check("guard: выходит после простоя, не ждёт 40 с", now[0] < 15.0, str(now[0]))
+
+    now[0] = 0.0
+    count = voice_daemon.guard_native_answer(
+        0.0, state=lambda: "BUSY", cancel=lambda: None,
+        clock=lambda: now[0], sleep=sleep)
+    check("guard: ограничен NATIVE_GUARD_SECONDS",
+          now[0] <= voice_daemon.NATIVE_GUARD_SECONDS + 1.0 and count > 0, str(now[0]))
+
+
+def test_voice_speech_event_post():
+    calls = []
+    original_post, original_get = voice_daemon.post, voice_daemon.get
+    voice_daemon.post = lambda url, payload, timeout=60: calls.append(("POST", url)) or {"final": True}
+    voice_daemon.get = lambda url, timeout=10: calls.append(("GET", url)) or {}
+    try:
+        voice_daemon._speech_event(1000)
+    finally:
+        voice_daemon.post, voice_daemon.get = original_post, original_get
+    check("follow-up: cancel=true идёт через POST (Luna 0.2.36+ отклоняет GET)",
+          len(calls) == 1 and calls[0][0] == "POST" and "cancel=true" in calls[0][1], str(calls))
+
+
 def test_lyrics_parse():
     lines = lyrics.parse_lrc(
         "[00:12.34] Первая строка\n"
@@ -2289,6 +2346,9 @@ def main():
         test_llm_native_search,
         test_alice_cli_commands,
         test_voice_follow_up_words,
+        test_voice_repeat_filter,
+        test_voice_guard_native_answer,
+        test_voice_speech_event_post,
         test_lyrics_parse,
         test_ring_animations_list,
         test_ring_animation_preview,

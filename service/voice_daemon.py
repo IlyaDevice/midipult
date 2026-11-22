@@ -94,6 +94,64 @@ def stop_alice_speech():
         pass
 
 
+def cancel_native_dialog():
+    """Закрыть запрос штатной Алисы целиком, включая отложенный ответ.
+
+    `maind --cli` 'c' гасит текущую речь, но ответ Алисы AI приходит позже
+    (через 10–25 с, `AliceDeferred`) и всё равно звучит. Luna
+    `/api/alice/speech/cancel` шлёт STOP_CONVERSATION/CANCEL_DIALOG в aliced
+    и закрывает конвейер запроса.
+    """
+    try:
+        post(LUNA + "/api/alice/speech/cancel", {}, timeout=8)
+    except Exception:  # noqa: BLE001 - старая Luna: остаётся путь через CLI
+        pass
+    stop_alice_speech()
+
+
+NATIVE_GUARD_SECONDS = 40.0
+NATIVE_GUARD_IDLE = 4.0
+
+
+def alice_state():
+    try:
+        data = get(BASE + "/cgi-bin/player.py", timeout=5) or {}
+    except Exception:  # noqa: BLE001
+        return ""
+    return str(data.get("alice") or "").strip().upper()
+
+
+def guard_native_answer(started_at, state=alice_state, cancel=cancel_native_dialog,
+                        clock=time.time, sleep=time.sleep):
+    """Не дать Алисе AI зачитать свой ответ после нашего.
+
+    Пока штатная Алиса «думает» (BUSY — ждёт ответ Алисы AI) — отменяем её
+    запрос. SPEAKING не трогаем: наш собственный ответ тоже звучит голосом
+    Алисы, и длинный ответ ещё может идти. Выходим, когда она простаивает
+    NATIVE_GUARD_IDLE секунд подряд или прошло NATIVE_GUARD_SECONDS с
+    распознавания. Возвращает число отмен.
+    """
+    deadline = started_at + NATIVE_GUARD_SECONDS
+    idle_since = None
+    cancels = 0
+    while clock() < deadline:
+        current = state()
+        if current in ("BUSY", "THINKING"):
+            idle_since = None
+            cancel()
+            cancels += 1
+            sleep(1.0)
+            continue
+        if current not in ("", "IDLE"):
+            idle_since = None
+        elif idle_since is None:
+            idle_since = clock()
+        elif clock() - idle_since >= NATIVE_GUARD_IDLE:
+            break
+        sleep(0.5)
+    return cancels
+
+
 FOLLOW_UP_STOP = ("хватит", "стоп", "спасибо", "пока", "до свидания",
                   "замолчи", "отмена", "не надо")
 
@@ -104,10 +162,12 @@ def follow_up_wanted(text):
 
 def _speech_event(timeout_ms=8000):
     """Одно событие распознавания; cancel=true отменяет диалог Алисы сразу."""
+    # Luna 0.2.36+ принимает cancel=true только через POST (GET → ошибка),
+    # поэтому без POST продолжение диалога не слышало ни одной фразы.
     url = "%s/api/alice/speech?%s" % (LUNA, urllib.parse.urlencode(
         {"timeout_ms": timeout_ms, "cancel": "true"}))
     try:
-        return get(url, timeout=(timeout_ms / 1000.0) + 5)
+        return post(url, {}, timeout=(timeout_ms / 1000.0) + 5)
     except Exception as exc:  # noqa: BLE001 - таймаут и сеть = тишина
         return {"error": str(exc)}
 
@@ -316,18 +376,53 @@ def match(text):
     return None
 
 
-def recognize(timeout=120):
+def recognize_event(timeout=120):
+    """Финальная фраза и её запрос: {"text", "request_id", "phase"}."""
     try:
         data = post(LUNA + "/api/alice/recognize", {}, timeout=timeout)
     except Exception:
-        return ""
+        return {"text": "", "request_id": "", "phase": ""}
+    text = ""
     for key in ("transcript", "text"):
         value = data.get(key)
         if isinstance(value, str) and value.strip():
-            return value.strip()
-    result = data.get("result") or {}
-    value = result.get("transcript")
-    return value.strip() if isinstance(value, str) else ""
+            text = value.strip()
+            break
+    if not text:
+        value = (data.get("result") or {}).get("transcript")
+        text = value.strip() if isinstance(value, str) else ""
+    return {
+        "text": text,
+        "request_id": str(data.get("request_id") or ""),
+        "phase": str(data.get("phase") or "").lower(),
+    }
+
+
+def recognize(timeout=120):
+    return recognize_event(timeout)["text"]
+
+
+REPEAT_WINDOW = 30.0
+REANNOUNCE_WINDOW = 90.0
+
+
+def is_repeat(event, last, now):
+    """Повтор уже обработанной фразы, а не новая команда.
+
+    aliced публикует распознанную фразу ещё раз, когда штатная Алиса
+    переходит в BUSY/SPEAKING (через 8–45 с) — с тем же request_id.
+    """
+    if not last or not last.get("text"):
+        return False
+    request_id = event.get("request_id") or ""
+    if request_id and request_id == last.get("request_id"):
+        return True
+    if normalize(event.get("text")) != normalize(last.get("text")):
+        return False
+    age = now - float(last.get("ts") or 0.0)
+    if age < REPEAT_WINDOW:
+        return True
+    return age < REANNOUNCE_WINDOW and event.get("phase") in ("busy", "speaking")
 
 
 def llm_enabled():
@@ -671,7 +766,9 @@ def run_scenario(text):
         return {}
 
 
-def handle(text):
+def handle(text, recognized_at=None):
+    if recognized_at is None:
+        recognized_at = time.time()
     # Список радио обрабатываем до сценариев: иначе Алиса успевает
     # ответить, пока ждём HTTP-ответ scenarios.py.
     intent = match(text)
@@ -731,7 +828,7 @@ def handle(text):
         # «Стоп» в момент распознавания приходит до старта её TTS — повторяем
         # через секунду, когда директива уже активна.
         time.sleep(1.2)
-        stop_alice_speech()
+        cancel_native_dialog()
         worker.join(30)
 
         if "error" in box:
@@ -740,10 +837,13 @@ def handle(text):
         answer = box.get("answer")
         if answer:
             generation = time.time() - started_at
-            stop_alice_speech()
+            cancel_native_dialog()
             say(answer)
             log("llm answer: %d символов, генерация %.1f с"
                 % (len(answer), generation))
+            cancels = guard_native_answer(recognized_at)
+            if cancels:
+                log("ответ Алисы AI отменён (%d)" % cancels)
             # issue #2: после ответа слушаем продолжение без «Алисы».
             if info.get("follow_up"):
                 follow_up(system)
@@ -882,8 +982,7 @@ def main():
     threading.Thread(target=autobright_loop, daemon=True).start()
     threading.Thread(target=volume_sync_loop, daemon=True).start()
     threading.Thread(target=disk_cleanup_loop, daemon=True).start()
-    last_text = ""
-    last_ts = 0.0
+    last = {}
     idle_reason = ""
     while True:
         allowed, why = listen_allowed()
@@ -909,7 +1008,8 @@ def main():
         session_timeout = 18 if mic_mode == "econom" else 120
         started = time.time()
         try:
-            text = recognize(timeout=session_timeout)
+            event = recognize_event(timeout=session_timeout)
+            text = event["text"]
         except KeyboardInterrupt:
             return
         except Exception as exc:  # noqa: BLE001
@@ -924,13 +1024,16 @@ def main():
             continue
         # recognize иногда отдаёт одну и ту же фразу несколько раз подряд,
         # причём с паузой больше 4 секунд — держим окно 30 секунд.
-        if text == last_text and (time.time() - last_ts) < 30:
+        if is_repeat(event, last, time.time()):
             # Luna иногда отдаёт тот же финальный текст повторно; не занимаем
             # микрофон новым recognize каждые 10 секунд.
+            log("повтор, пропускаю: %r (%s)" % (text, event.get("phase") or "?"))
             time.sleep(8)
             continue
-        log("распознано за %.1f с: %r" % (time.time() - started, text))
-        last_text, last_ts = text, time.time()
+        recognized_at = time.time()
+        log("распознано за %.1f с: %r" % (recognized_at - started, text))
+        last = {"text": text, "request_id": event.get("request_id") or "",
+                "ts": recognized_at}
         silenced = False
         if should_silence(text):
             try:
@@ -941,7 +1044,7 @@ def main():
                 pass
         try:
             handle_started = time.time()
-            handle(text)
+            handle(text, recognized_at)
             log("обработано за %.1f с" % (time.time() - handle_started))
         except Exception as exc:  # noqa: BLE001
             log("handle error: %s" % exc)
