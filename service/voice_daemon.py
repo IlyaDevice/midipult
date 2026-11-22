@@ -348,7 +348,10 @@ OFF_WORDS = ("выключи", "выключить", "отключи", "откл
 # Фразы, после которых ответ стоит искать в интернете (llm.py сходит в поиск).
 SEARCH_WORDS = ("поищи", "найди в интернете", "посмотри в интернете", "погугли",
                 "что пишут", "последние новости", "какие новости", "что нового",
-                "найди в сети", "поиск в интернете", "что сейчас")
+                "найди в сети", "поиск в интернете", "что сейчас",
+                # Без поиска модель не знает сегодняшних данных и выдумывает.
+                "погод", "прогноз", "курс доллар", "курс евро", "курс валют",
+                "новост", "пробк", "счет матча", "кто выиграл")
 
 
 def search_wanted(text):
@@ -748,8 +751,13 @@ _SCENARIO_MTIME = None
 _SCENARIO_PHRASES = []
 
 
-def scenario_may_match(text):
-    """Быстрая локальная проверка: не дергать scenarios.py зря."""
+def scenario_may_match(text, missing=True):
+    """Быстрая локальная проверка: не дергать scenarios.py зря.
+
+    `missing` — ответ, когда файла нет или он сломан: старому циклу это
+    безопасно (решит CGI), а режим alice по нему отменял бы Алису на
+    каждой фразе, поэтому он передаёт False.
+    """
     global _SCENARIO_MTIME, _SCENARIO_PHRASES
     try:
         mtime = os.path.getmtime(SCENARIO_PATH)
@@ -765,7 +773,7 @@ def scenario_may_match(text):
             _SCENARIO_MTIME = mtime
     except Exception:
         # Если файл недоступен/сломан — пусть решает CGI.
-        return True
+        return missing
     low = normalize(text)
     return bool(low) and any(
         normalize(phrase) and normalize(phrase) in low
@@ -902,7 +910,7 @@ def passive_wants(text, llm_on=None):
     low = normalize(text)
     if len(low) <= 2:
         return False
-    if scenario_may_match(text):
+    if scenario_may_match(text, missing=False):
         return True
     intent = match(text)
     if intent:
@@ -936,6 +944,18 @@ def mic_mode_now(config=None):
         return voicecfg.resolve_mic_mode(config) if voicecfg else "continuous"
     except Exception:  # noqa: BLE001
         return "continuous"
+
+
+def give_back_to_alice(text):
+    """Фразу забрали, но не обработали (ошибка нейросети и т.п.) — Алиса
+    уже отменена, поэтому отдаём ей тот же текст, чтобы не было тишины."""
+    if alice_cli is None:
+        return
+    try:
+        alice_cli.query(text)
+        log("вернул Алисе: %r" % text)
+    except Exception as exc:  # noqa: BLE001
+        log("вернуть Алисе не удалось: %s" % exc)
 
 
 def passive_main(config_reader):
@@ -978,8 +998,10 @@ def passive_main(config_reader):
         log("перехват: %r" % text)
         try:
             handle_started = time.time()
-            handle(text, recognized_at)
+            done = handle(text, recognized_at)
             log("обработано за %.1f с" % (time.time() - handle_started))
+            if not done:
+                give_back_to_alice(text)
         except Exception as exc:  # noqa: BLE001
             log("handle error: %s" % exc)
             time.sleep(1)
