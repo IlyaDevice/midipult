@@ -280,7 +280,9 @@ def say(text, append=1):
     for index, chunk in enumerate(chunks):
         try:
             payload = {"text": chunk, "wait": 30}
-            if append == 0:
+            # append=0 заменяет очередь речи — только для первого куска,
+            # иначе каждый следующий кусок обрывал бы предыдущий.
+            if append == 0 and index == 0:
                 payload["append"] = 0
             post(BASE + "/cgi-bin/speak.py", payload, timeout=40)
         except Exception:
@@ -860,7 +862,9 @@ def handle(text, recognized_at=None):
         if answer:
             generation = time.time() - started_at
             cancel_native_dialog()
-            say(answer)
+            # append=0: если Алиса AI всё ещё «думает» (отмена в BUSY не всегда
+            # доходит), наш ответ заменяет её очередь, а не ждёт за ней до 20 с.
+            say(answer, append=0)
             log("llm answer: %d символов, генерация %.1f с"
                 % (len(answer), generation))
             start_native_guard(recognized_at)
@@ -885,7 +889,7 @@ def handle(text, recognized_at=None):
 # Это Алиса делает сама и лучше — даже при включённой нейросети не забираем.
 NATIVE_KEEP = ("стоп", "хватит", "пауза", "на паузу", "продолжи", "дальше",
                "следующ", "предыдущ", "громче", "тише", "громкост",
-               "таймер", "будильник", "разбуди", "напомни")
+               "таймер", "будильник", "разбуди", "напомни", "напомин")
 
 
 def native_keep(text):

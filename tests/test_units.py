@@ -960,6 +960,19 @@ def test_voice_passive_mode():
         voice_daemon.llm_profile_target, voice_daemon.scenario_may_match = original
     check("alice: режим в списке voicecfg", "alice" in voicecfg_module.MIC_MODES)
 
+    sent = []
+    original_post, original_sleep = voice_daemon.post, voice_daemon.time.sleep
+    voice_daemon.post = lambda url, payload, timeout=60: sent.append((url, dict(payload))) or {}
+    voice_daemon.time.sleep = lambda seconds: None
+    try:
+        voice_daemon.say(("Предложение номер один. " * 120).strip(), append=0)
+    finally:
+        voice_daemon.post, voice_daemon.time.sleep = original_post, original_sleep
+    speaks = [payload for url, payload in sent if url.endswith("/speak.py")]
+    check("say: append=0 только у первого куска длинного ответа",
+          len(speaks) >= 2 and speaks[0].get("append") == 0
+          and all("append" not in payload for payload in speaks[1:]), str(speaks[:3]))
+
     original_path, original_target = voice_daemon.SCENARIO_PATH, voice_daemon.llm_profile_target
     voice_daemon.SCENARIO_PATH = "/nonexistent/scenarios.json"
     voice_daemon._SCENARIO_MTIME = None
@@ -970,6 +983,9 @@ def test_voice_passive_mode():
         check("alice: без scenarios.json таймер остаётся Алисе (нейросеть вкл.)",
               not voice_daemon.passive_wants("Поставь таймер на 2 минуты", llm_on=True)
               and not voice_daemon.passive_wants("Удали таймер", llm_on=True))
+        check("alice: напоминания остаются Алисе",
+              not voice_daemon.passive_wants("Поставь напоминание через 2 минуты", llm_on=True)
+              and not voice_daemon.passive_wants("Удали напоминание", llm_on=True))
         check("сценарии: старый цикл без файла по-прежнему спрашивает CGI",
               voice_daemon.scenario_may_match("что угодно"))
     finally:
