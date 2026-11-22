@@ -38,6 +38,7 @@ import alice_cli  # noqa: E402
 import lyrics  # noqa: E402
 import radio  # noqa: E402
 import speak  # noqa: E402
+import status  # noqa: E402
 import state_daemon  # noqa: E402
 import update  # noqa: E402
 import voice_daemon  # noqa: E402
@@ -936,6 +937,28 @@ def test_voice_speech_event_post():
         voice_daemon.post, voice_daemon.get = original_post, original_get
     check("follow-up: cancel=true идёт через POST (Luna 0.2.36+ отклоняет GET)",
           len(calls) == 1 and calls[0][0] == "POST" and "cancel=true" in calls[0][1], str(calls))
+
+
+def test_status_probe_cache():
+    status._PROBES.clear()
+    hits = []
+
+    def probe():
+        hits.append(1)
+        return 3.1
+
+    status.glagol_latency_cached(now=0.0, probe=probe)
+    status.glagol_latency_cached(now=2.0, probe=probe)
+    status.glagol_latency_cached(now=59.0, probe=probe)
+    check("status: проба 1961 не чаще раза в минуту", len(hits) == 1, str(hits))
+    status.glagol_latency_cached(now=61.0, probe=probe)
+    check("status: через минуту проба повторяется", len(hits) == 2, str(hits))
+    status._PROBES.clear()
+    down = []
+    status.glagol_latency_cached(now=0.0, probe=lambda: down.append(1))
+    status.glagol_latency_cached(now=1.0, probe=lambda: down.append(1))
+    check("status: недоступный Glagol проверяется каждый раз", len(down) == 2, str(down))
+    status._PROBES.clear()
 
 
 def test_lyrics_parse():
@@ -2349,6 +2372,7 @@ def main():
         test_voice_repeat_filter,
         test_voice_guard_native_answer,
         test_voice_speech_event_post,
+        test_status_probe_cache,
         test_lyrics_parse,
         test_ring_animations_list,
         test_ring_animation_preview,
