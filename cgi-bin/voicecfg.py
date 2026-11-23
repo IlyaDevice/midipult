@@ -12,6 +12,12 @@
     auto   — открывать её только когда есть что обрабатывать: есть сценарии
              или включена нейросеть. На не-Миди (например Station 2) это
              значение по умолчанию: там каждая сессия подсвечивает кольцо.
+
+`mic_mode`:
+    continuous — своя сессия распознавания всё время;
+    econom     — короткие сессии по 18 секунд с паузами;
+    alice      — своей сессии нет: пульт читает фразы, которые уже
+                 распознала Алиса, и перехватывает только свои.
 """
 
 from __future__ import annotations
@@ -27,7 +33,7 @@ import common  # noqa: E402
 STORE = "/data/mypult/voice.json"
 LUNA = "http://127.0.0.1:8099"
 IDLE_MODES = ("always", "auto")
-MIC_MODES = ("continuous", "econom")
+MIC_MODES = ("continuous", "econom", "alice")
 MIDI_MODELS = ("yandexmidi",)
 
 

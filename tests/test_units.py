@@ -908,6 +908,11 @@ def test_voice_speech_post():
         check("голос: POST возвращает событие", event.get("transcript") == "привет", str(event))
 
         calls.clear()
+        voice_daemon._speech_event(500, cancel=False)
+        check("голос: follow-up не отменяет свой диалог",
+              "cancel=true" not in calls[0][1], calls[0][1])
+
+        calls.clear()
 
         def post_timeout(url, payload, timeout=None):
             calls.append(("POST", url, payload))
@@ -976,8 +981,8 @@ def test_voice_repeat_filter():
           not voice_daemon.is_repeat(
               {"text": "Почему так долго", "request_id": "r2", "phase": "listening"},
               last, now + 40))
-    check("голос: та же фраза через 40 с в busy — повтор",
-          voice_daemon.is_repeat(
+    check("голос: та же фраза через 40 с в busy — тоже новая",
+          not voice_daemon.is_repeat(
               {"text": "Почему так долго", "request_id": "r2", "phase": "busy"},
               last, now + 40))
     check("голос: другая фраза — новая",
@@ -1039,6 +1044,95 @@ def test_voice_cancel_native():
     finally:
         voice_daemon.post = old_post
         voice_daemon.stop_alice_speech = old_stop
+
+
+def test_voice_follow_up_skip():
+    events = [
+        {"transcript": "Как дела", "final": True, "request_id": "r1"},
+        {"transcript": "А почему", "final": True, "request_id": "r2"},
+    ]
+    calls = []
+
+    class FakeCli:
+        def listen(self):
+            calls.append("listen")
+
+        def close_session(self):
+            calls.append("close")
+
+    old_cli = voice_daemon.alice_cli
+    old_event = voice_daemon._speech_event
+    old_sleep = voice_daemon.time.sleep
+    try:
+        voice_daemon.alice_cli = FakeCli()
+        voice_daemon.time.sleep = lambda *_: None
+
+        def fake_event(timeout_ms=8000, cancel=True):
+            calls.append(("event", cancel))
+            return events.pop(0)
+
+        voice_daemon._speech_event = fake_event
+        text = voice_daemon.listen_for_phrase(timeout=5, skip_request_id="r1",
+                                              skip_text="Как дела")
+        check("follow-up: старый ответ пропущен", text == "А почему", repr(text))
+        check("follow-up: микрофон открыт и закрыт",
+              calls[0] == "listen" and calls[-1] == "close", str(calls))
+        check("follow-up: слушает без cancel",
+              any(call == ("event", False) for call in calls), str(calls))
+    finally:
+        voice_daemon.alice_cli = old_cli
+        voice_daemon._speech_event = old_event
+        voice_daemon.time.sleep = old_sleep
+
+
+def test_voice_passive_wants():
+    old_llm = voice_daemon.llm_enabled
+    old_info = voice_daemon.llm_info
+    try:
+        voice_daemon.llm_info = lambda: {"profiles": []}
+        voice_daemon.llm_enabled = lambda: True
+        check("alice: вопрос уходит в нейросеть",
+              voice_daemon.passive_wants("как дела"))
+        check("alice: команда пульта забирается",
+              voice_daemon.passive_wants("включи впн"))
+        check("alice: музыка остаётся Алисе",
+              not voice_daemon.passive_wants("включи песню кино"))
+        check("alice: свет не трогаем",
+              not voice_daemon.passive_wants("включи свет"))
+        check("alice: стоп остаётся Алисе",
+              not voice_daemon.passive_wants("стоп"))
+        check("alice: время остаётся Алисе",
+              not voice_daemon.passive_wants("сколько времени"))
+        voice_daemon.llm_enabled = lambda: False
+        check("alice: без нейросети вопрос не забираем",
+              not voice_daemon.passive_wants("как дела"))
+        check("alice: без нейросети команды всё равно наши",
+              voice_daemon.passive_wants("включи впн"))
+    finally:
+        voice_daemon.llm_enabled = old_llm
+        voice_daemon.llm_info = old_info
+
+
+def test_voice_native_phrase():
+    old_get = voice_daemon.get
+    calls = []
+    try:
+        def fake_get(url, timeout=None):
+            calls.append(url)
+            return {"transcript": " привет ", "request_id": "r1",
+                    "phase": "LISTENING", "source": "voice"}
+
+        voice_daemon.get = fake_get
+        event = voice_daemon.native_phrase(1000)
+        check("alice: читает command без cancel",
+              "/api/alice/command" in calls[0] and "cancel" not in calls[0], calls[0])
+        check("alice: пустой таймаут не шумит",
+              "empty_on_timeout=true" in calls[0], calls[0])
+        check("alice: поля события разобраны",
+              event["text"] == "привет" and event["request_id"] == "r1"
+              and event["phase"] == "listening", str(event))
+    finally:
+        voice_daemon.get = old_get
 
 
 def test_status_probe_cache():
@@ -2504,6 +2598,9 @@ def main():
         test_voice_repeat_filter,
         test_voice_say_append,
         test_voice_cancel_native,
+        test_voice_follow_up_skip,
+        test_voice_passive_wants,
+        test_voice_native_phrase,
         test_status_probe_cache,
         test_lyrics_parse,
         test_ring_animations_list,

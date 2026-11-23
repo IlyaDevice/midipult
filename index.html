@@ -3716,6 +3716,7 @@ body.light dialog.queue-dlg.ym-look{
               <select id="voiceMicMode" aria-label="Режим микрофона">
                 <option value="continuous">Непрерывно</option>
                 <option value="econom">Экономно (короткие сессии)</option>
+                <option value="alice">По фразам Алисы</option>
               </select>
               <small class="seg-note" id="voiceMicNote">сессия не закрывается: Алиса может отвечать медленнее</small>
             </label>
@@ -10111,7 +10112,9 @@ body.light dialog.queue-dlg.ym-look{
       if (el.voiceMicNote) {
         el.voiceMicNote.textContent = data.mic_mode === 'econom'
           ? 'короткие сессии: Алисе легче, но команда может не попасть в паузу'
-          : 'сессия не закрывается: Алиса может отвечать медленнее';
+          : data.mic_mode === 'alice'
+            ? 'пульт не открывает микрофон: забирает фразы, которые уже распознала Алиса'
+            : 'сессия не закрывается: Алиса может отвечать медленнее';
       }
       if (el.voiceIdleNote) {
         el.voiceIdleNote.textContent = (data.idle || 'auto') === 'auto'
@@ -10138,7 +10141,9 @@ body.light dialog.queue-dlg.ym-look{
   function setVoiceMicMode(mode) {
     if (!mode) return Promise.resolve();
     return cgi('voicecfg.py', { mic_mode: mode }, { timeout: 10000 }).then(function () {
-      toast(mode === 'econom' ? 'Экономный режим микрофона' : 'Микрофон слушает непрерывно', 'ok');
+      toast(mode === 'econom' ? 'Экономный режим микрофона'
+        : mode === 'alice' ? 'Пульт слушает фразы Алисы'
+        : 'Микрофон слушает непрерывно', 'ok');
       return loadVoice();
     }).catch(function (err) {
       toast('Голос: ' + err.message, 'bad');

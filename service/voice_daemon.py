@@ -130,16 +130,20 @@ def _cancel_requires_post(exc):
 _LUNA_POST_CANCEL = {"ok": True}
 
 
-def _speech_event(timeout_ms=8000):
-    """Одно событие распознавания; cancel=true отменяет диалог Алисы сразу.
+def _speech_event(timeout_ms=8000, cancel=True):
+    """Одно событие распознавания.
+
+    cancel=True отменяет диалог Алисы сразу после фрагмента — это нужно для
+    перехвата. Для follow-up отмена вредна: она гасит диалог, который мы
+    только что открыли сами, поэтому там cancel=False.
 
     Luna 0.2.36+ принимает cancel=true только через POST (nyakokitsu/luna#52),
-    на старых Luna POST может не быть — тогда один раз откатываемся на GET
-    и запоминаем это до перезапуска демона.
+    на старых Luna POST может не быть — откатываемся на GET.
     """
-    url = "%s/api/alice/speech?%s" % (LUNA, urllib.parse.urlencode(
-        {"timeout_ms": timeout_ms, "cancel": "true",
-         "empty_on_timeout": "true"}))
+    params = {"timeout_ms": timeout_ms, "empty_on_timeout": "true"}
+    if cancel:
+        params["cancel"] = "true"
+    url = "%s/api/alice/speech?%s" % (LUNA, urllib.parse.urlencode(params))
     timeout = (timeout_ms / 1000.0) + 5
     if _LUNA_POST_CANCEL["ok"]:
         try:
@@ -152,16 +156,23 @@ def _speech_event(timeout_ms=8000):
         except Exception as exc:  # noqa: BLE001 - таймаут и сеть = тишина
             return {"error": str(exc)}
     # Старые Luna: GET без незнакомого им empty_on_timeout.
-    legacy = "%s/api/alice/speech?%s" % (LUNA, urllib.parse.urlencode(
-        {"timeout_ms": timeout_ms, "cancel": "true"}))
+    legacy_params = {"timeout_ms": timeout_ms}
+    if cancel:
+        legacy_params["cancel"] = "true"
+    legacy = "%s/api/alice/speech?%s" % (LUNA, urllib.parse.urlencode(legacy_params))
     try:
         return get(legacy, timeout=timeout)
     except Exception as exc:  # noqa: BLE001 - таймаут и сеть = тишина
         return {"error": str(exc)}
 
 
-def listen_for_phrase(timeout=15.0):
-    """Включить микрофон (maind --cli 's') и вернуть финальный текст."""
+def listen_for_phrase(timeout=15.0, skip_request_id="", skip_text=""):
+    """Включить микрофон (maind --cli 's') и вернуть новую финальную фразу.
+
+    Luna отдаёт текущее состояние распознавания сразу при подключении, поэтому
+    первую же фразу легко принять за ответ: skip_request_id/skip_text
+    отбрасывают тот запрос, на который мы уже ответили.
+    """
     if alice_cli is None:
         return ""
     try:
@@ -170,18 +181,23 @@ def listen_for_phrase(timeout=15.0):
         log("follow-up: CLI не запустился: %s" % exc)
         return ""
     try:
-        text = ""
         deadline = time.time() + timeout
         while time.time() < deadline:
-            event = _speech_event(8000)
+            event = _speech_event(8000, cancel=False)
             if not isinstance(event, dict):
                 continue
             fragment = str(event.get("transcript") or "").strip()
-            if fragment:
-                text = fragment
-            if event.get("final") and text:
-                return text
-        return text
+            if not fragment or not event.get("final"):
+                continue
+            request_id = str(event.get("request_id") or "")
+            if skip_request_id and request_id and request_id == skip_request_id:
+                time.sleep(0.5)
+                continue
+            if skip_text and normalize(fragment) == normalize(skip_text):
+                time.sleep(0.5)
+                continue
+            return fragment
+        return ""
     finally:
         # Закрываем сессию CLI: диалог отменяется, микрофон освобождается.
         try:
@@ -190,10 +206,12 @@ def listen_for_phrase(timeout=15.0):
             pass
 
 
-def follow_up(system):
+def follow_up(system, skip_request_id="", skip_text=""):
     """Слушать продолжение разговора без «Алисы» (issue #2)."""
     for turn in range(1, 4):
-        text = listen_for_phrase()
+        text = listen_for_phrase(skip_request_id=skip_request_id,
+                                 skip_text=skip_text)
+        skip_request_id = skip_text = ""
         if not text:
             log("follow-up: тишина")
             return
@@ -397,15 +415,15 @@ def recognize(timeout=120):
 
 
 REPEAT_WINDOW = 30.0
-REANNOUNCE_WINDOW = 90.0
 
 
 def is_repeat(event, last, now):
     """Повтор уже обработанной фразы, а не новая команда.
 
     aliced присылает ту же фразу ещё раз, когда штатная Алиса переходит в
-    BUSY/SPEAKING (через 8–45 с), — с тем же request_id. Окна в 30 секунд
-    по тексту не хватало: повтор приходил позже.
+    BUSY/SPEAKING (через 8–45 с), — с тем же request_id. Именно по нему и
+    режем: правило «та же фраза в фазе busy/speaking до 90 с» выбрасывало
+    настоящий повторный вопрос, если человек спрашивал то же самое снова.
     """
     if not last or not last.get("text"):
         return False
@@ -414,10 +432,7 @@ def is_repeat(event, last, now):
         return True
     if normalize(event.get("text")) != normalize(last.get("text")):
         return False
-    age = now - float(last.get("ts") or 0.0)
-    if age < REPEAT_WINDOW:
-        return True
-    return age < REANNOUNCE_WINDOW and event.get("phase") in ("busy", "speaking")
+    return (now - float(last.get("ts") or 0.0)) < REPEAT_WINDOW
 
 
 def llm_enabled():
@@ -729,8 +744,13 @@ _SCENARIO_MTIME = None
 _SCENARIO_PHRASES = []
 
 
-def scenario_may_match(text):
-    """Быстрая локальная проверка: не дергать scenarios.py зря."""
+def scenario_may_match(text, missing=True):
+    """Быстрая локальная проверка: не дергать scenarios.py зря.
+
+    `missing` — ответ, когда файла нет или он сломан: старому циклу это
+    безопасно (решит CGI), а режим alice по нему отменял бы Алису на
+    каждой фразе, поэтому он передаёт False.
+    """
     global _SCENARIO_MTIME, _SCENARIO_PHRASES
     try:
         mtime = os.path.getmtime(SCENARIO_PATH)
@@ -746,7 +766,7 @@ def scenario_may_match(text):
             _SCENARIO_MTIME = mtime
     except Exception:
         # Если файл недоступен/сломан — пусть решает CGI.
-        return True
+        return missing
     low = normalize(text)
     return bool(low) and any(
         normalize(phrase) and normalize(phrase) in low
@@ -761,7 +781,7 @@ def run_scenario(text):
         return {}
 
 
-def handle(text):
+def handle(text, request_id=""):
     # Список радио обрабатываем до сценариев: иначе Алиса успевает
     # ответить, пока ждём HTTP-ответ scenarios.py.
     intent = match(text)
@@ -836,7 +856,7 @@ def handle(text):
                 % (len(answer), generation))
             # issue #2: после ответа слушаем продолжение без «Алисы».
             if info.get("follow_up"):
-                follow_up(system)
+                follow_up(system, request_id, text)
             return True
 
     log("без команды: %r" % text)
@@ -929,6 +949,128 @@ def scenario_count():
         return 1
 
 
+# --------------------------------------------------------------------------- #
+#  Режим alice: читаем фразы, которые уже распознала штатная Алиса
+# --------------------------------------------------------------------------- #
+
+NATIVE_KEEP = (
+    "стоп", "хватит", "пауза", "на паузу", "продолжи", "дальше",
+    "следующ", "предыдущ", "громче", "тише", "громкост",
+    "таймер", "будильник", "разбуди", "напомни", "напомин",
+    "сколько времени", "который час", "какое сегодня", "какой сегодня",
+)
+
+NATIVE_MEDIA = (
+    "музык", "песн", "альбом", "плейлист", "трек", "исполнител",
+    "групп", "радио", "видео", "фильм", "сериал", "ютуб",
+    "телевизор", "позвони", "набери", "закажи", "купи",
+)
+
+
+def native_keep(text):
+    """Фразы, которые Алиса делает сама и лучше — даже при включённой сети."""
+    low = normalize(text)
+    return any(word in low for word in NATIVE_KEEP + NATIVE_MEDIA)
+
+
+def llm_switch_may_match(text):
+    low = normalize(text)
+    if "чат" in low:
+        return True
+    if any(phrase in low for phrase in
+           ("какая нейросеть", "что за нейросеть", "какой профиль")):
+        return True
+    if not any(word in low for word in
+               ("нейросет", "профил", "переключ", "включ", "выключ",
+                "отключ", "запуст")):
+        return False
+    return bool(llm_profile_target(low))
+
+
+def passive_wants(text, llm_on=None):
+    """Заберёт ли пульт эту фразу у Алисы (без побочных действий)."""
+    low = normalize(text)
+    if len(low) <= 2:
+        return False
+    if scenario_may_match(text, missing=False):
+        return True
+    intent = match(text)
+    if intent:
+        # «включи радио …» Алиса делает сама (см. perform).
+        return intent[0] != "radio"
+    if llm_switch_may_match(text):
+        return True
+    if "свет" in low or native_keep(text):
+        return False
+    return llm_enabled() if llm_on is None else bool(llm_on)
+
+
+def native_phrase(timeout_ms=25000):
+    """Следующая фраза штатной Алисы: {"text", "request_id", "phase", "source"}."""
+    url = "%s/api/alice/command?%s" % (LUNA, urllib.parse.urlencode(
+        {"timeout_ms": timeout_ms, "empty_on_timeout": "true"}))
+    try:
+        data = get(url, timeout=(timeout_ms / 1000.0) + 5) or {}
+    except Exception:  # noqa: BLE001 - сеть/таймаут = тишина
+        return {"text": "", "request_id": "", "phase": "", "source": ""}
+    return {
+        "text": str(data.get("transcript") or "").strip(),
+        "request_id": str(data.get("request_id") or ""),
+        "phase": str(data.get("phase") or "").lower(),
+        "source": str(data.get("source") or ""),
+    }
+
+
+def mic_mode_now(config=None):
+    try:
+        config = voice_config() if config is None else config
+        return voicecfg.resolve_mic_mode(config) if voicecfg else "continuous"
+    except Exception:  # noqa: BLE001
+        return "continuous"
+
+
+def passive_main():
+    """Слушать готовые фразы Алисы и забирать только свои.
+
+    Своей сессии распознавания нет: микрофон не занят, фраза приходит через
+    0.5–2 с после конца речи, и Алису можно отменить до её ответа.
+    """
+    log("режим alice: читаю фразы после «Алиса», свой микрофон не открываю")
+    seen = []
+    last = {}
+    while True:
+        if mic_mode_now() != "alice":
+            log("режим alice выключен")
+            return
+        if voice_config().get("enabled") is False:
+            time.sleep(5)
+            continue
+        event = native_phrase()
+        text = event["text"]
+        if not text:
+            continue
+        request_id = event.get("request_id") or ""
+        if request_id and request_id in seen:
+            continue
+        if is_repeat(event, last, time.time()):
+            continue
+        if request_id:
+            seen.append(request_id)
+            del seen[:-32]
+        last = {"text": text, "request_id": request_id, "ts": time.time()}
+        if not passive_wants(text):
+            log("Алисе: %r" % text)
+            continue
+        # Отменяем до того, как придёт отложенный ответ Алисы AI.
+        cancel_native_dialog()
+        log("перехват: %r" % text)
+        try:
+            handle(text, request_id)
+        except Exception as exc:  # noqa: BLE001
+            log("handle error: %s" % exc)
+            time.sleep(1)
+
+
 def listen_allowed():
     """Открывать ли сейчас сессию распознавания.
 
@@ -975,6 +1117,10 @@ def main():
     last = {}
     idle_reason = ""
     while True:
+        if mic_mode_now() == "alice":
+            passive_main()
+            idle_reason = ""
+            continue
         allowed, why = listen_allowed()
         if not allowed:
             if why != idle_reason:
