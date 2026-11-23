@@ -10094,6 +10094,21 @@ body.light dialog.queue-dlg.ym-look{
   }
 
   /* ─────────── голосовой демон ─────────── */
+  function applyMicMode(mode) {
+    if (!el.voiceMicMode || !mode) return;
+    var known = Array.prototype.some.call(el.voiceMicMode.options, function (opt) {
+      return opt.value === mode;
+    });
+    if (!known) {
+      var extra = document.createElement('option');
+      extra.value = mode;
+      extra.textContent = mode;
+      el.voiceMicMode.appendChild(extra);
+    }
+    el.voiceMicMode.value = mode;
+    try { localStorage.setItem('mypult.mic', mode); } catch (e) {}
+  }
+
   function loadVoice() {
     return cgi('voicectl.py', {}, { timeout: 8000, silent: true }).then(function (data) {
       State.voice = data;
@@ -10103,17 +10118,14 @@ body.light dialog.queue-dlg.ym-look{
         ? (data.idle === 'auto' ? 'ждёт сценарии или нейросеть' : 'слушает «Алиса, …»')
         : (data.enabled === false ? 'выключен — микрофон не используется' : 'не запущен');
       if (el.voiceIdleMode && data.idle) el.voiceIdleMode.value = data.idle;
-      if (el.voiceMicMode && data.mic_mode) {
-        var known = Array.prototype.some.call(el.voiceMicMode.options, function (opt) {
-          return opt.value === data.mic_mode;
-        });
-        if (!known) {
-          var extra = document.createElement('option');
-          extra.value = data.mic_mode;
-          extra.textContent = data.mic_mode;
-          el.voiceMicMode.appendChild(extra);
-        }
-        el.voiceMicMode.value = data.mic_mode;
+      if (el.voiceMicMode && data.mic_mode) applyMicMode(data.mic_mode);
+      if (el.voiceMicMode && !data.mic_mode) {
+        var cachedMode = null;
+        try { cachedMode = localStorage.getItem('mypult.mic'); } catch (e) {}
+        if (cachedMode) applyMicMode(cachedMode);
+        cgi('voicecfg.py', {}, { timeout: 6000, silent: true }).then(function (cfg) {
+          if (cfg && cfg.mic_mode) applyMicMode(cfg.mic_mode);
+        }).catch(function () {});
       }
       if (el.voicePanel) el.voicePanel.classList.toggle('off', !data.running);
       var passive = data.mic_mode === 'alice';
@@ -10155,9 +10167,9 @@ body.light dialog.queue-dlg.ym-look{
 
   function setVoiceMicMode(mode) {
     if (!mode) return Promise.resolve();
+    applyMicMode(mode);
     return cgi('voicecfg.py', { mic_mode: mode }, { timeout: 10000 }).then(function () {
-      toast(mode === 'econom' ? 'Экономный режим микрофона'
-        : mode === 'alice' ? 'Пульт слушает фразы Алисы'
+      toast(mode === 'alice' ? 'Пульт слушает фразы Алисы'
         : 'Микрофон слушает непрерывно', 'ok');
       return loadVoice();
     }).catch(function (err) {
