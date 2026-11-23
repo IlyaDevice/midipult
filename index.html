@@ -882,6 +882,7 @@ body.light .btn.danger:disabled{opacity:1;background:rgba(190,18,60,.10);border-
 .seg-edit:hover{color:#e9fff7;background:rgba(24,48,40,.95)}
 .seg-toolbar{display:flex;gap:var(--gap-sm);align-items:center;flex-wrap:wrap;margin-top:10px}
 .seg-note{font-size:var(--fs-12);color:var(--muted);flex:1 1 160px}
+.exp-badge{display:inline-block;margin-left:8px;padding:2px 9px;border-radius:999px;font-size:10px;font-weight:600;letter-spacing:.02em;color:#ffb86b;background:rgba(255,184,107,.12);border:1px solid rgba(255,184,107,.45);vertical-align:middle;cursor:help;white-space:nowrap}
 .c-clock > .seg-note,.bt-list > .seg-note{flex:0 0 auto}
 .display-extra{margin-top:12px;flex-wrap:nowrap}
 .clock-anims{flex-wrap:wrap}
@@ -3688,11 +3689,7 @@ body.light dialog.queue-dlg.ym-look{
 
   <!-- ───────── голосовой пульт (настройки) ───────── -->
   <section class="card c-sys" data-group="system" data-card-id="voice" aria-labelledby="h-voice-settings">
-    <h2 id="h-voice-settings"><span class="dot"></span>Голосовой пульт</h2>
-    <div class="seg-note" style="margin-top:6px;color:#ffb86b">
-      Экспериментальная функция: перехват фраз Алисы пока нестабилен — Алиса
-      может успеть ответить первой, а продолжение без «Алисы» ловится не всегда.
-    </div>
+    <h2 id="h-voice-settings"><span class="dot"></span>Голосовой пульт<span class="exp-badge" title="Перехват фраз Алисы пока нестабилен: Алиса может успеть ответить первой, а продолжение без «Алисы» ловится не всегда.">экспериментально</span></h2>
     <div class="seg-note" style="margin-top:6px">
       Здесь только настройки и текстовая команда. Распознавание по кнопке и фразе
       «Алиса, …» убрано из «Звука», чтобы не мешать штатной Алисе.
