@@ -166,15 +166,20 @@ def _speech_event(timeout_ms=8000, cancel=True):
         return {"error": str(exc)}
 
 
+def alice_state():
+    """Текущее состояние штатной Алисы: IDLE, LISTENING, SPEAKING, BUSY."""
+    try:
+        data = get(BASE + "/cgi-bin/player.py", timeout=4) or {}
+    except Exception:  # noqa: BLE001
+        return ""
+    return str(data.get("alice") or "").strip().upper()
+
+
 def wait_alice_idle(timeout=8.0):
     """Дождаться, пока штатная Алиса освободит микрофон."""
     deadline = time.time() + timeout
     while time.time() < deadline:
-        try:
-            data = get(BASE + "/cgi-bin/player.py", timeout=4) or {}
-            state = str(data.get("alice") or "").strip().upper()
-        except Exception:  # noqa: BLE001
-            return True
+        state = alice_state()
         if state in ("", "IDLE"):
             return True
         time.sleep(0.4)
@@ -210,12 +215,21 @@ def listen_for_phrase(timeout=15.0, skip_request_id="", skip_text=""):
 
 def follow_up(system, skip_request_id="", skip_text=""):
     """Слушать продолжение разговора без «Алисы» (issue #2)."""
+    # После отмены ответа Алиса AI снова открывает микрофон и держит его:
+    # кольцо крутится, а нашему recognize звук не достаётся. Закрываем её
+    # диалог ещё раз, уже после озвучки.
+    try:
+        post(LUNA + "/api/alice/speech/cancel", {}, timeout=5)
+    except Exception:  # noqa: BLE001
+        pass
+    wait_alice_idle(3.0)
+    log("follow-up: слушаю (alice=%s)" % (alice_state() or "?"))
     for turn in range(1, 4):
         text = listen_for_phrase(skip_request_id=skip_request_id,
                                  skip_text=skip_text)
         skip_request_id = skip_text = ""
         if not text:
-            log("follow-up: тишина")
+            log("follow-up: тишина (alice=%s)" % (alice_state() or "?"))
             return
         log("follow-up %d: %r" % (turn, text))
         if follow_up_wanted(text):

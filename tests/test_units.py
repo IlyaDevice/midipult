@@ -1076,6 +1076,27 @@ def test_voice_follow_up_skip():
         voice_daemon.time.sleep = old_sleep
 
 
+def test_voice_follow_up_closes_alice():
+    calls = []
+    old_post = voice_daemon.post
+    old_listen = voice_daemon.listen_for_phrase
+    old_wait = voice_daemon.wait_alice_idle
+    old_state = voice_daemon.alice_state
+    try:
+        voice_daemon.post = lambda url, payload, timeout=None: calls.append(url) or {}
+        voice_daemon.wait_alice_idle = lambda timeout=3.0: True
+        voice_daemon.alice_state = lambda: "IDLE"
+        voice_daemon.listen_for_phrase = lambda **kwargs: ""
+        voice_daemon.follow_up("system")
+        check("follow-up: закрывает диалог Алисы перед слушанием",
+              any("/api/alice/speech/cancel" in url for url in calls), str(calls))
+    finally:
+        voice_daemon.post = old_post
+        voice_daemon.listen_for_phrase = old_listen
+        voice_daemon.wait_alice_idle = old_wait
+        voice_daemon.alice_state = old_state
+
+
 def test_voice_passive_wants():
     old_llm = voice_daemon.llm_enabled
     old_info = voice_daemon.llm_info
@@ -2590,6 +2611,7 @@ def main():
         test_voice_say_append,
         test_voice_cancel_native,
         test_voice_follow_up_skip,
+        test_voice_follow_up_closes_alice,
         test_voice_passive_wants,
         test_voice_native_phrase,
         test_status_probe_cache,
