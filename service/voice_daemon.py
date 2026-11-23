@@ -308,9 +308,11 @@ def say(text, append=1):
             # иначе каждый следующий кусок обрывал бы предыдущий.
             if append == 0 and index == 0:
                 payload["append"] = 0
-            post(BASE + "/cgi-bin/speak.py", payload, timeout=40)
-        except Exception:
-            pass
+            result = post(BASE + "/cgi-bin/speak.py", payload, timeout=40) or {}
+            if not result.get("started"):
+                log("say: кусок %d не озвучен: %s" % (index + 1, str(result)[:120]))
+        except Exception as exc:  # noqa: BLE001
+            log("say: ошибка озвучки: %s" % exc)
         if index + 1 < len(chunks):
             time.sleep(0.4)
 
@@ -887,9 +889,9 @@ def handle(text, request_id=""):
         if answer:
             generation = time.time() - started_at
             cancel_native_dialog()
-            # append=0: ответ встаёт в начало очереди, а не за отложенным
-            # ответом Алисы, если отмена не дошла. Дальше куски дописываются.
-            say(answer, append=0)
+            # append=0 здесь не используем: когда диалог уже закрыт, maind
+            # молча проглатывал директиву и ответ не звучал.
+            say(answer)
             log("llm answer: %d символов, генерация %.1f с"
                 % (len(answer), generation))
             # issue #2: после ответа слушаем продолжение без «Алисы».
