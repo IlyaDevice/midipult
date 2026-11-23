@@ -5,7 +5,7 @@
 развивался итерациями `0.0.x`; полная история — в
 [docs/CHANGELOG-dev.md](docs/CHANGELOG-dev.md).
 
-## Не выпущено
+## 0.6.76 — 2026-11-23
 
 - голос: follow-up снова работает на Luna 0.2.36+ — `POST /api/alice/speech`
   с `cancel=true` и `empty_on_timeout`, откат на GET для старых Luna
