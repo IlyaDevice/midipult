@@ -1,0 +1,1697 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta http-equiv="Cache-Control" content="no-store">
+<meta name="theme-color" content="#07090f">
+<script>
+  (function () {
+    function pad() {
+      try {
+        var sb = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
+        document.documentElement.style.setProperty('--sbw', sb + 'px');
+      } catch (e) {}
+    }
+    pad();
+    window.addEventListener('resize', pad);
+    document.addEventListener('DOMContentLoaded', pad);
+  })();
+</script>
+<link rel="icon" href="/favicon.ico?v=2" sizes="any">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png?v=2">
+<link rel="apple-touch-icon" href="/icon-192.png?v=2">
+<link rel="manifest" href="/manifest.json">
+<title>MidiPult — пульт станции Миди</title>
+<style>
+<!-- @panel-css --></style>
+</head>
+<body class="booting">
+
+<div class="pin-gate" id="pinGate" hidden>
+  <div class="pin-card">
+    <h2>Пульт защищён PIN</h2>
+    <input id="pinInput" type="password" inputmode="numeric" maxlength="8"
+           placeholder="PIN" autocomplete="current-password" aria-label="PIN">
+    <button class="btn sm" id="btnPinLogin">Войти</button>
+    <div class="seg-note" id="pinError"></div>
+  </div>
+</div>
+
+<div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo"><img src="/icon-circle.png?v=3" alt="MidiPult"></div>
+    <div>
+      <h1>MidiPult</h1>
+      <p id="netLine">проверяю сервисы…</p>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="header-clock" aria-label="Текущее время">
+      <div class="header-clock-time" id="clockTime">--:--</div>
+      <div class="header-clock-date" id="clockSub">часы колонки</div>
+    </div>
+    <div class="pill" id="pill" role="status" aria-live="polite"><i></i><span id="pillText">Проверка…</span></div>
+    <button class="btn ghost sm icon-sm" id="btnTheme" aria-label="Светлая тема" title="Светлая тема">☼</button>
+    <button class="btn ghost sm icon-sm" id="btnFaq" aria-label="FAQ" title="FAQ">?</button>
+    <button class="btn ghost sm icon-sm" id="btnDebug" aria-label="Диагностика">⚙</button>
+  </div>
+</header>
+
+<div class="banner" id="offlineBanner">
+  <strong>Luna не отвечает.</strong> Проверьте шлюз на колонке:
+  <code>/data/quazar/luna/bin/luna --listen 127.0.0.1:8099 --data-dir /data/quazar/luna/data &amp;</code>
+</div>
+
+<div class="banner" id="capsBanner" hidden></div>
+
+<nav class="tabs" id="tabs" aria-label="Разделы">
+  <button class="tab" data-tab="home" aria-pressed="true">⌂ Главная</button>
+  <button class="tab" data-tab="display" aria-pressed="false">◐ Дисплей</button>
+  <button class="tab" data-tab="sound" aria-pressed="false">♪ Звук</button>
+  <button class="tab" data-tab="ai" aria-pressed="false">✦ Нейросеть</button>
+  <button class="tab" data-tab="network" aria-pressed="false">⇄ Сеть</button>
+  <button class="tab" data-tab="scenarios" aria-pressed="false">▦ Сценарии</button>
+  <button class="tab" data-tab="system" aria-pressed="false">▤ Система</button>
+</nav>
+
+<button type="button" class="mobile-tabs-btn" id="btnMobileTabs" aria-expanded="false">
+  <span id="mobileTabLabel">Главная</span><span class="alarm-caret">▾</span>
+</button>
+<div class="mobile-tabs-menu" id="mobileTabsMenu" hidden></div>
+
+<main class="grid">
+
+  <!-- ───────── главная ───────── -->
+  <section class="card c-home-model" data-group="home" aria-labelledby="h-home">
+    <h2 id="h-home"><span class="dot"></span>Станция</h2>
+    <div class="station-stage" id="stationStage">
+      <canvas id="stationGL" class="station-gl"></canvas>
+      <canvas id="homeScreen" class="station-screen-source" width="512" height="128" hidden></canvas>
+      <div class="station-fallback" id="stationFallback" hidden>3D-модель недоступна</div>
+    </div>
+    <div class="station-colors" id="stationColors" role="group" aria-label="Цвет корпуса">
+      <span>Корпус</span>
+      <button type="button" class="station-color" data-station-color="black" title="Чёрный" aria-label="Чёрный" style="--sw:#23262c" aria-pressed="true"></button>
+      <button type="button" class="station-color" data-station-color="gray" title="Серый" aria-label="Серый" style="--sw:#c6c8ce" aria-pressed="false"></button>
+      <button type="button" class="station-color" data-station-color="emerald" title="Изумрудный" aria-label="Изумрудный" style="--sw:#1b9674" aria-pressed="false"></button>
+      <button type="button" class="station-color" data-station-color="raspberry" title="Малиновый" aria-label="Малиновый" style="--sw:#aa2764" aria-pressed="false"></button>
+      <button type="button" class="station-color" data-station-color="yellow" title="Жёлтый" aria-label="Жёлтый" style="--sw:#c99a1e" aria-pressed="false"></button>
+    </div>
+    <div class="station-hint">Потяните, чтобы повернуть · двойной клик — сброс · 3D: lolfeke, CC BY 4.0</div>
+  </section>
+
+  <section class="card c-home-side" data-group="home" aria-labelledby="h-home-now">
+    <h2 id="h-home-now"><span class="dot"></span>Сейчас</h2>
+    <div class="home-now">
+      <img id="homeCover" alt="" hidden>
+      <svg class="ic home-art" id="homeArt"><use href="#i-music"/></svg>
+      <div class="home-meta">
+        <div class="home-title" id="homeTitle">—</div>
+        <div class="home-artist" id="homeArtist"></div>
+      </div>
+      <div class="home-transport">
+        <button class="btn icon-sm ghost" id="homePrev" aria-label="Предыдущий трек">
+          <svg class="ic"><use href="#i-prev"/></svg>
+        </button>
+        <button class="btn icon" id="homePlay" aria-label="Играть/пауза">
+          <svg class="ic"><use href="#i-play"/></svg>
+        </button>
+        <button class="btn icon-sm ghost" id="homeNext" aria-label="Следующий трек">
+          <svg class="ic"><use href="#i-next"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="home-volume">
+      <button class="btn icon-sm ghost" id="homeVolDown" aria-label="Тише">−</button>
+      <input type="range" id="homeVolume" min="0" max="100" step="1" value="40" aria-label="Громкость">
+      <button class="btn icon-sm ghost" id="homeVolUp" aria-label="Громче">+</button>
+      <output id="homeVolumeVal">40%</output>
+    </div>
+    <div class="home-extra">
+      <div class="home-extra-head">
+        <span>Быстрый вид</span>
+        <button type="button" class="home-extra-pick" id="btnHomeExtra" aria-haspopup="listbox" aria-expanded="false">
+          <span id="homeExtraLabel">Ресурсы</span><span class="alarm-caret">▾</span>
+        </button>
+      </div>
+      <div class="home-extra-pop" id="homeExtraPop" role="listbox" hidden></div>
+      <div class="home-extra-body" id="homeExtraBody"></div>
+    </div>
+  </section>
+
+  <!-- ───────── дисплей ───────── -->
+  <section class="card c-clock" data-group="display" aria-labelledby="h-clock">
+    <h2 id="h-clock"><span class="dot"></span>Дисплей</h2>
+    <div class="display-actions">
+      <button class="btn ghost" id="btnDisplayReset">
+        <svg class="ic" aria-hidden="true"><use href="#i-sync"/></svg>Сбросить
+      </button>
+      <button class="btn ghost" id="btnScreenOff">
+        <svg class="ic" aria-hidden="true"><use href="#i-power"/></svg>Погасить
+      </button>
+    </div>
+    <div class="field slider-narrow">
+      <div class="field-top"><label for="brightness">Яркость дисплея</label><output id="brightnessVal">170</output></div>
+      <input type="range" id="brightness" min="10" max="255" step="1" value="170">
+      <div class="bright-chips" id="brightChips">
+        <button class="chip" data-bright="30">Ночь</button>
+        <button class="chip" data-bright="110">День</button>
+        <button class="chip" data-bright="170">Стандарт</button>
+        <button class="chip" data-bright="255">Максимум</button>
+      </div>
+    </div>
+    <div class="row display-auto" style="margin-top:10px">
+      <label class="llm-toggle"><input type="checkbox" id="displayAuto"><span>Автояркость дисплея по свету</span></label>
+      <span class="seg-note" id="displayAutoStatus">выкл</span>
+    </div>
+    <div class="display-preview" id="displayPreview">
+      <svg class="seg7" id="seg7" viewBox="0 0 480 180" role="img" aria-label="Семисегментный дисплей">
+        <g id="seg7Digits"></g>
+        <circle cx="232" cy="62" r="9" class="on"/>
+        <circle cx="232" cy="118" r="9" class="on"/>
+      </svg>
+      <em>предпросмотр дисплея</em>
+      <button class="seg-edit" id="btnDraw" type="button" title="Режим рисования" aria-label="Рисовать на дисплее">✏️</button>
+    </div>
+    <div class="seg-toolbar" id="segToolbar" hidden>
+      <button class="btn sm" id="btnSegSend" disabled>Показать</button>
+      <button class="btn sm ghost" id="btnSegClear">Очистить</button>
+      <button class="btn sm ghost" id="btnSegDone">Готово</button>
+      <span class="seg-note" id="segNote">Соберите ЧЧ:ММ из палочек</span>
+    </div>
+    <div class="row display-extra">
+      <input type="text" id="displayText" maxlength="32" placeholder="Бегущая строка: до 32 символов" autocomplete="off">
+      <button class="btn sm" id="btnDisplayText">Текст</button>
+      <button class="btn sm ghost" id="btnClockBack" hidden title="Вернуть часы">Часы</button>
+    </div>
+    <div class="seg-note" style="margin-top:6px">До 32 символов: 0–9, A–Y (кроме K, M, V, W, X, Z), «_», «-». Пробел станет «_».</div>
+    <div class="field clock-anims-field" style="margin-top:14px">
+      <div class="field-top"><label>Анимации дисплея</label><output id="clockAnimStatus">—</output></div>
+      <div class="row clock-anims">
+        <button class="btn sm" id="btnAnimEditor">Новая анимация</button>
+        <button class="btn sm danger" id="btnClockAnimStop" hidden>Стоп анимации</button>
+        <button class="chip" id="btnAnimRestorePresets" hidden>Вернуть пресеты</button>
+      </div>
+      <div class="anim-editor" id="animEditor" hidden>
+        <div class="anim-bar">
+          <input type="text" id="animName" maxlength="40" placeholder="Название анимации" autocomplete="off">
+          <button class="btn sm ghost" id="btnAnimPlay">Играть</button>
+          <button class="btn sm ghost" id="btnAnimStop">Стоп</button>
+          <button class="btn sm primary" id="btnAnimSave">Сохранить</button>
+          <button class="btn sm ghost" id="btnAnimClose">Закрыть</button>
+        </div>
+        <div class="anim-frames" id="animFrames"></div>
+        <div class="anim-tools">
+          <button class="btn sm ghost" id="btnAnimAdd">+ кадр</button>
+          <button class="btn sm ghost" id="btnAnimDup">Дублировать</button>
+          <button class="btn sm ghost" id="btnAnimDel">Удалить</button>
+          <label class="anim-num">Кадр, мс
+            <input type="number" id="animDuration" min="50" max="5000" step="50" value="300">
+          </label>
+          <input type="text" id="animText" maxlength="5" placeholder="12:34" autocomplete="off">
+          <button class="btn sm ghost" id="btnAnimText">В кадр</button>
+        </div>
+      </div>
+      <div class="clock-anim-list" id="clockAnimList"></div>
+    </div>
+  </section>
+
+  <!-- ───────── кольцо ───────── -->
+  <section class="card c-led" data-group="display" aria-labelledby="h-led">
+    <h2 id="h-led"><span class="dot"></span>Кольцо</h2>
+    <div class="row led-footer" style="margin-top:12px">
+      <button class="btn danger sm" id="btnLedOff">Выключить</button>
+      <button class="btn ghost sm" id="btnRingReset">Сбросить</button>
+    </div>
+    <div class="row auto-bright" style="margin-top:10px">
+      <label class="llm-toggle"><input type="checkbox" id="autoBright"><span>Автояркость кольца по свету</span></label>
+      <span class="seg-note" id="autoBrightStatus"></span>
+    </div>
+    <div class="ring" id="ring">
+      <div class="dots" id="ringDots"></div>
+      <div class="core"><strong id="ringHex">#00E676</strong><span>24 LED</span></div>
+    </div>
+    <div class="led-hint" id="ledHint">Нажмите на диод, чтобы задать ему свой цвет</div>
+    <div class="led-controls">
+      <input type="color" id="colorPicker" value="#00e676" aria-label="Цвет кольца">
+      <div class="led-labels"><span>Цвет</span><code id="colorCode">#00E676</code></div>
+    </div>
+    
+    
+    <div class="led-right">
+    <div class="field slider-narrow led-bright" style="margin-top:0">
+      <div class="field-top"><label for="ringBrightness">Яркость кольца</label><output id="ringBrightVal">255</output></div>
+      <input type="range" id="ringBrightness" min="0" max="255" step="1" value="255" aria-label="Яркость кольца">
+    </div>
+    <div class="field slider-narrow led-speed" style="margin-top:14px">
+      <div class="field-top"><label for="ringSpeed">Скорость / дыхание</label><output id="ringSpeedVal">фикс</output></div>
+      <input type="range" id="ringSpeed" min="0" max="300" step="10" value="0" aria-label="Скорость анимации и мигания кольца">
+    </div>
+    <div class="field led-logo" style="margin-top:14px">
+      <div class="field-top"><label>Логотип</label><output id="logoStatus">как кольцо</output></div>
+      <div class="logo-modes" id="logoModes">
+        <button type="button" class="chip" data-logo-mode="sync" aria-pressed="true">Как кольцо</button>
+        <button type="button" class="chip" data-logo-mode="purple" aria-pressed="false">Фиолетовый</button>
+        <button type="button" class="chip" data-logo-mode="white" aria-pressed="false">Белый</button>
+        <button type="button" class="chip" data-logo-mode="off" aria-pressed="false">Выкл</button>
+      </div>
+    </div>
+    </div>
+    <div class="chips" id="presets">
+      <button class="chip" data-mode="rainbow" aria-pressed="false">🌈 Радуга</button>
+      <button class="chip" data-mode="gradient" aria-pressed="false">🎨 Градиент</button>
+      <button class="chip" data-mode="wave" aria-pressed="false">🌊 Волна</button>
+      <button class="chip" data-mode="candle" aria-pressed="false">🕯 Свеча</button>
+    </div>
+    <div class="field led-anims" style="margin-top:14px">
+      <div class="field-top"><label>Анимации с колонки</label><output id="ringAnimStatus">—</output></div>
+      <div class="anim-grid" id="ringAnimChips"></div>
+      <div class="row ring-anim-row" style="margin-top:8px">
+        <div class="ring-picker">
+          <button type="button" class="alarm-select" id="btnRingPick"
+                  aria-haspopup="listbox" aria-expanded="false">
+            <span id="ringPickName">Все анимации</span>
+            <span class="alarm-caret">▾</span>
+          </button>
+          <div class="alarm-station-list ring-list" id="ringPickPop" hidden>
+            <div class="picker-search">
+              <input type="text" id="ringSearch" class="net-input" placeholder="Поиск анимации"
+                     autocomplete="off" aria-label="Поиск анимации кольца">
+            </div>
+            <div class="picker-options" id="ringAnimList" role="listbox" aria-label="Анимации кольца"></div>
+          </div>
+        </div>
+        <button class="btn ghost sm" id="btnRingAnimPlay">Проиграть</button>
+        <button class="btn ghost sm" id="btnRingAnimStop">Стоп</button>
+        <button class="btn ghost sm" id="btnRingEditor">Редактор</button>
+        <button class="chip" id="btnRingRestoreHidden" hidden>Вернуть анимации</button>
+      </div>
+    </div>
+    
+  </section>
+
+  <!-- ───────── плеер ───────── -->
+  <section class="card c-media player-card" data-group="sound" aria-labelledby="h-media">
+    <div class="np-glow" id="npGlow" aria-hidden="true"></div>
+    <h2 id="h-media"><span class="dot"></span>Плеер</h2>
+    <div class="np-now">
+      <div class="np-art" aria-hidden="true">
+        <img id="mediaCover" alt="" hidden>
+        <svg class="ic" id="mediaArtIcon" style="width:30px;height:30px"><use href="#i-music"/></svg>
+      </div>
+      <div class="np-meta">
+        <div class="np-kicker" id="mediaKind"></div>
+        <div class="np-title" id="mediaTitle">Ничего не играет</div>
+        <div class="np-sub" id="mediaSub">Включите трек, плейлист или радио</div>
+      </div>
+    </div>
+    <div class="np-lyric" id="lyricsNow" hidden>
+      <div class="np-lyric-inner">
+        <span class="np-lyric-text" id="lyricsNowText" data-text=""></span>
+      </div>
+    </div>
+    <div class="media-progress" id="mediaProgress">
+      <span id="mediaPos">0:00</span>
+      <input type="range" id="mediaSeek" min="0" max="1000" step="1" value="0" aria-label="Перемотка">
+      <span id="mediaDur">0:00</span>
+    </div>
+    <div class="np-transport">
+      <div class="np-aux np-aux-left">
+        <button class="btn icon-sm ghost" id="btnLike" aria-pressed="false" aria-label="Нравится" title="Нравится">
+          <svg class="ic" aria-hidden="true"><use href="#i-like"/></svg>
+        </button>
+        <button class="btn icon-sm ghost" id="btnDislike" aria-label="Не нравится" title="Не нравится">
+          <svg class="ic" aria-hidden="true"><use href="#i-dislike"/></svg>
+        </button>
+      </div>
+      <div class="np-controls">
+        <button class="btn icon" id="btnPrev" aria-label="Предыдущий трек">
+          <svg class="ic" aria-hidden="true"><use href="#i-prev"/></svg>
+        </button>
+        <button class="btn icon big play" id="btnPlay" aria-label="Воспроизвести">
+          <svg class="ic" aria-hidden="true"><use href="#i-play"/></svg>
+        </button>
+        <button class="btn icon" id="btnNext" aria-label="Следующий трек">
+          <svg class="ic" aria-hidden="true"><use href="#i-next"/></svg>
+        </button>
+      </div>
+      <div class="np-aux np-aux-right">
+        <button class="btn icon-sm ghost" id="btnLyrics" aria-label="Текст песни" title="Текст песни">
+          <svg class="ic" aria-hidden="true"><use href="#i-text"/></svg>
+        </button>
+        <button class="btn icon-sm ghost" id="btnQueue" aria-label="Очередь" title="Очередь, похожие, избранное">
+          <svg class="ic" aria-hidden="true"><use href="#i-queue"/></svg>
+        </button>
+        <button class="btn icon-sm ghost" id="btnMusic" aria-label="Яндекс Музыка" title="Вернуться к Яндекс Музыке">
+          <svg class="ic" aria-hidden="true"><use href="#i-music"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="np-volume">
+      <svg class="ic" data-volume-icon aria-hidden="true" style="width:18px;height:18px;opacity:.65"><use href="#i-volume"/></svg>
+      <button class="btn ghost" id="btnVolDown" aria-label="Тише">−</button>
+      <input type="range" id="volume" min="0" max="100" step="1" value="40" aria-label="Громкость">
+      <button class="btn ghost" id="btnVolUp" aria-label="Громче">+</button>
+      <button class="btn ghost" id="btnMute" aria-label="Без звука">
+        <svg class="ic" data-volume-icon aria-hidden="true"><use href="#i-mute"/></svg>
+      </button>
+      <output id="volumeVal">40%</output>
+    </div>
+  </section>
+
+
+
+  <!-- ───────── радио ───────── -->
+  <section class="card c-radio" data-group="sound" aria-labelledby="h-radio">
+    <h2 id="h-radio"><span class="dot"></span>Радио</h2>
+    <div class="radio-picker">
+      <button type="button" class="alarm-select" id="btnRadioPick"
+              aria-haspopup="listbox" aria-expanded="false">
+        <span id="radioPickName">Выберите станцию</span>
+        <span class="radio-pick-count" id="radioPickCount"></span>
+        <span class="alarm-caret">▾</span>
+      </button>
+      <div class="alarm-station-list radio-list" id="radioPop" hidden>
+        <div class="picker-search">
+          <input type="text" id="radioSearch" class="net-input" placeholder="Поиск станции"
+                 autocomplete="off" aria-label="Поиск радиостанции">
+        </div>
+        <div class="picker-options" id="radioChips" role="listbox" aria-label="Радиостанции"></div>
+      </div>
+    </div>
+    <div class="radio-controls">
+      <div class="radio-add">
+        <input id="radioName" class="net-input" placeholder="Свой канал: например, Радио Шансон" autocomplete="off">
+        <button class="btn sm ghost" id="btnRadioAdd">Добавить</button>
+      </div>
+      <div class="radio-add">
+        <input id="radioUrl" class="net-input" placeholder="Свой поток: http://…/stream.mp3" autocomplete="off">
+        <button class="btn sm ghost" id="btnRadioStream">Добавить поток</button>
+      </div>
+      <div class="radio-player">
+        <button class="btn sm ghost" id="btnRadioPrev" aria-label="Предыдущая станция">◀</button>
+        <button class="btn sm" id="btnRadioStop">Стоп</button>
+        <button class="btn sm ghost" id="btnRadioNext" aria-label="Следующая станция">▶</button>
+        <span class="seg-note" id="radioStatus">выберите станцию</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card c-providers" data-group="sound" data-card-id="providers"
+           data-legacy-card-ids="zvuk,youtube,spotify,soundcloud,vk" aria-labelledby="h-providers">
+    <h2 id="h-providers"><span class="dot"></span>Сервисы музыки<span class="beta-badge">бета версия</span></h2>
+    <div class="seg-note" style="margin-top:6px">Окно с разными источниками музыки. Часть провайдеров неофициальная и может требовать токен.</div>
+    <div class="prov-tabs" id="provTabs" role="tablist" aria-label="Сервис музыки">
+      <button type="button" class="prov-tab" role="tab" data-provider="yandex" aria-controls="provPaneYandex" aria-pressed="true">
+        <span class="prov-dot" data-prov-dot="yandex"></span>Яндекс Музыка
+      </button>
+      <button type="button" class="prov-tab" role="tab" data-provider="zvuk" aria-controls="provPaneZvuk" aria-pressed="false">
+        <span class="prov-dot" data-prov-dot="zvuk"></span>Сбер Звук
+      </button>
+      <button type="button" class="prov-tab" role="tab" data-provider="ext" aria-controls="provPaneExt" aria-pressed="false">
+        <span class="prov-dot" data-prov-dot="ext"></span>YouTube + SoundCloud
+      </button>
+      <button type="button" class="prov-tab" role="tab" data-provider="spotify" aria-controls="provPaneSpotify" aria-pressed="false">
+        <span class="prov-dot" data-prov-dot="spotify"></span>Spotify
+      </button>
+    </div>
+
+    <div class="prov-pane" id="provPaneYandex" role="tabpanel" data-provider-pane="yandex">
+      <div class="seg-note">Полный плеер: поиск, плейлисты, «Моя волна», текст песни и очередь. Вход и выход из Яндекс Музыки — здесь, в этом окне.</div>
+      <div class="prov-ym-row">
+        <button class="btn sm primary" id="btnProviderYm">Открыть Яндекс Музыку</button>
+        <span class="seg-note" id="provYmStatus">не подключена</span>
+      </div>
+      <details class="ym-auth" id="ymAuth">
+        <summary>
+          <span>Аккаунт Яндекс Музыки</span>
+          <span class="ym-summary-side">
+            <b id="ymStatus">не подключена</b>
+            <span class="ym-expand" id="btnYmExpand" role="button" tabindex="0"
+                  aria-label="Открыть музыку на весь экран" title="Открыть музыку">⤢</span>
+          </span>
+        </summary>
+        <div class="ym-auth-body">
+          <div id="ymLoggedOut">
+            <p class="seg-note" style="margin:0 0 8px">Вход по QR — для своих плейлистов и «Моей волны». Ссылки и токены вставлять не нужно.</p>
+            <div class="row">
+              <button class="btn sm" id="btnYmLogin">Войти в Яндекс</button>
+            </div>
+          </div>
+          <div id="ymLoggedIn" hidden>
+            <div class="seg-note" id="ymAccount" style="margin-bottom:8px"></div>
+            <div class="ym-playlists" id="ymPlaylists"></div>
+            <button class="btn sm ghost" id="btnYmLogout" style="margin-top:8px">Выйти</button>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <div class="prov-pane" id="provPaneZvuk" role="tabpanel" data-provider-pane="zvuk" hidden>
+      <div class="seg-note">Без аккаунта Сбер Звук отдаёт только 30-секундный фрагмент. Для полного трека нужен токен: войдите на zvuk.com, откройте страницу профиля API и скопируйте поле <b>token</b>.</div>
+      <div class="row" style="margin-top:8px;gap:6px;flex-wrap:wrap">
+        <button class="btn sm ghost" id="btnZvukSite">Войти на zvuk.com</button>
+        <button class="btn sm ghost" id="btnZvukProfile">Страница с токеном</button>
+      </div>
+      <div class="zvuk-token-wrap">
+        <input id="zvukToken" class="net-input" type="password" autocomplete="off"
+               placeholder="Вставьте token из профиля">
+        <button class="btn sm" id="btnZvukSave">Сохранить</button>
+        <button class="btn sm ghost" id="btnZvukClear">Убрать</button>
+      </div>
+      <div class="zvuk-status" id="zvukStatus">Нужен токен — анонимно только 30 секунд</div>
+      <div class="zvuk-search">
+        <input id="zvukQuery" class="net-input" placeholder="Трек, альбом или исполнитель" autocomplete="off">
+        <button class="btn sm" id="btnZvukSearch">Найти</button>
+        <button class="btn sm ghost" id="btnZvukWave">Мой поток</button>
+      </div>
+      <div class="zvuk-now" id="zvukNow"></div>
+      <div class="zvuk-results" id="zvukResults"></div>
+    </div>
+
+    <div class="prov-pane" id="provPaneExt" role="tabpanel" data-provider-pane="ext" hidden>
+      <div class="seg-note">Поиск сразу по YouTube Music и SoundCloud. Звук идёт через штатный плеер, без скачивания файлов. В результатах видно источник.</div>
+      <div class="zvuk-search">
+        <input id="extQuery" class="net-input" placeholder="Трек или исполнитель — ищем в двух сервисах" autocomplete="off">
+        <button class="btn sm" id="btnExtSearch">Найти</button>
+      </div>
+      <div class="zvuk-status" id="extStatus">Готово к поиску</div>
+      <div class="zvuk-now" id="extNow"></div>
+      <div class="zvuk-results" id="extResults"></div>
+    </div>
+
+    <div class="prov-pane" id="provPaneSpotify" role="tabpanel" data-provider-pane="spotify" hidden>
+      <div class="seg-note">Экспериментально: поиск по Web API и открытие в Spotify. Звук на станции — только через отдельный Spotify Connect, не через Glagol.</div>
+      <div class="zvuk-token-wrap">
+        <input id="spotifyId" class="net-input" placeholder="Client ID" autocomplete="off">
+        <input id="spotifySecret" class="net-input" type="password" placeholder="Client Secret" autocomplete="off">
+        <button class="btn sm" id="btnSpotifySave">Сохранить</button>
+        <button class="btn sm ghost" id="btnSpotifyClear">Убрать</button>
+      </div>
+      <div class="zvuk-status" id="spotifyStatus">Ключи не сохранены</div>
+      <div class="zvuk-search">
+        <input id="spotifyQuery" class="net-input" placeholder="Трек или исполнитель" autocomplete="off">
+        <button class="btn sm" id="btnSpotifySearch">Найти</button>
+      </div>
+      <div class="zvuk-results" id="spotifyResults"></div>
+    </div>
+  </section>
+
+  <!-- ───────── озвучка ───────── -->
+
+  <section class="card c-alarm" data-group="sound" aria-labelledby="h-alarm">
+    <h2 id="h-alarm"><span class="dot"></span>Будильники</h2>
+    <div class="alarm-top">
+      <span class="seg-note" id="alarmTz">Время по поясу станции</span>
+      <button class="btn sm" id="btnAlarmOpen">Добавить</button>
+    </div>
+    <div class="alarm-ringing" id="alarmRinging" hidden>
+      <div>
+        <div class="alarm-ring-kicker">Звонит</div>
+        <div class="alarm-ring-label" id="alarmRingLabel">Будильник</div>
+      </div>
+      <div class="row">
+        <button class="btn sm primary" id="btnAlarmDismiss">Выключить</button>
+        <button class="btn sm ghost" id="btnAlarmSnooze">Отложить</button>
+      </div>
+    </div>
+    <div class="alarm-list" id="alarmList"></div>
+  </section>
+
+  <dialog id="alarmDlg" class="alarm-dlg" aria-labelledby="alarmDlgTitle">
+    <div class="alarm-dlg-head">
+      <h3 id="alarmDlgTitle">Новый будильник</h3>
+      <button class="btn sm ghost" id="btnAlarmClose">Закрыть</button>
+    </div>
+    <div class="alarm-form">
+      <div class="alarm-row">
+        <div class="alarm-time-field" id="alarmTimeField">
+          <button type="button" class="alarm-time-btn" id="btnAlarmTime" aria-label="Выбрать время будильника">
+            <span id="alarmTimeValue">07:00</span>
+          </button>
+          <div class="alarm-time-pop" id="alarmTimePop" hidden>
+            <div class="alarm-time-cols">
+              <div class="alarm-time-col">
+                <div class="alarm-time-cap">часы</div>
+                <div class="alarm-time-list" id="alarmHours"></div>
+              </div>
+              <div class="alarm-time-col">
+                <div class="alarm-time-cap">минуты</div>
+                <div class="alarm-time-list" id="alarmMinutes"></div>
+              </div>
+            </div>
+            <div class="alarm-time-foot">
+              <button type="button" class="btn sm primary" id="btnAlarmTimeDone">Готово</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="alarm-modes" id="alarmModes">
+        <button type="button" class="chip" data-amode="radio" aria-pressed="true">Радио</button>
+        <button type="button" class="chip" data-amode="music" aria-pressed="false">Музыка</button>
+        <button type="button" class="chip" data-amode="sound" aria-pressed="false">Звук</button>
+        <button type="button" class="chip" data-amode="query" aria-pressed="false">Фраза</button>
+      </div>
+      <div id="alarmRadioBox">
+        <div class="alarm-station" id="alarmStationBox">
+          <button type="button" class="alarm-select" id="btnAlarmStation">
+            <span id="alarmStationName">Выберите станцию</span>
+            <span class="alarm-caret">▾</span>
+          </button>
+          <div class="alarm-station-list" id="alarmStationList" hidden></div>
+        </div>
+        <input type="text" id="alarmCustomStation" maxlength="120"
+               placeholder="Своя станция или поток (если нет в списке)" autocomplete="off">
+      </div>
+      <div id="alarmMusicBox" hidden>
+        <input type="text" id="alarmMusicText" maxlength="200" value="мою волну"
+               placeholder="Что включить: мою волну, плейлист, исполнитель"
+               aria-label="Что включить из Яндекс Музыки">
+      </div>
+      <div id="alarmSoundBox" hidden>
+        <div class="alarm-station">
+          <button type="button" class="alarm-select" id="btnAlarmSound">
+            <span id="alarmSoundName">Выберите свой звук</span>
+            <span class="alarm-caret">▾</span>
+          </button>
+          <div class="alarm-station-list" id="alarmSoundList" hidden></div>
+        </div>
+      </div>
+      <input type="text" id="alarmText" placeholder="Что сказать Алисе" maxlength="200"
+             aria-label="Фраза для Алисы" hidden>
+      <div class="alarm-repeat" id="alarmRepeatModes">
+        <button type="button" class="chip" data-repeat="0" aria-pressed="false">Один раз</button>
+        <button type="button" class="chip" data-repeat="1" aria-pressed="true">Повторять</button>
+      </div>
+      <div class="alarm-days" id="alarmDays"></div>
+      <div class="seg-note alarm-repeat-hint" id="alarmRepeatHint">Повторять: выберите дни недели</div>
+      <div class="alarm-row">
+        <label class="alarm-num">Громкость <output id="alarmVolumeVal">40%</output>
+          <input type="range" id="alarmVolume" min="0" max="100" step="5" value="40">
+        </label>
+        <label class="alarm-num">Нарастание, с
+          <input type="number" id="alarmRamp" min="0" max="300" step="5" value="30">
+        </label>
+      </div>
+      <div class="alarm-row">
+        <label class="alarm-num">Стоп через, мин
+          <input type="number" id="alarmStop" min="0" max="120" value="10">
+        </label>
+        <label class="alarm-num">Отложить, мин
+          <input type="number" id="alarmSnooze" min="1" max="60" value="5">
+        </label>
+      </div>
+    </div>
+    <div class="alarm-dlg-foot">
+      <button class="btn primary" id="btnAlarmAdd">Добавить будильник</button>
+    </div>
+  </dialog>
+
+  <section class="card c-tts" data-group="sound" aria-labelledby="h-tts">
+    <h2 id="h-tts"><span class="dot"></span>Озвучка голосом Алисы</h2>
+    <div class="field" style="margin-top:12px">
+      <textarea id="ttsText" maxlength="2000" placeholder="Введите фразу — колонка произнесёт её штатным голосом…"></textarea>
+    </div>
+    <div class="row between" style="margin-top:10px">
+      <span class="counter"><span id="ttsCount">0</span>/2000</span>
+      <div class="row action-row">
+        <button class="btn ghost sm" id="btnTtsClear">Очистить</button>
+        <button class="btn primary" id="btnSay">
+          <svg class="ic" aria-hidden="true"><use href="#i-volume"/></svg>Сказать
+        </button>
+      </div>
+    </div>
+    <div class="chips" id="ttsChips">
+      <button class="chip" data-text="Доброе утро!">Доброе утро</button>
+      <button class="chip" data-text="Я пульт управления. Приятно познакомиться.">Приветствие</button>
+      <button class="chip" data-text="Таймер на пять минут поставлен.">Таймер</button>
+      <button class="chip" data-text="Проверка связи прошла успешно.">Проверка связи</button>
+    </div>
+  </section>
+
+
+  <section class="card c-llm" data-group="ai" aria-labelledby="h-llm">
+    <h2 id="h-llm"><span class="dot"></span>Нейросеть</h2>
+
+    <div class="llm-providers" id="llmProfiles" role="group" aria-label="Профили"></div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn sm ghost" id="btnLlmNew">+ Новый профиль</button>
+      <span class="seg-note" id="llmActive"></span>
+    </div>
+
+    <div class="chat-bar" role="group" aria-label="Чаты">
+      <div class="chat-nav">
+        <button class="btn sm ghost icon-sm" id="btnChatPrev" aria-label="Предыдущий чат" title="Предыдущий чат">‹</button>
+        <span class="chat-name" id="llmChat" title="Чат 1">Чат 1</span>
+        <button class="btn sm ghost icon-sm" id="btnChatNext" aria-label="Следующий чат" title="Следующий чат">›</button>
+      </div>
+      <div class="chat-actions">
+        <button class="btn sm ghost" id="btnChatNew" title="Создать чат">+ чат</button>
+        <button class="btn sm ghost icon-sm" id="btnChatRename" aria-label="Переименовать чат" title="Переименовать чат">✎</button>
+        <button class="btn sm ghost icon-sm" id="btnChatDel" aria-label="Удалить текущий чат" title="Удалить текущий чат">×</button>
+      </div>
+    </div>
+
+    <div class="chat-history" id="llmHistoryBox">
+      <div class="chat-log" id="llmHistory" aria-live="polite"></div>
+      <div class="chat-history-foot">
+        <span class="seg-note" id="llmHistoryCount">Последние 20 сообщений</span>
+        <button class="btn sm ghost" id="btnChatHistoryRefresh">Обновить</button>
+      </div>
+    </div>
+
+    <div class="field chat-composer" style="margin-top:10px">
+      <textarea id="llmPrompt" placeholder="Спросите что-нибудь…"></textarea>
+      <div class="row between" style="margin-top:10px">
+        <span class="counter" id="llmMeta"></span>
+        <div class="row action-row">
+          <button class="btn ghost sm" id="btnLlmAsk">Только в чат</button>
+          <button class="btn primary" id="btnLlmAskSay">В чат и озвучить</button>
+        </div>
+      </div>
+    </div>
+    <div class="llm-sources" id="llmSources" hidden></div>
+
+    <details class="llm-settings">
+      <summary>Настройки нейросети</summary>
+
+    <div class="row" style="margin-top:8px">
+      <label class="llm-field" style="flex:1"><span>Длина ответа</span>
+        <select id="llmLength">
+          <option value="260">Кратко</option>
+          <option value="700">Обычно</option>
+          <option value="1400">Подробно</option>
+          <option value="2000">Полный (до 2000)</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="row between" style="margin-top:8px">
+      <label class="llm-toggle"><input type="checkbox" id="llmSearch"><span>Искать в интернете</span></label>
+      <span class="seg-note" id="llmSearchStatus">выкл</span>
+    </div>
+    <div class="row between" style="margin-top:8px">
+      <label class="llm-toggle"><input type="checkbox" id="llmFollowUp"><span>Слушать продолжение</span></label>
+      <span class="seg-note">после ответа — без «Алисы»</span>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <input id="llmSearchUrl" class="net-input" placeholder="Свой SearXNG: https://searx.example (необязательно)" autocomplete="off">
+      <button class="btn sm ghost" id="btnLlmSearchUrl">Сохранить</button>
+    </div>
+
+    <label class="llm-field" style="margin-top:10px"><span>Характер ответов (system prompt)</span>
+      <textarea id="llmSystem" rows="3" maxlength="4000"
+        placeholder="Пусто — стандартный голосовой ассистент. Здесь можно задать стиль, имя и правила."></textarea>
+    </label>
+    <div class="row between" style="margin-top:6px">
+      <span class="seg-note" id="llmSystemStatus">Пусто — стандартный промпт</span>
+      <button class="btn sm ghost" id="btnLlmSystem">Сохранить промпт</button>
+    </div>
+
+    <div class="llm-grid" style="margin-top:10px">
+      <label class="llm-field"><span>Местоположение</span>
+        <input type="text" id="llmLocation" maxlength="100" autocomplete="off"
+          placeholder="Город и страна, например «Москва, Россия»">
+      </label>
+      <label class="llm-field"><span>Часовой пояс</span>
+        <input type="text" id="llmTimezone" list="llmTimezoneList" autocomplete="off"
+          spellcheck="false" placeholder="например, Europe/Moscow">
+        <datalist id="llmTimezoneList"></datalist>
+      </label>
+    </div>
+    <div class="row between" style="margin-top:6px">
+      <span class="seg-note" id="llmContextStatus">Дата, время и место передаются модели в каждом запросе</span>
+      <button class="btn sm ghost" id="btnLlmContext">Сохранить место</button>
+    </div>
+
+    <div class="llm-grid">
+      <label class="llm-field"><span>Провайдер</span>
+        <select id="llmProviderSelect" aria-label="Провайдер"></select>
+      </label>
+      <label class="llm-field"><span>Название профиля</span>
+        <input type="text" id="llmName" placeholder="Например, ChatGPT" autocomplete="off">
+      </label>
+      <label class="llm-field"><span>Модель</span>
+        <select id="llmModel"></select>
+      </label>
+      <label class="llm-field" id="llmModelCustomWrap" hidden><span>Своя модель</span>
+        <input type="text" id="llmModelCustom" placeholder="например, my-model" autocomplete="off">
+      </label>
+      <label class="llm-field"><span>Base URL</span>
+        <input type="text" id="llmBase" placeholder="https://api…/v1" autocomplete="off">
+      </label>
+      <label class="llm-field"><span>API-ключ</span>
+        <input type="password" id="llmKey" placeholder="хранится на колонке" autocomplete="off">
+      </label>
+      <label class="llm-toggle"><input type="checkbox" id="llmEnabled"><span>Голосовые вопросы</span></label>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn sm" id="btnLlmSave">Сохранить</button>
+      <span class="seg-note" id="llmStatus"></span>
+    </div>
+    <div class="transcript empty" id="llmAnswer" aria-live="polite" hidden></div>
+    </details>
+  </section>
+
+  <!-- ───────── VPN ───────── -->
+  <section class="card c-vpn" data-group="network" aria-labelledby="h-vpn">
+    <h2 id="h-vpn"><span class="dot"></span>VPN</h2>
+    <div class="llm-grid">
+      <label class="llm-field" style="grid-column:1/-1"><span>Ссылка на подписку</span>
+        <input type="text" id="vpnUrl" placeholder="https://…" autocomplete="off">
+      </label>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn sm" id="btnVpnSave">Сохранить подписку</button>
+      <button class="btn sm primary vpn-toggle" id="btnVpnToggle" disabled aria-busy="false">Включить</button>
+      <span class="seg-note" id="vpnStatus">не настроено</span>
+    </div>
+    <div class="llm-grid" style="margin-top:10px">
+      <label class="llm-field"><span>Сервер</span>
+        <select id="vpnServer" disabled></select>
+      </label>
+      <label class="llm-toggle"><input type="checkbox" id="vpnAutostart"><span>Включать при загрузке</span></label>
+    </div>
+    <pre class="log" id="vpnLog" hidden></pre>
+  </section>
+
+  <!-- ───────── ресурсы ───────── -->
+  <section class="card c-sys" data-group="system" aria-labelledby="h-sys">
+    <h2 id="h-sys"><span class="dot"></span>Ресурсы</h2>
+    <div class="sys-grid">
+      <div class="sys-tile">
+        <span class="sys-label">CPU</span>
+        <strong id="sysCpu">—</strong>
+        <div class="sys-bar"><i id="sysCpuBar"></i></div>
+        <small id="sysLoad"></small>
+        <canvas class="sys-spark" id="sparkCpu"></canvas>
+      </div>
+      <div class="sys-tile">
+        <span class="sys-label">Память</span>
+        <strong id="sysRam">—</strong>
+        <div class="sys-bar"><i id="sysRamBar"></i></div>
+        <small id="sysRamSub"></small>
+        <canvas class="sys-spark" id="sparkMem"></canvas>
+      </div>
+      <div class="sys-tile">
+        <span class="sys-label">Температура</span>
+        <strong id="sysTemp">—</strong>
+        <small id="sysTempSub"></small>
+        <canvas class="sys-spark" id="sparkTemp"></canvas>
+      </div>
+      <div class="sys-tile">
+        <span class="sys-label">Диск /data</span>
+        <strong id="sysDisk">—</strong>
+        <div class="sys-bar"><i id="sysDiskBar"></i></div>
+        <small id="sysDiskSub"></small>
+        <canvas class="sys-spark" id="sparkDisk"></canvas>
+      </div>
+      <div class="sys-tile">
+        <span class="sys-label">Диск /</span>
+        <strong id="sysRoot">—</strong>
+        <div class="sys-bar"><i id="sysRootBar"></i></div>
+        <small id="sysRootSub"></small>
+      </div>
+      <div class="sys-tile">
+        <span class="sys-label">Освещённость</span>
+        <strong id="sysLight">—</strong>
+        <small id="sysLightSub"></small>
+      </div>
+      <div class="sys-tile">
+        <span class="sys-label">Аптайм</span>
+        <strong id="sysUptime">—</strong>
+        <small id="sysBoard"></small>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────── индикация панели ───────── -->
+  <section class="card c-sys" id="cardPanel" data-group="system" aria-labelledby="h-panel" hidden>
+    <h2 id="h-panel"><span class="dot"></span>Индикация панели</h2>
+    <div class="field">
+      <div class="field-top"><label for="panelBright">Яркость панели</label><output id="panelBrightVal">—</output></div>
+      <input type="range" id="panelBright" min="0" max="255" step="1" value="255" aria-label="Яркость LED-панели">
+    </div>
+    <div class="row" style="margin-top:8px;gap:6px;flex-wrap:wrap">
+      <button class="btn sm" id="btnPanelOff">Погасить</button>
+      <button class="btn sm ghost" id="btnPanelRestore">Вернуть</button>
+      <span class="seg-note" id="panelStatus">—</span>
+    </div>
+    <div class="seg-note" style="margin-top:8px">На этой модели диоды поштучно недоступны, но панель целиком можно приглушить или погасить: например, чтобы не светила ночью или не мигала «слушаю».</div>
+  </section>
+
+  <!-- ───────── характеристики ───────── -->
+  <section class="card c-sys" data-group="system" aria-labelledby="h-hw">
+    <h2 id="h-hw"><span class="dot"></span>Характеристики</h2>
+    <div class="hw-grid" id="hwList"><div class="seg-note">Читаю данные с колонки…</div></div>
+    <div class="seg-note" style="margin-top:8px">Данные из <code>/proc</code> и <code>/sys</code>. Пометка «вики» — то, что Linux не отдаёт (динамики, порты, Zigbee); значения взяты из статьи hackalice.me для Cucumber.</div>
+  </section>
+
+  <!-- ───────── bluetooth ───────── -->
+  <section class="card c-bt" data-group="network" aria-labelledby="h-bt">
+    <h2 id="h-bt"><span class="dot"></span>Bluetooth</h2>
+    <div class="row bt-actions" style="margin-top:12px">
+      <button class="btn sm" id="btnBtPower">Bluetooth: —</button>
+      <button class="btn sm ghost" id="btnBtPairMode">Сопряжение: —</button>
+      <button class="btn sm ghost" id="btnBtScan">Сканировать</button>
+    </div>
+    <div class="seg-note" id="btStatus" style="margin-top:10px">—</div>
+    <div class="bt-list" id="btDevices"></div>
+  </section>
+
+  <!-- ───────── сеть ───────── -->
+  <section class="card c-net" data-group="network" aria-labelledby="h-net">
+    <h2 id="h-net"><span class="dot"></span>Сеть</h2>
+    <div class="seg-note" id="netStatus" style="margin-top:12px">—</div>
+    <div class="seg-note" id="netDetails" style="margin-top:6px"></div>
+    <div class="row" style="margin-top:10px">
+      <input id="netPsk" class="net-input" type="password" placeholder="пароль Wi-Fi" autocomplete="off">
+      <button class="btn sm ghost" id="btnNetScan">Сканировать</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <input id="netDns" class="net-input" placeholder="DNS: 1.1.1.1,8.8.8.8" autocomplete="off">
+      <button class="btn sm ghost" id="btnNetDns">DNS</button>
+      <button class="btn sm ghost" id="btnNetDnsReset">Сброс</button>
+    </div>
+    <label class="llm-toggle" style="margin-top:10px">
+      <input type="checkbox" id="netIpv6">
+      <span>IPv6 включён</span>
+    </label>
+    <div class="seg-note" id="ipv6Status" style="margin-top:6px">—</div>
+    <div class="bt-list" id="netList"></div>
+  </section>
+
+  <!-- ───────── zigbee ───────── -->
+  <section class="card c-zigbee" data-group="network" aria-labelledby="h-zigbee">
+    <h2 id="h-zigbee"><span class="dot"></span>Zigbee</h2>
+    <div class="seg-note" id="zbStatus" style="margin-top:12px">—</div>
+    <div class="row" style="margin-top:10px">
+      <input id="zbCommand" class="net-input" placeholder="Команда Алисе: включи лампу" autocomplete="off">
+      <button class="btn sm ghost" id="btnZbSend">Отправить</button>
+    </div>
+    <div class="seg-note" style="margin-top:8px">
+      Радио и сеть живут внутри maind, публичного локального API прошивка не отдаёт.
+      Добавление и удаление — в приложении «Яндекс Дом» (режим хаба), а команды
+      привязанным устройствам уходят Алисе по имени.
+    </div>
+  </section>
+
+  <!-- ───────── сценарии ───────── -->
+  <section class="card c-scenarios" data-group="scenarios" aria-labelledby="h-sc-builtin">
+    <h2 id="h-sc-builtin"><span class="dot"></span>Готовые команды</h2>
+    <div class="seg-note" style="margin-top:10px">Работают голосом, когда включён «Голосовой пульт».</div>
+    <div class="bt-list" id="scBuiltin"></div>
+  </section>
+
+  <section class="card c-scenarios" data-group="scenarios" aria-labelledby="h-sc-mine">
+    <h2 id="h-sc-mine"><span class="dot"></span>Мои сценарии</h2>
+    <div class="seg-note" style="margin-top:10px">
+      Цепочка действий по фразе: «Алиса, доброе утро» → сказать, зажечь кольцо, включить радио.
+    </div>
+    <div class="bt-list" id="scList"></div>
+
+    <div class="field" style="margin-top:14px">
+      <input id="scName" class="net-input" placeholder="Название: Доброе утро" autocomplete="off">
+    </div>
+    <div class="field" style="margin-top:8px">
+      <input id="scPhrases" class="net-input" placeholder="Фразы через запятую: доброе утро, утро" autocomplete="off">
+    </div>
+    <div class="row" style="margin-top:8px">
+      <input id="scTime" class="net-input" type="time" aria-label="Время запуска">
+      <input id="scDays" class="net-input" placeholder="Дни: 1-5 (пн=1 … вс=7)" autocomplete="off">
+    </div>
+    <div class="row sc-days" style="margin-top:6px">
+      <button class="btn sm ghost" id="btnDaysWork">Будни 1–5</button>
+      <button class="btn sm ghost" id="btnDaysAll">Все 1–7</button>
+      <button class="btn sm ghost" id="btnDaysWeekend">Выходные 6–7</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <select id="scCondVpn" class="net-input" aria-label="Условие VPN">
+        <option value="">VPN: любой</option>
+        <option value="on">VPN включён</option>
+        <option value="off">VPN выключен</option>
+      </select>
+      <select id="scCondMusic" class="net-input" aria-label="Условие музыки">
+        <option value="">Музыка: любая</option>
+        <option value="playing">играет</option>
+        <option value="paused">на паузе</option>
+      </select>
+    </div>
+    <div class="seg-note" style="margin-top:12px">Действия по порядку</div>
+    <div class="bt-list" id="scActions"></div>
+    <div class="row" style="margin-top:10px">
+      <select id="scType" class="net-input" aria-label="Тип действия"></select>
+      <button class="btn sm ghost" id="btnScAddAction">Добавить действие</button>
+    </div>
+    <div class="row sc-edit-actions">
+      <button class="btn sm" id="btnScSave">Сохранить сценарий</button>
+      <button class="btn sm ghost" id="btnScClear">Очистить</button>
+    </div>
+  </section>
+
+  <!-- ───────── обновление ───────── -->
+  <section class="card c-sys" data-group="system" aria-labelledby="h-update">
+    <h2 id="h-update"><span class="dot"></span>Обновление</h2>
+    <div class="row between" style="margin-top:12px">
+      <span class="seg-note">Текущая версия</span>
+      <b id="updCurrent">—</b>
+      <span class="seg-note" id="updChecked"></span>
+    </div>
+    <div id="updNew" hidden>
+      <div class="seg-note" id="updNewTitle" style="margin-top:10px"></div>
+      <pre class="update-notes" id="updNotes"></pre>
+      <div class="row" style="margin-top:8px">
+        <button class="btn sm primary" id="btnUpdateApply">Обновить</button>
+        <span class="seg-note" id="updHint"></span>
+      </div>
+    </div>
+    <div class="seg-note" id="updState" style="margin-top:10px">Проверяю обновления…</div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn sm ghost" id="btnUpdateCheck">Проверить обновления</button>
+    </div>
+    <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:8px">
+      <input type="text" class="net-input" id="updLocalPath" style="flex:1 1 220px;min-width:0"
+             placeholder="/tmp/midipult-0.6.16.tar.gz" aria-label="Путь к архиву на колонке">
+      <button class="btn sm ghost" id="btnUpdLocal">Установить из файла</button>
+    </div>
+    <div class="seg-note" id="updLocalHint" style="margin-top:6px">
+      Архив можно загрузить через «Файлы» в /tmp — пригодится, когда нет DNS.
+    </div>
+  </section>
+
+  <!-- ───────── логи ───────── -->
+
+  <section class="card c-sys" data-group="system" aria-labelledby="h-logs">
+    <h2 id="h-logs"><span class="dot"></span>Логи</h2>
+    <div class="row" style="margin-top:12px">
+      <select id="logName" class="net-input" aria-label="Файл лога">
+        <option value="mypult">Пульт</option>
+        <option value="voice">Голосовой демон</option>
+        <option value="lighttpd">lighttpd</option>
+      </select>
+      <button class="btn sm ghost" id="btnLogs">Обновить</button>
+    </div>
+    <pre class="log" id="logsBox" style="margin-top:10px">—</pre>
+  </section>
+
+  <!-- ───────── обслуживание ───────── -->
+  <section class="card c-sys" data-group="system" data-card-id="layout-presets" aria-labelledby="h-layout-presets">
+    <h2 id="h-layout-presets"><span class="dot"></span>Раскладка</h2>
+    <div class="seg-note">Пресеты порядка и размеров карточек. Для компьютера и телефона — отдельно; хранятся на станции.</div>
+    <div class="row" style="margin-top:12px">
+      <select id="layoutPreset" class="net-input" aria-label="Пресет раскладки"></select>
+      <button class="btn sm" id="btnLayoutApply">Применить</button>
+      <button class="btn sm ghost" id="btnLayoutDelete">Удалить</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <input id="layoutName" class="net-input" maxlength="40" placeholder="Название пресета">
+      <button class="btn sm primary" id="btnLayoutSave">Сохранить текущую</button>
+    </div>
+    <div class="seg-note" id="layoutStatus" style="margin-top:8px">Пресетов пока нет.</div>
+  </section>
+
+  <section class="card c-sys" data-group="system" aria-labelledby="h-maint">
+    <h2 id="h-maint"><span class="dot"></span>Обслуживание</h2>
+    <div class="row maint-actions" style="margin-top:12px">
+      <button class="btn sm ghost" id="btnNetcheck">Проверить сеть</button>
+      <button class="btn sm ghost" id="btnSpeed">Скорость</button>
+      <button class="btn sm ghost" id="btnCleanup">Очистить логи</button>
+      <button class="btn sm danger" id="btnReboot">Перезагрузить</button>
+      <button class="btn sm danger" id="btnPoweroff">Выключить</button>
+    </div>
+    <pre class="log" id="maintBox" style="margin-top:10px">—</pre>
+  </section>
+
+  <!-- ───────── бэкап ───────── -->
+  <section class="card c-sys" data-group="system" aria-labelledby="h-backup">
+    <h2 id="h-backup"><span class="dot"></span>Резервная копия</h2>
+    <div class="row" style="margin-top:12px">
+      <button class="btn sm ghost" id="btnBackup">Скачать бэкап</button>
+      <label class="btn sm ghost" for="backupFile">Восстановить…</label>
+      <input type="file" id="backupFile" accept="application/json,.json" hidden>
+    </div>
+    <div class="seg-note" style="margin-top:8px">В файле есть ключи и подписки — храните его отдельно.</div>
+  </section>
+
+  <!-- ───────── звуки ───────── -->
+  <section class="card c-sys" data-group="system" aria-labelledby="h-sounds">
+    <h2 id="h-sounds"><span class="dot"></span>Звуки</h2>
+    <div class="row sound-top-actions">
+      <button class="btn sm ghost" id="btnSoundBackup">Скачать все</button>
+      <button class="btn sm ghost" id="btnSoundRefresh">Обновить</button>
+      <input type="file" id="soundFile" accept="audio/*,.opus,.wav" hidden>
+    </div>
+    <div class="sound-drop" id="soundDrop">Перетащите сюда — добавится в «Мои звуки». На строку системного — заменить</div>
+    <div class="row" style="margin-top:10px">
+      <input id="customSoundName" class="net-input" type="text" maxlength="40"
+             pattern="[A-Za-z0-9_-]{1,40}"
+             placeholder="Имя: латиница, без пробелов" autocomplete="off">
+      <button class="btn sm" id="btnCustomSound">Добавить звук</button>
+      <input type="file" id="customSoundFile" accept="audio/*,.opus,.wav,.mp3" hidden>
+    </div>
+    <div class="seg-note" style="margin-top:4px">Только латиница, цифры, <code>_</code> и <code>-</code>, до 40 символов, без пробелов.</div>
+    <div class="sound-head">Мои звуки</div>
+    <div class="sound-list" id="customSoundList"><div class="seg-note">Пока нет своих звуков.</div></div>
+    <div class="sound-head" style="margin-top:12px">Системные звуки</div>
+    <div class="row" style="margin-top:6px">
+      <select id="soundGroup" class="net-input" aria-label="Группа звуков">
+        <option value="all">Все группы</option>
+        <option value="common">common</option>
+        <option value="ru-RU">ru-RU</option>
+      </select>
+      <input id="soundSearch" class="net-input" type="search" placeholder="Поиск по имени" autocomplete="off">
+    </div>
+    <div class="sound-list" id="soundList"><div class="seg-note">Загружаю список…</div></div>
+    <div class="seg-note" style="margin-top:8px" id="soundStatus">Оригинал автоматически сохраняется на колонке. После замены нужна перезагрузка.</div>
+  </section>
+
+  <!-- ───────── PIN ───────── -->
+  <section class="card c-sys" data-group="system" aria-labelledby="h-pin">
+    <h2 id="h-pin"><span class="dot"></span>PIN</h2>
+    <div class="row" style="margin-top:12px">
+      <input id="pinNew" class="net-input" type="password" inputmode="numeric"
+             maxlength="8" placeholder="PIN: 4–8 цифр" autocomplete="new-password">
+      <button class="btn sm" id="btnPinEnable">Включить PIN</button>
+    </div>
+    <div class="row pin-actions" style="margin-top:8px">
+      <button class="btn sm ghost" id="btnPinDisable">Отключить PIN</button>
+      <button class="btn sm ghost" id="btnPinLock">Заблокировать</button>
+      <span class="seg-note" id="pinStatus">PIN не включён</span>
+    </div>
+    <div class="seg-note" style="margin-top:8px">По умолчанию выключен. После включения панель спросит PIN на этом устройстве.</div>
+    <div class="seg-note" id="pinInsecure" hidden style="margin-top:6px;color:#ffb86b">PIN передаётся по HTTP — используйте доверенную сеть или VPN.</div>
+  </section>
+
+  <!-- ───────── голосовой пульт (настройки) ───────── -->
+  <section class="card c-sys" data-group="system" data-card-id="voice" aria-labelledby="h-voice-settings">
+    <h2 id="h-voice-settings"><span class="dot"></span>Голосовой пульт<span class="exp-badge" title="Перехват фраз Алисы пока нестабилен: Алиса может успеть ответить первой, а продолжение без «Алисы» ловится не всегда.">экспериментально</span></h2>
+<div class="voice-panel" id="voicePanel">
+          <div class="voice-panel-head">
+            <div class="voice-panel-title">
+              <b>Голосовой пульт</b>
+              <span class="seg-note" id="voiceDaemonStatus">голосовой пульт выключен</span>
+            </div>
+            <button class="btn sm" id="btnVoiceDaemon"
+                    title="Полностью выключить или включить голосовой пульт">Включить голосовой пульт</button>
+          </div>
+          <div class="voice-settings">
+            <label class="voice-setting">
+              <span>Когда слушать</span>
+              <select id="voiceIdleMode" aria-label="Когда слушать">
+                <option value="always">Слушать постоянно</option>
+                <option value="auto">Только при сценариях и нейросети</option>
+              </select>
+              <small class="seg-note" id="voiceIdleNote">если сценариев и нейросети нет — микрофон не открывается</small>
+            </label>
+            <label class="voice-setting">
+              <span>Режим микрофона</span>
+              <select id="voiceMicMode" aria-label="Режим микрофона">
+                <option value="continuous">Непрерывно (устаревший)</option>
+                <option value="alice">По фразам Алисы</option>
+              </select>
+              <small class="seg-note" id="voiceMicNote">сессия не закрывается: Алиса может отвечать медленнее</small>
+            </label>
+          </div>
+          <div class="voice-help" id="voiceHelp">
+            Пульт и Алиса делят микрофон: в режиме «по фразам Алисы» его
+            открывает она, в «непрерывном» — пульт. Кнопка выше выключает
+            пульт целиком.
+          </div>
+        </div>
+    <div class="field" style="margin-top:12px">
+      <div class="field-top"><label for="command">Текстовая команда</label></div>
+      <div class="row" style="flex-wrap:nowrap">
+        <input type="text" id="command" placeholder="Алиса, какая погода?" autocomplete="off">
+        <button class="btn primary sm" id="btnSendCmd">Отправить</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card c-sys" data-group="system" data-card-id="files" data-legacy-card-id="Файлы" aria-labelledby="h-files">
+    <h2 id="h-files"><span class="dot"></span>Файлы</h2>
+    <div class="row between" style="margin-top:12px">
+      <span class="seg-note">Просмотр, загрузка и правка файлов станции</span>
+      <button class="btn sm" id="btnFilesOpen">Открыть менеджер</button>
+    </div>
+    <div class="seg-note" style="margin-top:8px">Запись разрешена только в <code>/data/mypult</code> и <code>/tmp</code>.</div>
+  </section>
+
+  <dialog id="ymDlg" class="ym-dlg" aria-labelledby="ymTitle">
+    <div class="ym-shell">
+      <header class="ym-top">
+        <div class="ym-logo">Яндекс Музыка</div>
+        <div class="ym-search-wrap">
+          <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
+          <input type="text" id="ymSearch" placeholder="Трек, альбом, исполнитель" autocomplete="off">
+        </div>
+        <nav class="ym-tabs" id="ymFilters">
+          <button type="button" class="ym-tab" data-ym-view="all" aria-pressed="true">Главное</button>
+          <button type="button" class="ym-tab" data-ym-view="playlists" aria-pressed="false">Плейлисты</button>
+          <button type="button" class="ym-tab" data-ym-view="tracks" aria-pressed="false">Треки</button>
+          <button type="button" class="ym-tab" data-ym-view="liked" aria-pressed="false">Избранное</button>
+          <button type="button" class="ym-tab" data-ym-view="wave" aria-pressed="false">Моя волна</button>
+          <button type="button" class="ym-tab" data-ym-view="trends" aria-pressed="false">Тренды</button>
+          <button type="button" class="ym-tab" data-ym-view="audio" aria-pressed="false">Книги</button>
+        </nav>
+        <div class="ym-profile">
+          <span class="ym-profile-label">Моя музыка</span>
+          <span class="ym-avatar" aria-hidden="true"><svg class="ic"><use href="#i-music"/></svg></span>
+          <button type="button" class="ym-close" id="btnYmDlgClose" aria-label="Закрыть" autofocus>✕</button>
+        </div>
+      </header>
+      <div class="ym-content">
+        <main class="ym-main">
+          <header class="ym-head">
+            <div>
+              <div class="ym-kicker">Коллекция</div>
+              <h2 id="ymTitle">Главное</h2>
+              <p>Плейлисты, треки и избранное</p>
+            </div>
+          </header>
+          <div class="ym-body" id="ymBody"></div>
+          <div class="ym-now" id="ymNow" hidden>
+            <div class="ym-now-bg" id="ymNowBg"></div>
+            <div class="ym-now-top">
+              <button type="button" class="ym-now-back" id="ymNowBack" aria-label="Свернуть плеер">
+                <svg class="ym-now-back-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+                <span class="ym-now-back-text">← Назад</span>
+              </button>
+              <span>Сейчас играет</span>
+              <button type="button" class="ym-now-close" id="ymNowCloseAll" aria-label="Закрыть Яндекс Музыку">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6L6 18"/>
+                </svg>
+              </button>
+            </div>
+            <div class="ym-now-content">
+              <div class="ym-now-art-wrap">
+                <img id="ymNowCover" alt="" hidden>
+                <svg class="ic" aria-hidden="true"><use href="#i-music"/></svg>
+              </div>
+              <div class="ym-now-info">
+                <h2 id="ymNowTitle">Ничего не играет</h2>
+                <div class="ym-now-artist" id="ymNowArtist">Яндекс Музыка</div>
+                <div class="ym-now-lyrics" id="ymNowLyricsBox" hidden></div>
+                <div class="ym-now-bottom">
+                  <div class="ym-now-seek">
+                    <span id="ymNowPos">0:00</span>
+                    <input type="range" id="ymNowSeek" min="0" max="1000" step="1" value="0" aria-label="Перемотка">
+                    <span id="ymNowDur">0:00</span>
+                  </div>
+                  <div class="ym-now-transport">
+                    <div class="ym-now-side ym-now-side-left">
+                      <button type="button" class="ym-now-icon" id="ymNowLike" aria-label="Нравится">
+                        <svg class="ic" aria-hidden="true"><use href="#i-like"/></svg>
+                      </button>
+                      <button type="button" class="ym-now-icon" id="ymNowDislike" aria-label="Не нравится">
+                        <svg class="ic" aria-hidden="true"><use href="#i-dislike"/></svg>
+                      </button>
+                    </div>
+                    <div class="ym-now-controls">
+                      <button type="button" class="ym-now-icon" id="ymNowPrev" aria-label="Предыдущий трек">
+                        <svg class="ic" aria-hidden="true"><use href="#i-prev"/></svg>
+                      </button>
+                      <button type="button" class="ym-now-play" id="ymNowPlay" aria-label="Воспроизвести">
+                        <svg class="ic" aria-hidden="true"><use href="#i-play"/></svg>
+                      </button>
+                      <button type="button" class="ym-now-icon" id="ymNowNext" aria-label="Следующий трек">
+                        <svg class="ic" aria-hidden="true"><use href="#i-next"/></svg>
+                      </button>
+                    </div>
+                    <div class="ym-now-side ym-now-side-right">
+                      <button type="button" class="ym-now-icon" id="ymNowQueue" aria-label="Очередь">
+                        <svg class="ic" aria-hidden="true"><use href="#i-queue"/></svg>
+                      </button>
+                      <div class="ym-vol">
+                        <button type="button" class="ym-now-icon" id="ymNowVolumeBtn" aria-label="Громкость">
+                          <svg class="ic" data-volume-icon aria-hidden="true"><use href="#i-volume"/></svg>
+                        </button>
+                        <div class="ym-vol-pop">
+                          <div class="ym-vol-track">
+                            <input type="range" id="ymNowVolume" min="0" max="100" step="1" value="40" aria-label="Громкость">
+                          </div>
+                          <output id="ymNowVolumeVal">40%</output>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+        <aside class="ym-promo" id="ymPromo">
+          <div class="ym-promo-cover" id="ymPromoCover"></div>
+          <div class="ym-promo-body">
+            <b id="ymPromoTitle">Музыка для вас</b>
+            <span id="ymPromoSub">Подборки на основе ваших вкусов</span>
+          </div>
+        </aside>
+      </div>
+      <div class="ym-bar">
+        <div class="ym-bar-topline">
+          <i id="ymBarFill"></i>
+          <input type="range" id="ymBarSeek" min="0" max="1000" step="1" value="0" aria-label="Перемотка трека">
+        </div>
+        <div class="ym-bar-controls">
+          <button type="button" class="ym-bar-btn" id="ymBarPrev" aria-label="Предыдущий трек">
+            <svg class="ic" aria-hidden="true"><use href="#i-prev"/></svg>
+          </button>
+          <button type="button" class="ym-bar-play" id="ymBarPlay" aria-label="Воспроизвести">
+            <svg class="ic" aria-hidden="true"><use href="#i-play"/></svg>
+          </button>
+          <button type="button" class="ym-bar-btn" id="ymBarNext" aria-label="Следующий трек">
+            <svg class="ic" aria-hidden="true"><use href="#i-next"/></svg>
+          </button>
+          <button type="button" class="ym-bar-btn" id="ymBarQueue" aria-label="Очередь">
+            <svg class="ic" aria-hidden="true"><use href="#i-queue"/></svg>
+          </button>
+        </div>
+        <div class="ym-bar-art" id="ymBarArt">
+          <img id="ymBarCover" alt="" hidden>
+          <svg class="ic" aria-hidden="true"><use href="#i-music"/></svg>
+        </div>
+        <div class="ym-bar-meta">
+          <b id="ymBarTitle">Ничего не играет</b>
+          <span id="ymBarSub">Выберите плейлист или трек</span>
+          <span id="ymBarTime" class="ym-bar-time">0:00 / 0:00</span>
+        </div>
+        <div class="ym-bar-right">
+          <span class="ym-hq">HQ</span>
+          <button type="button" class="ym-bar-btn" id="ymBarLike" aria-label="Нравится">
+            <svg class="ic" aria-hidden="true"><use href="#i-like"/></svg>
+          </button>
+          <button type="button" class="ym-bar-btn" id="ymBarDislike" aria-label="Не нравится">
+            <svg class="ic" aria-hidden="true"><use href="#i-dislike"/></svg>
+          </button>
+          <div class="ym-volume-hover" id="ymVolumeHover">
+            <button type="button" class="ym-bar-btn" id="ymBarMute" aria-label="Звук">
+              <svg class="ic" data-volume-icon aria-hidden="true"><use href="#i-mute"/></svg>
+            </button>
+            <div class="ym-volume-pop" id="ymBarVolumePop">
+              <svg class="ic" data-volume-icon aria-hidden="true"><use href="#i-volume"/></svg>
+              <input type="range" id="ymBarVolume" min="0" max="100" step="1" value="40" aria-label="Громкость">
+              <span id="ymBarVolumeVal">40%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="ymLoginDlg" class="ym-login-dlg" aria-labelledby="ymLoginTitle">
+    <div class="ym-login-head">
+      <b id="ymLoginTitle">Вход в Яндекс Музыку</b>
+      <button type="button" class="ym-close" id="btnYmLoginClose" aria-label="Закрыть">✕</button>
+    </div>
+    <div class="ym-login-body">
+      <div class="ym-qr" id="ymQrBox"><div class="seg-note">Готовлю QR…</div></div>
+      <div class="ym-login-side">
+        <p class="seg-note" style="margin:0">Отсканируйте QR камерой телефона, где уже выполнен вход в Яндекс, и подтвердите. Панель подключится сама. Если входите на этом устройстве — откройте окно входа, после подтверждения оно закроется.</p>
+        <button type="button" class="btn sm primary" id="ymQrPhoneLink" hidden>Открыть окно входа</button>
+        <div class="seg-note" id="ymQrStatus">Запрашиваю ссылку…</div>
+        <div class="row" style="gap:6px;flex-wrap:wrap">
+          <button type="button" class="btn sm ghost" id="btnYmQrRetry">Новый QR</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+</main>
+
+<footer>
+  <span><a class="repo-link" href="https://github.com/RoBiN19666/midipult" target="_blank" rel="noopener" title="MidiPult на GitHub">MidiPult <span id="verTag">v—</span></a> · vanilla JS · lighttpd + CGI</span>
+  <span class="ok" id="footStatus">—</span>
+</footer>
+
+<div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
+
+<dialog id="debugDlg">
+  <div class="dlg-head">
+    <h3>Диагностика <small id="verLine"></small></h3>
+    <button class="btn sm ghost" id="btnCloseDebug">Закрыть</button>
+  </div>
+  <div class="svc" id="svcState"></div>
+  <pre class="log" id="logBox">Журнал пуст.</pre>
+  <pre class="log" id="diagBox" hidden></pre>
+  <div class="row">
+    <button class="btn sm" id="btnRefreshStatus">Проверить снова</button>
+    <button class="btn sm primary" id="btnDiag">Проверить API</button>
+  </div>
+</dialog>
+
+<dialog id="faqDlg">
+  <div class="dlg-head">
+    <h3>FAQ</h3>
+    <button class="btn sm ghost" id="btnCloseFaq">Закрыть</button>
+  </div>
+  <div class="faq-list">
+    <details open>
+      <summary>Что такое MidiPult?</summary>
+      <p>Локальная панель для рутованной Станции Миди: дисплей, LED-кольцо,
+      плеер и радио, голосовые команды, нейросеть, VPN, сценарии и
+      интерактивная 3D-модель станции. Работает на самой колонке и
+      открывается в браузере.</p>
+    </details>
+    <details>
+      <summary>Почему кольцо в панели не совпадает с реальным?</summary>
+      <p>Панель читает реальные 24 RGB-диода из sysfs и обновляет предпросмотр
+      и 3D-модель примерно раз в 0,4 секунды. Если играет музыка или Алиса
+      слушает/говорит, кольцом управляет прошивка: панель в это время не
+      перекрывает штатную подсветку своей анимацией. На паузе свою подсветку
+      можно включить снова.</p>
+    </details>
+    <details>
+      <summary>Как настроить логотип из 6 LED?</summary>
+      <p>В карточке «Кольцо» есть блок «Логотип»: «Как кольцо» повторяет
+      цвета и анимации кольца, «Фиолетовый» и «Белый» задают постоянный цвет,
+      «Выкл» гасит логотип. Выбор сохраняется в браузере.</p>
+    </details>
+    <details>
+      <summary>Как поменять цвет корпуса на 3D-модели?</summary>
+      <p>Под 3D-моделью на главной есть ряд «Корпус»: чёрный, серый,
+      изумрудный, малиновый и жёлтый. Меняется только модель в панели, цвет
+      реальной колонки не затрагивается; выбор сохраняется.</p>
+    </details>
+    <details>
+      <summary>Почему Алиса стала медленнее отвечать после установки?</summary>
+      <p>Голосовой пульт и штатная Алиса делят один микрофон. Если пульт слушает
+      постоянно, Алиса дольше отвечает и позже возвращается в режим ожидания.
+      По умолчанию пульт открывает микрофон только при сценариях или включённой
+      нейросети и не мешает Алисе. «Слушать постоянно» — осознанный выбор.
+      Режим «Экономно» оставляет Алисе окна, но команда может не попасть в паузу.
+      Полностью выключить пульт можно кнопкой «Голосовой пульт: вкл/выкл» —
+      тогда он не трогает микрофон вообще.</p>
+    </details>
+    <details>
+      <summary>Как открыть пульт с телефона?</summary>
+      <p>Подключите телефон к той же Wi-Fi сети и откройте
+      <code>http://&lt;IP-колонки&gt;:8055/</code>. Ярлык можно добавить на
+      главный экран браузера.</p>
+    </details>
+    <details>
+      <summary>Как добавить свой звук?</summary>
+      <p>В «Система → Звуки» введите название, нажмите «Добавить звук» и
+      выберите файл или перетащите его в зону загрузки. Имя — только латиница,
+      цифры, <code>_</code> и <code>-</code>, без пробелов. Затем в сценарии
+      добавьте действие «Свой звук».</p>
+    </details>
+    <details>
+      <summary>Почему в панели нет переключателя звука отклика?</summary>
+      <p>Им управляет облачная настройка приложения «Дом с Алисой».
+      Локальные флаги могут перезаписываться, поэтому переключатель убран.</p>
+    </details>
+    <details>
+      <summary>Как заменить системный звук?</summary>
+      <p>Откройте «Система → Звуки», найдите нужный файл и перетащите на него
+      <code>.opus</code> или <code>.wav</code>. Оригинал сохранится на колонке;
+      после замены перезагрузите её. MP3-цель принимается готовым MP3.</p>
+    </details>
+    <details>
+      <summary>Как включить голосовые команды?</summary>
+      <p>Во вкладке «Система» → «Голосовой пульт» нажмите «Включить голосовой пульт». После перезагрузки
+      он запускается сам. Фразы начинайте с «Алиса», например «Алиса, включи
+      VPN».</p>
+    </details>
+    <details>
+      <summary>Почему Алиса иногда отвечает сама?</summary>
+      <p>Она получает фразу раньше пульта, и отмена не всегда успевает. Для
+      команд без наложения используйте текстовое поле «Текстовая команда» или
+      кнопки сценариев.</p>
+    </details>
+    <details>
+      <summary>Как подключить нейросеть?</summary>
+      <p>Откройте «Нейросеть», выберите провайдера, вставьте API-ключ и модель,
+      затем нажмите «Сохранить». Ключ хранится на колонке.</p>
+    </details>
+    <details>
+      <summary>Как включить VPN?</summary>
+      <p>В «Сети» вставьте ссылку на подписку, сохраните её, выберите сервер и
+      нажмите «Включить».</p>
+    </details>
+    <details>
+      <summary>Как поставить PIN?</summary>
+      <p>В «Системе» введите код из 4–8 цифр и нажмите «Включить PIN». После
+      этого панель будет спрашивать его при входе.</p>
+    </details>
+    <details>
+      <summary>Как обновить или удалить пульт?</summary>
+      <p>Штатное обновление — «Система → Обновление»: панель проверяет GitHub
+      Releases, скачивает архив, сверяет SHA-256, делает бэкап и умеет
+      откатиться. Повторный запуск установщика нужен только для ручной
+      установки. Удаление — <code>sh /data/mypult/uninstall.sh</code>;
+      настройки сохранятся, <code>--purge</code> удаляет и их.</p>
+    </details>
+    <details>
+      <summary>Нужен ли вход в Яндекс?</summary>
+      <p>Для локального управления — нет. Панель работает на самой колонке,
+      а для лайков использует штатный токен станции. Необязательный вход в
+      Яндекс Музыку нужен только для своих плейлистов и «Моей волны»; без него
+      основные функции и радио работают как обычно.</p>
+    </details>
+    <details>
+      <summary>Почему IPv6 выключен?</summary>
+      <p>В сетях без глобального IPv6 AAAA-записи есть, а маршрута нет — колонка
+      может ждать недоступный IPv6. Переключатель в «Сеть → IPv6»; если
+      провайдер выдаёт IPv6, включите обратно.</p>
+    </details>
+    <details>
+      <summary>Где посмотреть ошибки?</summary>
+      <p>В «Системе» есть логи и кнопка диагностики. Основные файлы:
+      <code>/tmp/mypult.log</code> и <code>/data/mypult/voice.log</code>.</p>
+    </details>
+  </div>
+</dialog>
+
+<dialog id="rebootDlg">
+  <div class="dlg-head">
+    <h3>Перезагрузка</h3>
+    <button class="btn sm ghost" id="btnCloseReboot">Скрыть</button>
+  </div>
+  <div class="reboot-body">
+    <div class="reboot-spinner" aria-hidden="true"></div>
+    <strong id="rebootStatus">Перезагружаю колонку…</strong>
+    <div class="reboot-bar"><i id="rebootBar"></i></div>
+    <div class="reboot-time" id="rebootTime">00:00</div>
+  </div>
+</dialog>
+
+  <!-- ───────── кольцо: редактор ───────── -->
+  <dialog id="ringEditorDlg" class="alarm-dlg">
+    <div class="alarm-dlg-head">
+      <h3>Анимация кольца</h3>
+      <button type="button" class="btn sm ghost" id="btnRingEditorClose">Закрыть</button>
+    </div>
+    <div class="ring-editor-form">
+      <div class="ring-editor-preview">
+        <div class="anim-ring" id="ringEditorRing"></div>
+      </div>
+      <div class="ring-editor-controls">
+        <div class="row">
+          <label class="anim-num">Цвет
+            <input type="color" id="ringEditorColor" value="#00e676">
+          </label>
+          <button type="button" class="btn sm ghost" id="btnRingEditorAdd">+ кадр</button>
+          <button type="button" class="btn sm ghost" id="btnRingEditorDup">Дублировать</button>
+          <button type="button" class="btn sm ghost" id="btnRingEditorDelFrame">Удалить кадр</button>
+          <button type="button" class="btn sm ghost" id="btnRingEditorFill">Залить всё</button>
+          <button type="button" class="btn sm ghost" id="btnRingEditorClear">Очистить</button>
+        </div>
+        <div class="anim-frames" id="ringEditorFrames"></div>
+        <input type="text" id="ringEditorName" maxlength="40" placeholder="Название анимации" autocomplete="off">
+        <label class="anim-num">Кадр, мс
+          <input type="number" id="ringEditorDuration" min="10" max="5000" step="10" value="50">
+        </label>
+        <div class="row">
+          <button type="button" class="btn sm" id="btnRingEditorSave">Сохранить</button>
+          <button type="button" class="btn sm ghost" id="btnRingEditorPlay">Играть</button>
+          <button type="button" class="btn sm ghost" id="btnRingEditorDelete" hidden>Удалить</button>
+        </div>
+      </div>
+    </div>
+    <div class="anim-saved" id="ringEditorSaved"></div>
+  </dialog>
+
+<dialog id="confirmDlg" class="confirm-dlg">
+  <div class="dlg-head">
+    <h3>Подтверждение</h3>
+  </div>
+  <p class="confirm-text" id="confirmText"></p>
+  <div class="confirm-actions">
+    <button class="btn sm ghost" id="btnConfirmNo">Отмена</button>
+    <button class="btn sm danger" id="btnConfirmYes">Подтвердить</button>
+  </div>
+</dialog>
+
+<dialog id="updateDlg" class="confirm-dlg update-dlg">
+  <div class="dlg-head">
+    <h3>Доступно обновление <small id="updateDlgVer"></small></h3>
+    <button class="btn sm ghost" id="btnUpdateLater">Позже</button>
+  </div>
+  <div class="seg-note" id="updateDlgFrom"></div>
+  <pre class="update-notes" id="updateDlgNotes"></pre>
+  <label class="llm-toggle" style="margin-top:10px">
+    <input type="checkbox" id="updateDismiss">
+    <span>Больше не показывать это обновление</span>
+  </label>
+  <div class="confirm-actions">
+    <button class="btn sm ghost" id="btnUpdateDlgNo">Отмена</button>
+    <button class="btn sm primary" id="btnUpdateDlgYes">Обновить</button>
+  </div>
+</dialog>
+
+<dialog id="chatRenameDlg" class="confirm-dlg" aria-labelledby="chatRenameTitle">
+  <div class="dlg-head">
+    <h3 id="chatRenameTitle">Имя чата</h3>
+  </div>
+  <label class="llm-field" style="margin-top:0"><span>Название</span>
+    <input type="text" id="chatRenameInput" maxlength="40" autocomplete="off"
+           placeholder="Например, Работа">
+  </label>
+  <div class="confirm-actions" style="margin-top:14px">
+    <button class="btn sm ghost" id="btnChatRenameNo">Отмена</button>
+    <button class="btn sm primary" id="btnChatRenameYes">Сохранить</button>
+  </div>
+</dialog>
+
+<dialog id="lyricsDlg" class="lyrics-dlg" aria-labelledby="lyrTitle">
+  <div class="lyr-bg" id="lyrBg"></div>
+  <div class="lyr-head">
+    <div class="lyr-head-title">
+      <div class="lyr-title" id="lyrTitle">Текст песни</div>
+      <div class="lyr-source" id="lyricsStatus"></div>
+    </div>
+    <div class="lyr-head-actions">
+      <label class="lyr-switch" title="Показывать строку в плеере">
+        <input type="checkbox" id="lyricsInline" aria-label="Строка в плеере">
+        <span class="lyr-switch-track" aria-hidden="true"><i></i></span>
+        <span class="lyr-switch-label">В плеере</span>
+      </label>
+      <button class="btn sm ghost" id="btnLyricsClose">Закрыть</button>
+    </div>
+  </div>
+  <div class="lyr-stage" id="lyrStage">
+    <div class="lyr-lines" id="lyricsBox"></div>
+  </div>
+  <div class="lyr-player" id="lyrPlayer">
+    <div class="lyr-player-now">
+      <div class="lyr-player-art">
+        <img id="lyrPlayerCover" alt="" hidden>
+        <svg class="ic" aria-hidden="true"><use href="#i-music"/></svg>
+      </div>
+      <div class="lyr-player-meta">
+        <b id="lyrPlayerTitle">Ничего не играет</b>
+        <span id="lyrPlayerArtist"></span>
+      </div>
+    </div>
+    <div class="lyr-player-controls">
+      <button type="button" class="lyr-icon" id="lyrPlayerLike" aria-label="Нравится">
+        <svg class="ic" aria-hidden="true"><use href="#i-like"/></svg>
+      </button>
+      <button type="button" class="lyr-icon" id="lyrPlayerDislike" aria-label="Не нравится">
+        <svg class="ic" aria-hidden="true"><use href="#i-dislike"/></svg>
+      </button>
+      <button type="button" class="lyr-icon" id="lyrPlayerPrev" aria-label="Предыдущий трек">
+        <svg class="ic" aria-hidden="true"><use href="#i-prev"/></svg>
+      </button>
+      <button type="button" class="lyr-play" id="lyrPlayerPlay" aria-label="Воспроизвести">
+        <svg class="ic" aria-hidden="true"><use href="#i-play"/></svg>
+      </button>
+      <button type="button" class="lyr-icon" id="lyrPlayerNext" aria-label="Следующий трек">
+        <svg class="ic" aria-hidden="true"><use href="#i-next"/></svg>
+      </button>
+    </div>
+    <div class="lyr-player-progress">
+      <span id="lyrPlayerPos">0:00</span>
+      <input type="range" id="lyrPlayerSeek" min="0" max="1000" step="1" value="0" aria-label="Перемотка">
+      <span id="lyrPlayerDur">0:00</span>
+    </div>
+    <div class="lyr-player-volume">
+      <svg class="ic" data-volume-icon aria-hidden="true"><use href="#i-volume"/></svg>
+      <input type="range" id="lyrPlayerVolume" min="0" max="100" step="1" value="40" aria-label="Громкость">
+      <span id="lyrPlayerVolumeVal">40%</span>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="queueDlg" class="queue-dlg" aria-labelledby="queueName">
+  <div class="q-head">
+    <div>
+      <div class="q-kicker" id="queueKicker">Сейчас играет</div>
+      <div class="q-name" id="queueName">Очередь</div>
+    </div>
+    <button class="btn sm ghost" id="btnQueueClose">Закрыть</button>
+  </div>
+  <div class="q-tabs" role="tablist">
+    <button class="chip" id="qTabQueue" data-qtab="queue" aria-pressed="true">Очередь</button>
+    <button class="chip" id="qTabSimilar" data-qtab="similar" aria-pressed="false">Похожие</button>
+    <button class="chip" id="qTabFavorites" data-qtab="favorites" aria-pressed="false">Избранное</button>
+  </div>
+  <div class="q-list" id="queueList" aria-live="polite"></div>
+</dialog>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M9 6.4v11.2L18.6 12z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M7.5 5.5h3.2v13H7.5zM13.3 5.5h3.2v13h-3.2z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="M6 5.5l9 6.5-9 6.5z" fill="currentColor" stroke="none"/><path d="M17 5.5v13" stroke-width="2.4"/></symbol>
+  <symbol id="i-prev" viewBox="0 0 24 24"><path d="M18 5.5L9 12l9 6.5z" fill="currentColor" stroke="none"/><path d="M7 5.5v13" stroke-width="2.4"/></symbol>
+  <symbol id="i-sync" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.5-5.8"/><path d="M20 4.5V10h-5.5"/></symbol>
+  <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3.5v8.5"/><path d="M7.2 6.6a7.5 7.5 0 1 0 9.6 0"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M18.5 11.5a6.5 6.5 0 0 1-13 0"/><path d="M12 18v3"/></symbol>
+  <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 5.5 6.5 9H3.5v6h3L11 18.5z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6"/></symbol>
+<symbol id="i-volume-1" viewBox="0 0 24 24"><path d="M11 5.5 6.5 9H3.5v6h3L11 18.5z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6"/></symbol>
+<symbol id="i-volume-2" viewBox="0 0 24 24"><path d="M11 5.5 6.5 9H3.5v6h3L11 18.5z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6"/><path d="M18 6.7a7.2 7.2 0 0 1 0 10.6"/></symbol>
+<symbol id="i-volume-3" viewBox="0 0 24 24"><path d="M11 5.5 6.5 9H3.5v6h3L11 18.5z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6"/><path d="M18 6.7a7.2 7.2 0 0 1 0 10.6"/><path d="M20.5 4.4a10.4 10.4 0 0 1 0 15.2"/></symbol>
+  <symbol id="i-mute" viewBox="0 0 24 24"><path d="M11 5.5 6.5 9H3.5v6h3L11 18.5z"/><path d="M16 9.5l4 5M20 9.5l-4 5"/></symbol>
+  <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 17.5V6l10-2v11"/><circle cx="6.5" cy="17.5" r="2.6"/><circle cx="16.5" cy="15" r="2.6"/></symbol>
+  <symbol id="i-like" viewBox="0 0 24 24"><path d="M12 20.2S4 15.1 4 9.4A4.4 4.4 0 0 1 12 6.6a4.4 4.4 0 0 1 8 2.8c0 5.7-8 10.8-8 10.8z"/></symbol>
+  <symbol id="i-dislike" viewBox="0 0 24 24"><path d="M7 4h9.5L20 9.2v3.3a2 2 0 0 1-2 2h-4.1l1.1 4.2a2 2 0 0 1-3.8 1.1L7 12.5"/><path d="M7 4H4v8.5h3"/></symbol>
+  <symbol id="i-text" viewBox="0 0 24 24"><path d="M5 7h14M5 12h10M5 17h13"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></symbol>
+  <symbol id="i-queue" viewBox="0 0 24 24"><path d="M4 6.5h16M4 12h11M4 17.5h14"/><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none"/></symbol>
+</svg>
+
+<script src="assets/three.min.js"></script>
+<script src="assets/GLTFLoader.js"></script>
+<script src="assets/qrcode.js"></script>
+<script>
+<!-- @panel-js --></script>
+<noscript><p style="text-align:center;color:#f88">Для работы пульта нужен JavaScript.</p></noscript>
+<dialog id="filesDlg" class="files-dlg" aria-labelledby="filesTitle">
+  <div class="files-shell">
+    <div class="files-head">
+      <div><div class="files-kicker">Станция</div><h3 id="filesTitle">Файлы</h3></div>
+      <button class="btn sm ghost" id="btnFilesClose" type="button">Закрыть</button>
+    </div>
+    <div class="files-toolbar">
+      <button class="btn sm ghost" id="btnFilesUp" type="button" title="Наверх">↑</button>
+      <button class="btn sm ghost" id="btnFilesRefresh" type="button" title="Обновить">↻</button>
+      <input id="filesPath" class="files-path" type="text" spellcheck="false" aria-label="Путь">
+      <button class="btn sm" id="btnFilesGo" type="button">Перейти</button>
+      <button class="btn sm ghost" id="btnFilesMkdir" type="button">Папка</button>
+      <label class="btn sm primary" for="filesUpload">Загрузить</label>
+      <input id="filesUpload" type="file" hidden>
+    </div>
+    <div class="files-roots" id="filesRoots"></div>
+    <div class="files-note" id="filesNote"></div>
+    <div class="files-list" id="filesList"><div class="files-empty">Загрузка…</div></div>
+    <div class="files-editor" id="filesEditor" hidden>
+      <div class="files-editor-head">
+        <b id="filesEditorName"></b>
+        <button class="btn sm primary" id="btnFilesSave" type="button">Сохранить</button>
+        <button class="btn sm ghost" id="btnFilesRename" type="button">Переименовать</button>
+        <button class="btn sm ghost" id="btnFilesEditorClose" type="button">Закрыть</button>
+      </div>
+      <textarea id="filesText" spellcheck="false"></textarea>
+    </div>
+  </div>
+</dialog>
+</body>
+</html>

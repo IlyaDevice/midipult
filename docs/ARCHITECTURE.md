@@ -40,7 +40,7 @@ lighttpd ── static /data/myweb/index.html
 |---|---|
 | `lighttpd` | отдаёт статику и запускает CGI на `8055` |
 | `index.py` | серверный вход: без PIN-куки отдаёт только страницу входа |
-| `index.html` | SPA: вкладки, карточки, опрос состояния, drag-and-drop |
+| `index.html` | SPA: вкладки, карточки, опрос состояния, drag-and-drop (собирается из `src/`) |
 | CGI `cgi-bin/*.py` | вся логика: JSON-ответы, вызовы Luna/Glagol/sysfs |
 | `voice_daemon.py` | распознавание, интенты, LLM, сценарии, планировщик, будильники |
 | `state_daemon.py` | постоянный кэш статуса/плеера, системы и звуков на `127.0.0.1:8057`; статус — 2 с, плеер — 2 с, система — 10 с, звуки — 30 с; анимации часов |
@@ -56,7 +56,11 @@ lighttpd ── static /data/myweb/index.html
 ## 3. Файлы проекта
 
 ```
-index.html                 SPA целиком (HTML+CSS+JS)
+index.html                 SPA целиком (HTML+CSS+JS), собран из src/
+src/panel.template.html    разметка панели
+src/panel.css              стили панели
+src/panel.js               логика панели
+deploy/build_panel.py      сборка index.html из src/
 index.py                   серверный PIN-гейт и отдача index.html
 manifest.json, favicon.ico PWA-ярлык и иконки (без service worker)
 icon-192.png, icon-512.png, icon.png, icon-circle.png

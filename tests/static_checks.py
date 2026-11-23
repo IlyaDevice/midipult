@@ -96,6 +96,18 @@ def test_no_committed_secrets():
     check("нет реальных токенов и ключей в репозитории", not bad, "; ".join(bad[:6]))
 
 
+def test_panel_build():
+    """index.html — артефакт сборки из src/; руками его править нельзя."""
+    import importlib.util
+
+    path = os.path.join(ROOT, "deploy", "build_panel.py")
+    spec = importlib.util.spec_from_file_location("build_panel", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    check("панель: index.html совпадает со сборкой из src/",
+          module.build() == read(os.path.join(ROOT, "index.html")))
+
+
 def test_html_structure():
     html = read(os.path.join(ROOT, "index.html"))
     ids = re.findall(r'\bid="([^"]+)"', html)
@@ -765,6 +777,7 @@ def test_voice_mic_mode():
 def main():
     for test in (
         test_encoding,
+        test_panel_build,
         test_html_structure,
         test_no_committed_secrets,
         test_js_syntax,
