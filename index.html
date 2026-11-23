@@ -3260,7 +3260,7 @@ body.light dialog.queue-dlg.ym-look{
       </div>
     </div>
 
-    <details class="chat-history" id="llmHistoryBox">
+    <details class="chat-history" id="llmHistoryBox" open>
       <summary>История чата <span class="chat-history-count" id="llmHistoryCount"></span></summary>
       <div class="chat-log" id="llmHistory" aria-live="polite"></div>
       <div class="chat-history-foot">
@@ -3349,11 +3349,11 @@ body.light dialog.queue-dlg.ym-look{
     <div class="row between" style="margin-top:10px">
       <span class="counter" id="llmMeta"></span>
       <div class="row action-row">
-        <button class="btn ghost sm" id="btnLlmSay" disabled>Озвучить</button>
-        <button class="btn primary" id="btnLlmAsk">Спросить</button>
+        <button class="btn ghost sm" id="btnLlmAsk">Только в чат</button>
+        <button class="btn primary" id="btnLlmAskSay">В чат и озвучить</button>
       </div>
     </div>
-    <div class="transcript empty" id="llmAnswer" aria-live="polite">Ответ появится здесь.</div>
+    <div class="transcript empty" id="llmAnswer" aria-live="polite" hidden></div>
     <div class="llm-sources" id="llmSources" hidden></div>
   </section>
 
@@ -9711,38 +9711,36 @@ body.light dialog.queue-dlg.ym-look{
     });
   }
 
-  function askLlm() {
+  function askLlm(voice) {
     var prompt = el.llmPrompt.value.trim();
     if (!prompt) { toast('Введите запрос', 'warn'); return; }
-    return withBusy(el.btnLlmAsk, function () {
+    var button = voice && el.btnLlmAskSay ? el.btnLlmAskSay : el.btnLlmAsk;
+    return withBusy(button, function () {
       el.llmAnswer.textContent = 'Думаю…';
-      el.llmAnswer.classList.add('empty');
+      el.llmAnswer.classList.remove('empty');
       return cgi('llm.py', { prompt: prompt }, { timeout: 95000 }).then(function (data) {
         State.llmAnswer = data.answer || '';
-        el.llmAnswer.textContent = State.llmAnswer || '(пустой ответ)';
-        el.llmAnswer.classList.toggle('empty', !State.llmAnswer);
-        el.btnLlmSay.disabled = !State.llmAnswer;
+        el.llmAnswer.textContent = '';
+        el.llmAnswer.classList.add('empty');
+        el.llmPrompt.value = '';
         renderLlmSources(data.sources, data.search_note);
         var tokens = data.usage && data.usage.total_tokens
           ? ' · ' + data.usage.total_tokens + ' токенов' : '';
         el.llmMeta.textContent = [data.provider, data.model].filter(Boolean).join(' · ') + tokens;
-        if (el.llmHistoryBox && el.llmHistoryBox.open) loadChatHistory();
-        else loadLlm();
+        loadChatHistory(true);
+        if (voice && State.llmAnswer) {
+          return cgi('speak.py', { text: State.llmAnswer.slice(0, 1900) }, { timeout: 40000 })
+            .then(function (res) {
+              toast(res && res.started ? 'Алиса читает ответ' : 'Ответ отправлен', 'ok');
+            })
+            .catch(function (err) {
+              toast('Озвучка: ' + err.message, 'bad');
+            });
+        }
       }).catch(function (err) {
         el.llmAnswer.textContent = 'Ошибка: ' + err.message;
         el.llmAnswer.classList.remove('empty');
         toast('Нейросеть: ' + err.message, 'bad');
-      });
-    });
-  }
-
-  function sayLlmAnswer() {
-    if (!State.llmAnswer) return;
-    return withBusy(el.btnLlmSay, function () {
-      return cgi('speak.py', { text: State.llmAnswer.slice(0, 1900) }, { timeout: 40000 }).then(function (data) {
-        toast(data && data.started ? 'Алиса читает ответ' : 'Отправлено', 'ok');
-      }).catch(function (err) {
-        toast('Озвучка: ' + err.message, 'bad');
       });
     });
   }
@@ -15191,8 +15189,10 @@ body.light dialog.queue-dlg.ym-look{
     el.btnLlmSave.addEventListener('click', saveLlm);
     el.btnLlmSystem.addEventListener('click', saveLlmSystem);
     if (el.btnLlmContext) el.btnLlmContext.addEventListener('click', saveLlmContext);
-    el.btnLlmAsk.addEventListener('click', askLlm);
-    el.btnLlmSay.addEventListener('click', sayLlmAnswer);
+    el.btnLlmAsk.addEventListener('click', function () { askLlm(false); });
+    if (el.btnLlmAskSay) {
+      el.btnLlmAskSay.addEventListener('click', function () { askLlm(true); });
+    }
     el.llmSearch.addEventListener('change', toggleLlmSearch);
     el.llmFollowUp.addEventListener('change', toggleFollowUp);
     el.btnLlmSearchUrl.addEventListener('click', saveLlmSearchUrl);
@@ -15205,7 +15205,8 @@ body.light dialog.queue-dlg.ym-look{
     el.llmPrompt.addEventListener('keydown', function (ev) {
       if ((ev.ctrlKey || ev.metaKey) && ev.key === 'Enter') {
         ev.preventDefault();
-        el.btnLlmAsk.click();
+        if (ev.shiftKey && el.btnLlmAskSay) el.btnLlmAskSay.click();
+        else el.btnLlmAsk.click();
       }
     });
 
@@ -16952,7 +16953,7 @@ body.light dialog.queue-dlg.ym-look{
       'llmChat', 'btnChatPrev', 'btnChatNext', 'btnChatNew', 'btnChatRename', 'btnChatDel',
       'llmHistoryBox', 'llmHistoryCount', 'llmHistory', 'btnChatHistoryRefresh',
       'chatRenameDlg', 'chatRenameInput', 'btnChatRenameNo', 'btnChatRenameYes', 'llmLength',
-      'llmEnabled', 'llmStatus', 'btnLlmSave', 'llmPrompt', 'btnLlmAsk', 'btnLlmSay',
+      'llmEnabled', 'llmStatus', 'btnLlmSave', 'llmPrompt', 'btnLlmAsk', 'btnLlmAskSay',
       'llmSystem', 'btnLlmSystem', 'llmSystemStatus',
       'llmSearch', 'llmSearchStatus', 'llmSearchUrl', 'btnLlmSearchUrl', 'llmSources',
       'llmFollowUp',
