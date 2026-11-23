@@ -981,10 +981,14 @@ def test_voice_repeat_filter():
           not voice_daemon.is_repeat(
               {"text": "Почему так долго", "request_id": "r2", "phase": "listening"},
               last, now + 40))
-    check("голос: та же фраза через 40 с в busy — тоже новая",
-          not voice_daemon.is_repeat(
+    check("голос: та же фраза через 40 с в busy — повтор",
+          voice_daemon.is_repeat(
               {"text": "Почему так долго", "request_id": "r2", "phase": "busy"},
               last, now + 40))
+    check("голос: та же фраза через 100 с — новая",
+          not voice_daemon.is_repeat(
+              {"text": "Почему так долго", "request_id": "r2", "phase": "busy"},
+              last, now + 100))
     check("голос: другая фраза — новая",
           not voice_daemon.is_repeat(
               {"text": "Включи свет", "request_id": "r2", "phase": "listening"},

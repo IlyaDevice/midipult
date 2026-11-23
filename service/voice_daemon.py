@@ -440,15 +440,16 @@ def recognize(timeout=120):
 
 
 REPEAT_WINDOW = 30.0
+REANNOUNCE_WINDOW = 90.0
 
 
 def is_repeat(event, last, now):
     """Повтор уже обработанной фразы, а не новая команда.
 
     aliced присылает ту же фразу ещё раз, когда штатная Алиса переходит в
-    BUSY/SPEAKING (через 8–45 с), — с тем же request_id. Именно по нему и
-    режем: правило «та же фраза в фазе busy/speaking до 90 с» выбрасывало
-    настоящий повторный вопрос, если человек спрашивал то же самое снова.
+    BUSY/SPEAKING (через 8–45 с), — с тем же request_id. Режем по нему и по
+    фазе busy/speaking: свежая фраза в `listening` так не отбрасывается,
+    поэтому настоящий повторный вопрос проходит.
     """
     if not last or not last.get("text"):
         return False
@@ -457,7 +458,10 @@ def is_repeat(event, last, now):
         return True
     if normalize(event.get("text")) != normalize(last.get("text")):
         return False
-    return (now - float(last.get("ts") or 0.0)) < REPEAT_WINDOW
+    age = now - float(last.get("ts") or 0.0)
+    if age < REPEAT_WINDOW:
+        return True
+    return age < REANNOUNCE_WINDOW and event.get("phase") in ("busy", "speaking")
 
 
 def llm_enabled():
@@ -1088,7 +1092,7 @@ def passive_main():
             continue
         # Отменяем до того, как придёт отложенный ответ Алисы AI.
         cancel_native_dialog()
-        log("перехват: %r" % text)
+        log("перехват: %r (%s)" % (text, event.get("phase") or "?"))
         try:
             handle(text, request_id)
         except Exception as exc:  # noqa: BLE001
