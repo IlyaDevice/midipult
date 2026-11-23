@@ -3582,6 +3582,15 @@ body.light dialog.queue-dlg.ym-look{
     <div class="row" style="margin-top:8px">
       <button class="btn sm ghost" id="btnUpdateCheck">Проверить обновления</button>
     </div>
+    <div class="row between" style="margin-top:10px;flex-wrap:wrap;gap:8px">
+      <label class="llm-field" style="flex:0 0 210px"><span>Канал обновлений</span>
+        <select id="updChannel" aria-label="Канал обновлений">
+          <option value="stable">Стабильный</option>
+          <option value="beta">Бета</option>
+        </select>
+      </label>
+      <button class="btn sm ghost" id="btnUpdateRollback">Откатить обновление</button>
+    </div>
     <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:8px">
       <input type="text" class="net-input" id="updLocalPath" style="flex:1 1 220px;min-width:0"
              placeholder="/tmp/midipult-0.6.16.tar.gz" aria-label="Путь к архиву на колонке">
@@ -14598,6 +14607,7 @@ body.light dialog.queue-dlg.ym-look{
 
   function renderUpdateInfo(data) {
     State.updateInfo = data || null;
+    if (el.updChannel) el.updChannel.value = (data && data.channel) || 'stable';
     var current = (data && data.current) || State.version || '—';
     el.updCurrent.textContent = 'v' + current;
     if (data && data.checked_at) {
@@ -14622,6 +14632,7 @@ body.light dialog.queue-dlg.ym-look{
     }
     el.updNew.hidden = false;
     el.updNewTitle.textContent = 'Доступна версия v' + data.latest +
+      (data.prerelease ? ' (бета)' : '') +
       (data.published_at ? ' · ' + formatUpdateTime(Date.parse(data.published_at) / 1000) : '');
     el.updNotes.textContent = data.body || 'Описание изменений не приложено.';
     el.updState.textContent = 'Есть обновление: v' + current + ' → v' + data.latest;
@@ -14679,12 +14690,37 @@ body.light dialog.queue-dlg.ym-look{
     });
   }
 
+  function setUpdateChannel(value) {
+    return cgi('update.py', { channel: value }, { timeout: 25000 }).then(function (data) {
+      renderUpdateInfo(data);
+      toast(value === 'beta' ? 'Канал: бета' : 'Канал: стабильный', 'ok');
+    }).catch(function (err) {
+      toast('Канал: ' + err.message, 'bad');
+      loadUpdateInfo(true);
+    });
+  }
+
+  function rollbackUpdate() {
+    if (!window.confirm('Откатить последнее обновление? Панель перезапустится.')) return;
+    if (State.updateRunning) return;
+    State.updateRunning = true;
+    el.updState.textContent = 'Запускаю откат…';
+    return cgi('update.py', { rollback: 1 }, { timeout: 30000, silent: true })
+      .then(function () { pollUpdateStatus(0); })
+      .catch(function (err) {
+        State.updateRunning = false;
+        el.updState.textContent = 'Откат не запущен: ' + err.message;
+        toast('Откат: ' + err.message, 'bad');
+      });
+  }
+
   function pollUpdateStatus(attempt) {
     return cgi('update.py', { status: 1 }, { timeout: 8000, silent: true }).then(function (data) {
       var status = data.status || {};
       var state = status.state || 'idle';
       if (state === 'done') {
-        el.updState.textContent = 'Обновление установлено. Перезагружаю панель…';
+        el.updState.textContent = (status.rolled_back ? 'Откат выполнен' : 'Обновление установлено')
+          + '. Перезагружаю панель…';
         setTimeout(function () { location.reload(); }, 2400);
         return;
       }
@@ -15447,6 +15483,12 @@ body.light dialog.queue-dlg.ym-look{
     el.displayAuto.addEventListener('change', toggleDisplayAuto);
     el.btnBackup.addEventListener('click', downloadBackup);
     el.btnUpdateCheck.addEventListener('click', function () { loadUpdateInfo(true, true); });
+    if (el.updChannel) {
+      el.updChannel.addEventListener('change', function () { setUpdateChannel(this.value); });
+    }
+    if (el.btnUpdateRollback) {
+      el.btnUpdateRollback.addEventListener('click', rollbackUpdate);
+    }
     if (el.btnUpdLocal) {
       el.btnUpdLocal.addEventListener('click', function () {
         var path = (el.updLocalPath.value || '').trim();
@@ -17010,7 +17052,7 @@ body.light dialog.queue-dlg.ym-look{
       'rebootDlg', 'btnCloseReboot', 'rebootStatus', 'rebootBar', 'rebootTime',
       'confirmDlg', 'confirmText', 'btnConfirmNo', 'btnConfirmYes',
       'updCurrent', 'updChecked', 'updNew', 'updNewTitle', 'updNotes', 'updHint',
-      'updState', 'btnUpdateCheck', 'btnUpdateApply',
+      'updState', 'btnUpdateCheck', 'btnUpdateApply', 'updChannel', 'btnUpdateRollback',
     'updLocalPath', 'btnUpdLocal', 'updLocalHint',
       'updateDlg', 'updateDlgVer', 'updateDlgFrom', 'updateDlgNotes', 'updateDismiss',
       'btnUpdateLater', 'btnUpdateDlgNo', 'btnUpdateDlgYes',

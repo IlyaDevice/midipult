@@ -1776,6 +1776,25 @@ def test_update_release_filter():
     check("update: архив и sha релиза панели найдены", bool(archive and sha))
 
 
+def test_update_beta_channel():
+    beta = make_release("v0.6.94-beta", "midipult-0.6.94-beta.tar.gz",
+                        prerelease=True)
+    stable = make_release("v0.6.93", "midipult-0.6.93.tar.gz")
+
+    check("update: бета не попадает в стабильный канал",
+          update.pick_panel_release([beta, stable]) is stable)
+    check("update: на бете берётся самая свежая",
+          update.pick_panel_release([stable, beta], allow_beta=True) is beta)
+    check("update: бета ниже стабильной того же номера",
+          update.version_key("0.6.94-beta") < update.version_key("0.6.94"))
+    check("update: с беты на стабильную — обновление",
+          update.update_available("0.6.93", "0.6.94-beta", "stable", False, True))
+    check("update: стабильная не обновление на бете",
+          not update.update_available("0.6.93", "0.6.94-beta", "beta", False, True))
+    check("update: стабильная новее беты — обновление",
+          update.update_available("0.6.94", "0.6.93", "beta", False, True))
+
+
 def test_update_check_guard():
     import time
 
@@ -1802,14 +1821,14 @@ def test_update_check_guard():
         update.load_cache = lambda: {}
         common.write_json = lambda *args, **kwargs: None
 
-        update.fetch_release = lambda: release("0.4.99", False)
+        update.fetch_release = lambda *args, **kwargs: release("0.4.99", False)
         data = update.check(force=True)
         check("update: релиз без архива не считается обновлением",
               data.get("update_available") is False, repr(data.get("update_available")))
         check("update: есть ошибка про архив",
               "архив" in str(data.get("error") or "").lower(), repr(data.get("error")))
 
-        update.fetch_release = lambda: release("0.4.52", True)
+        update.fetch_release = lambda *args, **kwargs: release("0.4.52", True)
         data = update.check(force=True)
         check("update: v0.4.x с архивом — обновление",
               data.get("update_available") is True, repr(data.get("update_available")))
@@ -2718,6 +2737,7 @@ def main():
         test_vpn_parsing,
         test_discovery_payload,
         test_update_release_filter,
+        test_update_beta_channel,
         test_update_check_guard,
         test_update_fetch_release,
         test_llm_chat_names,

@@ -10325,6 +10325,7 @@
 
   function renderUpdateInfo(data) {
     State.updateInfo = data || null;
+    if (el.updChannel) el.updChannel.value = (data && data.channel) || 'stable';
     var current = (data && data.current) || State.version || '—';
     el.updCurrent.textContent = 'v' + current;
     if (data && data.checked_at) {
@@ -10349,6 +10350,7 @@
     }
     el.updNew.hidden = false;
     el.updNewTitle.textContent = 'Доступна версия v' + data.latest +
+      (data.prerelease ? ' (бета)' : '') +
       (data.published_at ? ' · ' + formatUpdateTime(Date.parse(data.published_at) / 1000) : '');
     el.updNotes.textContent = data.body || 'Описание изменений не приложено.';
     el.updState.textContent = 'Есть обновление: v' + current + ' → v' + data.latest;
@@ -10406,12 +10408,37 @@
     });
   }
 
+  function setUpdateChannel(value) {
+    return cgi('update.py', { channel: value }, { timeout: 25000 }).then(function (data) {
+      renderUpdateInfo(data);
+      toast(value === 'beta' ? 'Канал: бета' : 'Канал: стабильный', 'ok');
+    }).catch(function (err) {
+      toast('Канал: ' + err.message, 'bad');
+      loadUpdateInfo(true);
+    });
+  }
+
+  function rollbackUpdate() {
+    if (!window.confirm('Откатить последнее обновление? Панель перезапустится.')) return;
+    if (State.updateRunning) return;
+    State.updateRunning = true;
+    el.updState.textContent = 'Запускаю откат…';
+    return cgi('update.py', { rollback: 1 }, { timeout: 30000, silent: true })
+      .then(function () { pollUpdateStatus(0); })
+      .catch(function (err) {
+        State.updateRunning = false;
+        el.updState.textContent = 'Откат не запущен: ' + err.message;
+        toast('Откат: ' + err.message, 'bad');
+      });
+  }
+
   function pollUpdateStatus(attempt) {
     return cgi('update.py', { status: 1 }, { timeout: 8000, silent: true }).then(function (data) {
       var status = data.status || {};
       var state = status.state || 'idle';
       if (state === 'done') {
-        el.updState.textContent = 'Обновление установлено. Перезагружаю панель…';
+        el.updState.textContent = (status.rolled_back ? 'Откат выполнен' : 'Обновление установлено')
+          + '. Перезагружаю панель…';
         setTimeout(function () { location.reload(); }, 2400);
         return;
       }
@@ -11174,6 +11201,12 @@
     el.displayAuto.addEventListener('change', toggleDisplayAuto);
     el.btnBackup.addEventListener('click', downloadBackup);
     el.btnUpdateCheck.addEventListener('click', function () { loadUpdateInfo(true, true); });
+    if (el.updChannel) {
+      el.updChannel.addEventListener('change', function () { setUpdateChannel(this.value); });
+    }
+    if (el.btnUpdateRollback) {
+      el.btnUpdateRollback.addEventListener('click', rollbackUpdate);
+    }
     if (el.btnUpdLocal) {
       el.btnUpdLocal.addEventListener('click', function () {
         var path = (el.updLocalPath.value || '').trim();
@@ -12737,7 +12770,7 @@
       'rebootDlg', 'btnCloseReboot', 'rebootStatus', 'rebootBar', 'rebootTime',
       'confirmDlg', 'confirmText', 'btnConfirmNo', 'btnConfirmYes',
       'updCurrent', 'updChecked', 'updNew', 'updNewTitle', 'updNotes', 'updHint',
-      'updState', 'btnUpdateCheck', 'btnUpdateApply',
+      'updState', 'btnUpdateCheck', 'btnUpdateApply', 'updChannel', 'btnUpdateRollback',
     'updLocalPath', 'btnUpdLocal', 'updLocalHint',
       'updateDlg', 'updateDlgVer', 'updateDlgFrom', 'updateDlgNotes', 'updateDismiss',
       'btnUpdateLater', 'btnUpdateDlgNo', 'btnUpdateDlgYes',

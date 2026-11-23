@@ -973,6 +973,15 @@
     <div class="row" style="margin-top:8px">
       <button class="btn sm ghost" id="btnUpdateCheck">Проверить обновления</button>
     </div>
+    <div class="row between" style="margin-top:10px;flex-wrap:wrap;gap:8px">
+      <label class="llm-field" style="flex:0 0 210px"><span>Канал обновлений</span>
+        <select id="updChannel" aria-label="Канал обновлений">
+          <option value="stable">Стабильный</option>
+          <option value="beta">Бета</option>
+        </select>
+      </label>
+      <button class="btn sm ghost" id="btnUpdateRollback">Откатить обновление</button>
+    </div>
     <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:8px">
       <input type="text" class="net-input" id="updLocalPath" style="flex:1 1 220px;min-width:0"
              placeholder="/tmp/midipult-0.6.16.tar.gz" aria-label="Путь к архиву на колонке">

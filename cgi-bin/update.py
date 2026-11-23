@@ -41,6 +41,8 @@ CACHE_PATH = os.path.join(DATA_ROOT, "update-cache.json")
 STATUS_PATH = os.path.join(DATA_ROOT, "update-status.json")
 WORKER_LOG = os.path.join(DATA_ROOT, "update-worker.log")
 LOCK_PATH = os.path.join(DATA_ROOT, "update.lock")
+SETTINGS_PATH = os.path.join(DATA_ROOT, "update.json")
+CHANNELS = ("stable", "beta")
 CACHE_TTL = 24 * 60 * 60
 MAX_ARCHIVE = 50 * 1024 * 1024
 ASSET_HOSTS = frozenset({
@@ -76,6 +78,12 @@ def current_version():
     return "0.0.0"
 
 
+def is_prerelease(value):
+    """0.6.94-beta — предварительная версия, 0.6.94 — стабильная."""
+    text = str(value or "")
+    return bool(re.search(r"[A-Za-z]", text)) or "-" in text
+
+
 def version_tuple(value):
     parts = []
     for item in str(value or "").split("."):
@@ -86,8 +94,52 @@ def version_tuple(value):
     return tuple(parts[:3])
 
 
+def version_key(value):
+    """Числа версии плюс признак стабильности: 0.6.94-beta < 0.6.94."""
+    return (version_tuple(value), 0 if is_prerelease(value) else 1)
+
+
 def newer(latest, current):
-    return version_tuple(latest) > version_tuple(current)
+    return version_key(latest) > version_key(current)
+
+
+def load_settings():
+    try:
+        with open(SETTINGS_PATH, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def channel():
+    value = str(load_settings().get("channel") or "stable").strip().lower()
+    return value if value in CHANNELS else "stable"
+
+
+def set_channel(value):
+    value = str(value or "").strip().lower()
+    if value not in CHANNELS:
+        raise ValueError("канал: stable или beta")
+    data = load_settings()
+    data["channel"] = value
+    common.write_json(SETTINGS_PATH, data, mode=0o600)
+    return value
+
+
+def wanted_update(target, current, chan):
+    """Нужно ли ставить target: новее или возврат с беты на стабильную."""
+    if not target:
+        return False
+    if newer(target, current):
+        return True
+    return (chan == "stable" and is_prerelease(current)
+            and version_key(target) != version_key(current))
+
+
+def update_available(target, current, chan, prerelease, has_assets):
+    """Есть ли куда обновляться и есть ли для этого архив."""
+    return bool(has_assets) and wanted_update(target, current, chan)
 
 
 def load_cache():
@@ -109,18 +161,27 @@ def release_version(item):
     return tag[1:] if tag.lower().startswith("v") else tag
 
 
-def pick_panel_release(items):
-    """Первый опубликованный релиз панели; draft, prerelease и Android пропускаются."""
+def pick_panel_release(items, allow_beta=False):
+    """Самый свежий релиз панели; на стабильном канале беты пропускаются."""
+    best = None
+    best_key = None
     for item in items:
-        if not isinstance(item, dict) or item.get("draft") or item.get("prerelease"):
+        if not isinstance(item, dict) or item.get("draft"):
             continue
-        if not release_version(item):
+        version = release_version(item)
+        if not version:
             continue
-        return item
-    raise ValueError("Не найден релиз панели")
+        if not allow_beta and (item.get("prerelease") or is_prerelease(version)):
+            continue
+        key = version_key(version)
+        if best_key is None or key > best_key:
+            best, best_key = item, key
+    if best is None:
+        raise ValueError("Не найден релиз панели")
+    return best
 
 
-def fetch_release():
+def fetch_release(chan="stable"):
     request = urllib.request.Request(
         API_URL,
         headers={
@@ -131,7 +192,7 @@ def fetch_release():
     with urllib.request.urlopen(request, timeout=15) as response:
         data = json.loads(response.read().decode("utf-8"))
     items = data if isinstance(data, list) else [data]
-    release = pick_panel_release(items)
+    release = pick_panel_release(items, allow_beta=(chan == "beta"))
     tag = str(release.get("tag_name") or "").strip()
     version = release_version(release)
 
@@ -151,6 +212,7 @@ def fetch_release():
         "published_at": str(release.get("published_at") or ""),
         "html_url": str(release.get("html_url") or ""),
         "assets": assets,
+        "prerelease": bool(release.get("prerelease") or is_prerelease(version)),
     }
 
 
@@ -170,6 +232,7 @@ def release_assets(release, version):
 
 def check(force=False):
     current = current_version()
+    chan = channel()
     cache = load_cache()
     now = int(time.time())
     cached_at = int(cache.get("checked_at") or 0)
@@ -177,27 +240,33 @@ def check(force=False):
     # той, что кэш считает последней, значит проверка была до выхода текущего
     # релиза (обычный случай: заливка на колонку сразу после публикации).
     # Без этого панель до суток уверяет, что новее прошлого релиза ничего нет.
-    stale = now - cached_at >= CACHE_TTL or newer(current, cache.get("version"))
+    stale = (now - cached_at >= CACHE_TTL
+             or newer(current, cache.get("version"))
+             or (cache.get("channel") or "stable") != chan)
     if cache and not force and not stale:
         cached = dict(cache)
         cached["current"] = current
+        cached["channel"] = chan
         cached["cached"] = True
         has_assets = bool(cached.get("archive") and cached.get("sha"))
-        cached["update_available"] = newer(cached.get("version"), current) and has_assets
-        if newer(cached.get("version"), current) and not has_assets:
-            cached["error"] = "В релизе панели нет архива обновления"
-        elif has_assets:
-            cached["error"] = ""
+        wanted = wanted_update(cached.get("version"), current, chan)
+        cached["update_available"] = wanted and has_assets
+        cached["error"] = ("" if has_assets or not wanted
+                           else "В релизе панели нет архива обновления")
         return cached
 
     try:
-        release = fetch_release()
+        release = fetch_release(chan)
         archive, sha = release_assets(release, release["version"])
         has_assets = bool(archive and sha)
+        wanted = wanted_update(release["version"], current, chan)
+        available = wanted and has_assets
         data = {
             "ok": True,
             "checked_at": now,
             "current": current,
+            "channel": chan,
+            "prerelease": bool(release.get("prerelease")),
             "version": release["version"],
             "tag": release["tag"],
             "name": release["name"],
@@ -206,8 +275,8 @@ def check(force=False):
             "html_url": release["html_url"],
             "archive": archive,
             "sha": sha,
-            "update_available": newer(release["version"], current) and has_assets,
-            "error": "" if has_assets or not newer(release["version"], current)
+            "update_available": available,
+            "error": "" if has_assets or not wanted
                      else "В релизе панели нет архива обновления",
             "cached": False,
         }
@@ -226,14 +295,19 @@ def check(force=False):
         if cache:
             stale = dict(cache)
             stale["current"] = current
+            stale["channel"] = chan
             stale["cached"] = True
-            stale["update_available"] = newer(stale.get("version"), current)
+            has_assets = bool(stale.get("archive") and stale.get("sha"))
+            stale["update_available"] = update_available(
+                stale.get("version"), current, chan,
+                bool(stale.get("prerelease")), has_assets)
             stale["error"] = explain_net_error(exc)
             return stale
         return {
             "ok": False,
             "checked_at": now,
             "current": current,
+            "channel": chan,
             "update_available": False,
             "error": explain_net_error(exc),
         }
@@ -267,6 +341,8 @@ def public_release(cache):
     return {
         "ok": bool(cache.get("ok")),
         "current": cache.get("current") or current_version(),
+        "channel": cache.get("channel") or channel(),
+        "prerelease": bool(cache.get("prerelease")),
         "latest": cache.get("version") or None,
         "tag": cache.get("tag") or None,
         "name": cache.get("name") or "",
@@ -410,6 +486,32 @@ def cleanup_backups(keep=2):
         return
     for item in items[keep:]:
         shutil.rmtree(str(item), ignore_errors=True)
+
+
+def latest_backup():
+    """Последняя резервная копия перед обновлением."""
+    try:
+        items = sorted(
+            (Path("/data").glob("mypult-update-backup-*")),
+            key=lambda item: item.stat().st_mtime,
+            reverse=True,
+        )
+    except OSError:
+        return ""
+    return str(items[0]) if items else ""
+
+
+def worker_rollback(backup):
+    """Откат к последней резервной копии (например, с беты на прошлую версию)."""
+    write_status(state="rollback", message="Откатываю последнее обновление…",
+                 error="", rolled_back=False, finished_at=0)
+    restored = restore_backup(backup)
+    restart_panel()
+    write_status(state="done" if restored else "error",
+                 message="Откат выполнен" if restored else "Не удалось откатить",
+                 rolled_back=restored, installed=current_version(),
+                 finished_at=int(time.time()))
+    return 0 if restored else 1
 
 
 def explain_net_error(exc):
@@ -617,7 +719,47 @@ def main():
             return 2
         return worker_local(sys.argv[2])
 
+    if len(sys.argv) > 1 and sys.argv[1] == "--worker-rollback":
+        if len(sys.argv) != 3:
+            return 2
+        return worker_rollback(sys.argv[2])
+
     data = common.params()
+    if data.get("channel") is not None:
+        try:
+            set_channel(str(data.get("channel")))
+        except ValueError as exc:
+            common.fail(400, str(exc))
+            return
+        try:
+            os.remove(CACHE_PATH)
+        except OSError:
+            pass
+        common.respond(200, public_release(check(True)))
+        return
+
+    if common.truthy(data.get("rollback")):
+        status = read_status()
+        if status.get("state") in ("queued", "downloading", "installing", "rollback"):
+            common.fail(409, "Обновление уже выполняется", status=status)
+            return
+        backup = latest_backup()
+        if not backup:
+            common.fail(400, "Нет резервной копии для отката")
+            return
+        write_status(state="queued", message="Запускаю откат…", error="",
+                     rolled_back=False, finished_at=0)
+        log = open(WORKER_LOG, "ab")
+        try:
+            subprocess.Popen(
+                [sys.executable, os.path.abspath(__file__), "--worker-rollback", backup],
+                stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
+                start_new_session=True, close_fds=True, cwd=DATA_ROOT,
+            )
+        finally:
+            log.close()
+        common.ok(started=True, backup=backup, status=read_status())
+        return
     if common.truthy(data.get("status")):
         common.ok(status=read_status(), log=tail_file(WORKER_LOG))
         return
