@@ -1037,6 +1037,11 @@ def test_voice_cancel_native():
         check("голос: CLI остаётся страховкой", "cli" in calls, str(calls))
 
         calls.clear()
+        voice_daemon.cancel_native_dialog(fast=True)
+        check("голос: быстрая отмена не запускает процесс CLI",
+              calls == ["http://127.0.0.1:8099/api/alice/speech/cancel"], str(calls))
+
+        calls.clear()
 
         def broken(url, payload, timeout=None):
             raise OSError("no luna")

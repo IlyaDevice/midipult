@@ -95,18 +95,25 @@ def stop_alice_speech():
         pass
 
 
-def cancel_native_dialog():
+def cancel_native_dialog(fast=False):
     """Отменить диалог штатной Алисы целиком, вместе с отложенным ответом.
 
     `maind --cli` 'c' гасит текущую речь, но ответ Алисы AI приходит позже
     через AliceDeferred. Luna `POST /api/alice/speech/cancel` отправляет в
     aliced отмену диалога и очищает очередь отложенных ответов, поэтому
     сначала пробуем его, а CLI оставляем страховкой для старых Luna.
+
+    `fast=True` — не запускать процесс CLI, когда Luna ответила: в режиме
+    alice важна каждая десятая секунды, пока Алиса не начала говорить.
     """
+    ok = False
     try:
         post(LUNA + "/api/alice/speech/cancel", {}, timeout=8)
+        ok = True
     except Exception:  # noqa: BLE001 - старая Luna или сеть: остаётся CLI
         pass
+    if fast and ok:
+        return
     stop_alice_speech()
 
 
@@ -880,7 +887,9 @@ def handle(text, request_id=""):
         if answer:
             generation = time.time() - started_at
             cancel_native_dialog()
-            say(answer)
+            # append=0: ответ встаёт в начало очереди, а не за отложенным
+            # ответом Алисы, если отмена не дошла. Дальше куски дописываются.
+            say(answer, append=0)
             log("llm answer: %d символов, генерация %.1f с"
                 % (len(answer), generation))
             # issue #2: после ответа слушаем продолжение без «Алисы».
@@ -1095,13 +1104,25 @@ def passive_main():
             log("Алисе: %r" % text)
             continue
         # Отменяем до того, как придёт отложенный ответ Алисы AI.
-        cancel_native_dialog()
-        log("перехват: %r (%s)" % (text, event.get("phase") or "?"))
+        # Глушим Алису сразу: отмена через Luna может опоздать на пару
+        # секунд, а тишина в динамике — нет. say() вернёт звук перед TTS.
+        try:
+            post(BASE + "/cgi-bin/volume.py", {"mute": 1}, timeout=5)
+        except Exception:  # noqa: BLE001
+            pass
+        cancel_native_dialog(fast=True)
+        log("перехват: %r (%s, alice=%s)"
+            % (text, event.get("phase") or "?", alice_state() or "?"))
         try:
             handle(text, request_id)
         except Exception as exc:  # noqa: BLE001
             log("handle error: %s" % exc)
             time.sleep(1)
+        finally:
+            try:
+                post(BASE + "/cgi-bin/volume.py", {"unmute": 1}, timeout=5)
+            except Exception:  # noqa: BLE001
+                pass
 
 
 def listen_allowed():
