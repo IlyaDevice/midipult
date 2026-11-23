@@ -119,6 +119,7 @@ def status():
     pid = read_pid()
     running = pid_matches(pid)
     config = voicecfg.load()
+    model = voicecfg.device_model()
     return {
         "ok": True,
         "running": running,
@@ -127,7 +128,10 @@ def status():
         "log": None,
         "enabled": voicecfg.is_enabled(config),
         "idle": voicecfg.resolve_idle(config),
-        "device": voicecfg.device_model(),
+        "device": model,
+        # Панель берёт режим микрофона отсюда: без этого поля селект после
+        # обновления страницы показывал первый пункт («Непрерывно»).
+        "mic_mode": voicecfg.resolve_mic_mode(config, model),
     }
 
 

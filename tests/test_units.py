@@ -2385,6 +2385,25 @@ def test_voice_idle_and_toggle():
         voicectl.start = old_start
 
 
+    old_pid = voicectl.read_pid
+    old_match = voicectl.pid_matches
+    old_load = voicecfg.load
+    old_model = voicecfg.device_model
+    try:
+        voicectl.read_pid = lambda: None
+        voicectl.pid_matches = lambda pid: False
+        voicecfg.load = lambda: {"mic_mode": "alice"}
+        voicecfg.device_model = lambda: "yandexmidi"
+        st = voicectl.status()
+        check("голос: статус отдаёт режим микрофона",
+              st.get("mic_mode") == "alice", str(st))
+    finally:
+        voicectl.read_pid = old_pid
+        voicectl.pid_matches = old_match
+        voicecfg.load = old_load
+        voicecfg.device_model = old_model
+
+
 def test_device_classify():
     import device
 
