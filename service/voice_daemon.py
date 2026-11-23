@@ -889,8 +889,9 @@ def handle(text, request_id=""):
         if answer:
             generation = time.time() - started_at
             cancel_native_dialog()
-            # append=0 здесь не используем: когда диалог уже закрыт, maind
-            # молча проглатывал директиву и ответ не звучал.
+            # Чистим очередь TTS Алисы: на unmute её недоигранная фраза
+            # возобновляется, и наш ответ встаёт за ней.
+            hush_native()
             say(answer)
             log("llm answer: %d символов, генерация %.1f с"
                 % (len(answer), generation))
