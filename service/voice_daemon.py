@@ -213,6 +213,15 @@ def listen_for_phrase(timeout=15.0, skip_request_id="", skip_text=""):
     return ""
 
 
+def auto_follow_up(info):
+    """Нужен ли отдельный follow-up-сеанс.
+
+    В режиме alice он не нужен: Алиса после отменённого ответа сама держит
+    микрофон открытым, и следующую фразу пульт прочитает из её же потока.
+    """
+    return bool(info.get("follow_up")) and mic_mode_now() != "alice"
+
+
 def follow_up(system, skip_request_id="", skip_text=""):
     """Слушать продолжение разговора без «Алисы» (issue #2)."""
     # После отмены ответа Алиса AI снова открывает микрофон и держит его:
@@ -871,7 +880,7 @@ def handle(text, request_id=""):
             log("llm answer: %d символов, генерация %.1f с"
                 % (len(answer), generation))
             # issue #2: после ответа слушаем продолжение без «Алисы».
-            if info.get("follow_up"):
+            if auto_follow_up(info):
                 follow_up(system, request_id, text)
             return True
 

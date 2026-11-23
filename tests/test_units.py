@@ -1097,6 +1097,21 @@ def test_voice_follow_up_closes_alice():
         voice_daemon.alice_state = old_state
 
 
+def test_voice_auto_follow_up():
+    old_mode = voice_daemon.mic_mode_now
+    try:
+        voice_daemon.mic_mode_now = lambda: "alice"
+        check("follow-up: в alice-режиме отдельный сеанс не нужен",
+              not voice_daemon.auto_follow_up({"follow_up": True}))
+        voice_daemon.mic_mode_now = lambda: "continuous"
+        check("follow-up: в continuous работает как раньше",
+              voice_daemon.auto_follow_up({"follow_up": True}))
+        check("follow-up: выключенная галочка уважается",
+              not voice_daemon.auto_follow_up({"follow_up": False}))
+    finally:
+        voice_daemon.mic_mode_now = old_mode
+
+
 def test_voice_passive_wants():
     old_llm = voice_daemon.llm_enabled
     old_info = voice_daemon.llm_info
@@ -2612,6 +2627,7 @@ def main():
         test_voice_cancel_native,
         test_voice_follow_up_skip,
         test_voice_follow_up_closes_alice,
+        test_voice_auto_follow_up,
         test_voice_passive_wants,
         test_voice_native_phrase,
         test_status_probe_cache,
