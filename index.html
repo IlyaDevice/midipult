@@ -10113,8 +10113,21 @@ body.light dialog.queue-dlg.ym-look{
       extra.textContent = mode;
       el.voiceMicMode.appendChild(extra);
     }
+    Array.prototype.forEach.call(el.voiceMicMode.options, function (opt) {
+      opt.selected = opt.value === mode;
+    });
     el.voiceMicMode.value = mode;
     try { localStorage.setItem('mypult.mic', mode); } catch (e) {}
+    // Некоторые браузеры не перерисовывают подпись нативного select,
+    // если значение выставлено программно, — повторяем на следующем тике.
+    setTimeout(function () {
+      if (!el.voiceMicMode) return;
+      var index = -1;
+      Array.prototype.forEach.call(el.voiceMicMode.options, function (opt, idx) {
+        if (opt.value === mode) index = idx;
+      });
+      if (index >= 0) el.voiceMicMode.selectedIndex = index;
+    }, 0);
   }
 
   function loadVoice() {
