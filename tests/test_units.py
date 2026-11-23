@@ -2178,6 +2178,20 @@ def test_llm_anthropic_ask():
         llm.post_json = old_post
 
 
+def test_llm_chat_timestamps():
+    items = [
+        {"role": "user", "content": "привет", "ts": 123},
+        {"role": "assistant", "content": "ответ", "ts": 123},
+        {"role": "system", "content": "служебное", "ts": 1},
+    ]
+    clean = llm.dialog_messages(items)
+    check("чат: ts не уходит в API", all("ts" not in item for item in clean), str(clean))
+    check("чат: служебная роль отброшена",
+          len(clean) == 2 and clean[1]["role"] == "assistant", str(clean))
+    check("чат: пустой контент пропущен",
+          llm.dialog_messages([{"role": "user", "content": ""}]) == [])
+
+
 def test_voice_chat_commands():
     check("голос: создай чат",
           voice_daemon.parse_chat_command("Алиса, создай чат Работа") == ("create", "Работа"),
@@ -2662,6 +2676,7 @@ def main():
         test_update_check_guard,
         test_update_fetch_release,
         test_llm_chat_names,
+        test_llm_chat_timestamps,
         test_llm_chat_history,
         test_llm_context_note,
         test_llm_anthropic_native,

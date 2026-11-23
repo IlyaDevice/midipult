@@ -21,6 +21,7 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -382,6 +383,25 @@ def _responses_answer(body):
     return "".join(parts).strip(), annotations
 
 
+def dialog_messages(items, limit=10):
+    """Сообщения чата для API: только role/content, без служебных полей.
+
+    В истории теперь хранится `ts`, но провайдеры не любят лишние поля в
+    messages, поэтому в запрос уходит чистый диалог.
+    """
+    clean = []
+    for item in (items or [])[-limit:]:
+        if not isinstance(item, dict):
+            continue
+        if item.get("role") not in ("user", "assistant"):
+            continue
+        content = item.get("content")
+        if not isinstance(content, str) or not content:
+            continue
+        clean.append({"role": item["role"], "content": content})
+    return clean
+
+
 def _openai_web_answer(base_url, profile, messages, max_tokens, timeout=120):
     """Родной поиск OpenAI: Responses API + инструмент web_search."""
     payload = {
@@ -595,7 +615,7 @@ def ask(prompt, system=None, search=None):
 
     if system:
         messages.append({"role": "system", "content": system})
-    messages.extend((chat.get("messages") or [])[-10:])
+    messages.extend(dialog_messages(chat.get("messages"), 10))
     messages.append({"role": "user", "content": prompt})
 
     payload = {
@@ -685,8 +705,9 @@ def ask(prompt, system=None, search=None):
 
     answer = answer.strip()
     history = chat.setdefault("messages", [])
-    history.append({"role": "user", "content": prompt})
-    history.append({"role": "assistant", "content": answer})
+    stamp = int(time.time())
+    history.append({"role": "user", "content": prompt, "ts": stamp})
+    history.append({"role": "assistant", "content": answer, "ts": stamp})
     chat["messages"] = history[-20:]
     save_chats(chats)
 

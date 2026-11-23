@@ -9429,6 +9429,15 @@ body.light dialog.queue-dlg.ym-look{
     return (profile && profile.name) || 'Нейросеть';
   }
 
+  function chatTime(ts) {
+    var date = new Date(Number(ts) * 1000);
+    if (isNaN(date.getTime())) return '';
+    var now = new Date();
+    var hm = ('0' + date.getHours()).slice(-2) + ':' + ('0' + date.getMinutes()).slice(-2);
+    if (date.toDateString() === now.toDateString()) return hm;
+    return ('0' + date.getDate()).slice(-2) + '.' + ('0' + (date.getMonth() + 1)).slice(-2) + ' ' + hm;
+  }
+
   function renderChatHistory(data) {
     var messages = data.messages || [];
     var signature = (data.chat_id || '') + '|' + JSON.stringify(messages);
@@ -9450,7 +9459,8 @@ body.light dialog.queue-dlg.ym-look{
       item.className = 'chat-msg ' + (msg.role === 'user' ? 'user' : 'assistant');
       var label = document.createElement('span');
       label.className = 'chat-msg-who';
-      label.textContent = msg.role === 'user' ? 'Вы' : who;
+      label.textContent = (msg.role === 'user' ? 'Вы' : who)
+        + (msg.ts ? ' · ' + chatTime(msg.ts) : '');
       item.appendChild(label);
       item.appendChild(document.createTextNode(msg.content));
       box.appendChild(item);
