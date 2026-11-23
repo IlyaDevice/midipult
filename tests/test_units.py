@@ -881,6 +881,216 @@ def test_voice_follow_up_words():
           not voice_daemon.follow_up_wanted("а какая погода завтра?"))
 
 
+def test_voice_speech_post():
+    import io
+    import urllib.error
+
+    calls = []
+
+    def fake_post(url, payload, timeout=None):
+        calls.append(("POST", url, payload))
+        return {"type": "speech", "transcript": "привет", "final": True}
+
+    def fake_get(url, timeout=None):
+        calls.append(("GET", url, None))
+        return {"type": "speech", "transcript": "старая", "final": True}
+
+    old_post, old_get = voice_daemon.post, voice_daemon.get
+    old_flag = voice_daemon._LUNA_POST_CANCEL["ok"]
+    try:
+        voice_daemon.post, voice_daemon.get = fake_post, fake_get
+        voice_daemon._LUNA_POST_CANCEL["ok"] = True
+        event = voice_daemon._speech_event(500)
+        check("голос: follow-up идёт POST-ом", calls and calls[0][0] == "POST", str(calls))
+        check("голос: POST несёт cancel и empty_on_timeout",
+              "cancel=true" in calls[0][1] and "empty_on_timeout=true" in calls[0][1],
+              calls[0][1])
+        check("голос: POST возвращает событие", event.get("transcript") == "привет", str(event))
+
+        calls.clear()
+
+        def post_timeout(url, payload, timeout=None):
+            calls.append(("POST", url, payload))
+            raise urllib.error.HTTPError(
+                url, 400, "Bad Request", {},
+                io.BytesIO(b'{"error":"timeout waiting for speech"}'))
+
+        voice_daemon.post = post_timeout
+        event = voice_daemon._speech_event(500)
+        check("голос: 400 по таймауту не переключает на GET",
+              [c[0] for c in calls] == ["POST"] and "error" in event,
+              str([c[0] for c in calls]))
+        check("голос: после таймаута POST остаётся включён",
+              voice_daemon._LUNA_POST_CANCEL["ok"] is True)
+
+        calls.clear()
+
+        def post_404(url, payload, timeout=None):
+            calls.append(("POST", url, payload))
+            raise urllib.error.HTTPError(url, 404, "Not Found", {}, io.BytesIO(b"{}"))
+
+        voice_daemon.post = post_404
+        event = voice_daemon._speech_event(500)
+        check("голос: старый Luna — откат на GET",
+              [c[0] for c in calls] == ["POST", "GET"], str([c[0] for c in calls]))
+        check("голос: в GET нет незнакомого empty_on_timeout",
+              "empty_on_timeout" not in calls[1][1], calls[1][1])
+        check("голос: откат запоминается до перезапуска",
+              voice_daemon._LUNA_POST_CANCEL["ok"] is False)
+        check("голос: GET вернул событие", event.get("transcript") == "старая", str(event))
+    finally:
+        voice_daemon.post, voice_daemon.get = old_post, old_get
+        voice_daemon._LUNA_POST_CANCEL["ok"] = old_flag
+
+
+def test_voice_recognize_event():
+    old_post = voice_daemon.post
+    try:
+        voice_daemon.post = lambda url, payload, timeout=None: {
+            "type": "speech", "source": "voice", "phase": "LISTENING",
+            "request_id": "abc", "transcript": " привет ", "final": True,
+        }
+        event = voice_daemon.recognize_event()
+        check("голос: recognize отдаёт request_id", event["request_id"] == "abc", str(event))
+        check("голос: recognize приводит phase к нижнему регистру",
+              event["phase"] == "listening", str(event))
+        check("голос: recognize чистит transcript", event["text"] == "привет", str(event))
+        check("голос: recognize() по-прежнему отдаёт текст",
+              voice_daemon.recognize() == "привет")
+    finally:
+        voice_daemon.post = old_post
+
+
+def test_voice_repeat_filter():
+    now = 1000.0
+    last = {"text": "Почему так долго", "request_id": "r1", "ts": now}
+    check("голос: тот же request_id — повтор",
+          voice_daemon.is_repeat(
+              {"text": "Почему так долго", "request_id": "r1", "phase": "busy"},
+              last, now + 120))
+    check("голос: та же фраза через 20 с — повтор",
+          voice_daemon.is_repeat(
+              {"text": "Почему так долго", "request_id": "r2", "phase": "listening"},
+              last, now + 20))
+    check("голос: та же фраза через 40 с в listening — новая команда",
+          not voice_daemon.is_repeat(
+              {"text": "Почему так долго", "request_id": "r2", "phase": "listening"},
+              last, now + 40))
+    check("голос: та же фраза через 40 с в busy — повтор",
+          voice_daemon.is_repeat(
+              {"text": "Почему так долго", "request_id": "r2", "phase": "busy"},
+              last, now + 40))
+    check("голос: другая фраза — новая",
+          not voice_daemon.is_repeat(
+              {"text": "Включи свет", "request_id": "r2", "phase": "listening"},
+              last, now + 5))
+    check("голос: пустая история — не повтор",
+          not voice_daemon.is_repeat(last, {}, now))
+
+
+def test_voice_say_append():
+    posted = []
+
+    def fake_post(url, payload, timeout=None):
+        posted.append((url, dict(payload)))
+        return {}
+
+    old_post, old_sleep = voice_daemon.post, voice_daemon.time.sleep
+    try:
+        voice_daemon.post = fake_post
+        voice_daemon.time.sleep = lambda *_: None
+        voice_daemon.say("а" * 4000, append=0)
+        speaks = [payload for url, payload in posted if url.endswith("/speak.py")]
+        check("голос: длинный ответ режется на куски", len(speaks) >= 2, str(len(speaks)))
+        check("голос: append=0 только у первого куска",
+              speaks[0].get("append") == 0
+              and all("append" not in payload for payload in speaks[1:]),
+              str(speaks[:3]))
+        posted.clear()
+        voice_daemon.say("коротко")
+        speaks = [payload for url, payload in posted if url.endswith("/speak.py")]
+        check("голос: без append=0 очередь Алисы не трогаем",
+              len(speaks) == 1 and "append" not in speaks[0], str(speaks))
+    finally:
+        voice_daemon.post = old_post
+        voice_daemon.time.sleep = old_sleep
+
+
+def test_voice_cancel_native():
+    calls = []
+    old_post, old_stop = voice_daemon.post, voice_daemon.stop_alice_speech
+    try:
+        voice_daemon.post = lambda url, payload, timeout=None: calls.append(url) or {}
+        voice_daemon.stop_alice_speech = lambda: calls.append("cli")
+        voice_daemon.cancel_native_dialog()
+        check("голос: отмена диалога через Luna",
+              "/api/alice/speech/cancel" in calls[0], str(calls))
+        check("голос: CLI остаётся страховкой", "cli" in calls, str(calls))
+
+        calls.clear()
+
+        def broken(url, payload, timeout=None):
+            raise OSError("no luna")
+
+        voice_daemon.post = broken
+        voice_daemon.cancel_native_dialog()
+        check("голос: без Luna отмена всё равно уходит в CLI",
+              calls == ["cli"], str(calls))
+    finally:
+        voice_daemon.post = old_post
+        voice_daemon.stop_alice_speech = old_stop
+
+
+def test_status_probe_cache():
+    import status
+
+    status._PROBES.clear()
+    counters = {"glagol": 0, "ipc": 0}
+    old_latency, old_open = common.tcp_latency, common.port_open
+
+    def fake_latency(port, *args, **kwargs):
+        if port == 1961:
+            counters["glagol"] += 1
+            return 1.5
+        return 2.5
+
+    def fake_open(port, *args, **kwargs):
+        counters["ipc"] += 1
+        return True
+
+    try:
+        common.tcp_latency, common.port_open = fake_latency, fake_open
+        status.build()
+        status.build()
+        check("status: успешная проба Glagol кэшируется",
+              counters["glagol"] == 1, str(counters))
+        check("status: успешная проба IPC кэшируется",
+              counters["ipc"] == 1, str(counters))
+        check("status: в detail остаётся живое значение",
+              status.build()["detail"]["glagol_ms"] == 1.5, str(status.build()["detail"]))
+
+        status._PROBES.clear()
+        counters.update(glagol=0, ipc=0)
+
+        def dead_latency(port, *args, **kwargs):
+            if port == 1961:
+                counters["glagol"] += 1
+            return None
+
+        def dead_open(port, *args, **kwargs):
+            counters["ipc"] += 1
+            return False
+
+        common.tcp_latency, common.port_open = dead_latency, dead_open
+        status.build()
+        status.build()
+        check("status: неудачная проба повторяется каждый раз",
+              counters["glagol"] == 2, str(counters))
+    finally:
+        common.tcp_latency, common.port_open = old_latency, old_open
+        status._PROBES.clear()
+
+
 def test_lyrics_parse():
     lines = lyrics.parse_lrc(
         "[00:12.34] Первая строка\n"
@@ -2289,6 +2499,12 @@ def main():
         test_llm_native_search,
         test_alice_cli_commands,
         test_voice_follow_up_words,
+        test_voice_speech_post,
+        test_voice_recognize_event,
+        test_voice_repeat_filter,
+        test_voice_say_append,
+        test_voice_cancel_native,
+        test_status_probe_cache,
         test_lyrics_parse,
         test_ring_animations_list,
         test_ring_animation_preview,
