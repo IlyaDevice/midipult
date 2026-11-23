@@ -1939,8 +1939,8 @@ def test_llm_chat_history():
         llm.chat_history()
         check("история: по умолчанию активный чат", out.get("chat_id") == "chat-2", str(out))
         check("история: сообщения по порядку, мусор отброшен",
-              out.get("messages") == [{"role": "user", "content": "Кто ты?"},
-                                      {"role": "assistant", "content": "Я Claude."}],
+              out.get("messages") == [{"role": "user", "content": "Кто ты?", "ts": 0},
+                                      {"role": "assistant", "content": "Я Claude.", "ts": 0}],
               str(out.get("messages")))
 
         out.clear()
@@ -2192,6 +2192,23 @@ def test_llm_chat_timestamps():
           llm.dialog_messages([{"role": "user", "content": ""}]) == [])
 
 
+def test_llm_chat_history_ts():
+    calls = {}
+    old_load, old_respond = llm.load_chats, llm.common.respond
+    try:
+        llm.load_chats = lambda: {"active": "c1", "chats": [{
+            "id": "c1", "name": "Чат", "messages": [
+                {"role": "user", "content": "привет", "ts": 123}]}]}
+        llm.common.respond = lambda status, payload, headers=None: calls.update(payload)
+        llm.chat_history()
+        messages = calls.get("messages") or []
+        check("чат: история отдаёт время сообщения",
+              messages and messages[0].get("ts") == 123, str(calls))
+    finally:
+        llm.load_chats = old_load
+        llm.common.respond = old_respond
+
+
 def test_voice_chat_commands():
     check("голос: создай чат",
           voice_daemon.parse_chat_command("Алиса, создай чат Работа") == ("create", "Работа"),
@@ -2334,6 +2351,10 @@ def test_voice_idle_and_toggle():
     check("голос: неизвестная модель — тоже auto", voicecfg.default_idle("") == "auto")
     check("голос: режим микрофона по умолчанию непрерывный",
           voicecfg.default_mic_mode() == "continuous")
+    check("голос: на Миди по умолчанию фразы Алисы",
+          voicecfg.default_mic_mode("yandexmidi") == "alice")
+    check("голос: на Station 2 пока непрерывно",
+          voicecfg.default_mic_mode("yandexstation_2") == "continuous")
     check("голос: экономный режим уважается",
           voicecfg.resolve_mic_mode({"mic_mode": "econom"}) == "econom")
     check("голос: мусорный режим микрофона — непрерывный",
@@ -2677,6 +2698,7 @@ def main():
         test_update_fetch_release,
         test_llm_chat_names,
         test_llm_chat_timestamps,
+        test_llm_chat_history_ts,
         test_llm_chat_history,
         test_llm_context_note,
         test_llm_anthropic_native,

@@ -3714,8 +3714,7 @@ body.light dialog.queue-dlg.ym-look{
             <label class="voice-setting">
               <span>Режим микрофона</span>
               <select id="voiceMicMode" aria-label="Режим микрофона">
-                <option value="continuous">Непрерывно</option>
-                <option value="econom">Экономно (короткие сессии)</option>
+                <option value="continuous">Непрерывно (устаревший)</option>
                 <option value="alice">По фразам Алисы</option>
               </select>
               <small class="seg-note" id="voiceMicNote">сессия не закрывается: Алиса может отвечать медленнее</small>
@@ -10112,12 +10111,24 @@ body.light dialog.queue-dlg.ym-look{
         ? (data.idle === 'auto' ? 'ждёт сценарии или нейросеть' : 'слушает «Алиса, …»')
         : (data.enabled === false ? 'выключен — микрофон не используется' : 'не запущен');
       if (el.voiceIdleMode && data.idle) el.voiceIdleMode.value = data.idle;
-      if (el.voiceMicMode && data.mic_mode) el.voiceMicMode.value = data.mic_mode;
+      if (el.voiceMicMode && data.mic_mode) {
+        var known = Array.prototype.some.call(el.voiceMicMode.options, function (opt) {
+          return opt.value === data.mic_mode;
+        });
+        if (!known) {
+          var extra = document.createElement('option');
+          extra.value = data.mic_mode;
+          extra.textContent = data.mic_mode;
+          el.voiceMicMode.appendChild(extra);
+        }
+        el.voiceMicMode.value = data.mic_mode;
+      }
       if (el.voicePanel) el.voicePanel.classList.toggle('off', !data.running);
+      var passive = data.mic_mode === 'alice';
       [el.voiceIdleMode, el.voiceMicMode].forEach(function (select) {
         if (!select) return;
-        select.disabled = !data.running;
-        select.setAttribute('aria-disabled', data.running ? 'false' : 'true');
+        select.disabled = !data.running || (select === el.voiceIdleMode && passive);
+        select.setAttribute('aria-disabled', select.disabled ? 'true' : 'false');
       });
       if (el.voiceMicNote) {
         el.voiceMicNote.textContent = data.mic_mode === 'econom'
@@ -10127,9 +10138,11 @@ body.light dialog.queue-dlg.ym-look{
             : 'сессия не закрывается: Алиса может отвечать медленнее';
       }
       if (el.voiceIdleNote) {
-        el.voiceIdleNote.textContent = (data.idle || 'auto') === 'auto'
-          ? 'если сценариев и нейросети нет — микрофон не открывается вообще'
-          : 'микрофон занят постоянно, пока пульт слушает';
+        el.voiceIdleNote.textContent = passive
+          ? 'в этом режиме не используется: микрофон открывает Алиса'
+          : (data.idle || 'auto') === 'auto'
+            ? 'если сценариев и нейросети нет — микрофон не открывается вообще'
+            : 'микрофон занят постоянно, пока пульт слушает';
       }
     }).catch(function (err) {
       el.voiceDaemonStatus.textContent = err.message;

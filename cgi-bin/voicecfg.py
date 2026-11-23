@@ -70,14 +70,18 @@ def default_idle(model=None):
     return "auto"
 
 
-def default_mic_mode():
-    """Непрерывная сессия по умолчанию; `econom` — короче и с паузами."""
-    return "continuous"
+def default_mic_mode(model=None):
+    """На Миди по умолчанию читаем фразы Алисы, на остальных — как раньше.
+
+    Режим `alice` проверен на Миди; на Station 2/Mini его ещё не гоняли,
+    поэтому там остаётся непрерывная сессия, пока не проверим.
+    """
+    return "alice" if (model or "").strip().lower() in MIDI_MODELS else "continuous"
 
 
-def resolve_mic_mode(config):
+def resolve_mic_mode(config, model=None):
     mode = str((config or {}).get("mic_mode") or "").strip().lower()
-    return mode if mode in MIC_MODES else default_mic_mode()
+    return mode if mode in MIC_MODES else default_mic_mode(model)
 
 
 def resolve_idle(config, model=None):
@@ -100,7 +104,7 @@ def state(config=None):
         "idle": resolve_idle(config, model),
         "device": model,
         "max_volume": common.to_int(config.get("max_volume"), 45, 1, 100),
-        "mic_mode": resolve_mic_mode(config),
+        "mic_mode": resolve_mic_mode(config, model),
     }
 
 

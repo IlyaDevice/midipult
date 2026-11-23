@@ -1053,7 +1053,11 @@ def native_phrase(timeout_ms=25000):
 def mic_mode_now(config=None):
     try:
         config = voice_config() if config is None else config
-        return voicecfg.resolve_mic_mode(config) if voicecfg else "continuous"
+        if not voicecfg:
+            return "continuous"
+        if str(config.get("mic_mode") or "").strip():
+            return voicecfg.resolve_mic_mode(config)
+        return voicecfg.resolve_mic_mode(config, voicecfg.device_model())
     except Exception:  # noqa: BLE001
         return "continuous"
 

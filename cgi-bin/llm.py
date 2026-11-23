@@ -864,7 +864,8 @@ def chat_history(chat_id=None):
     chat = chat or active_chat(chats)
     messages = [
         {"role": "user" if item.get("role") == "user" else "assistant",
-         "content": str(item.get("content") or "")}
+         "content": str(item.get("content") or ""),
+         "ts": int(item.get("ts") or 0)}
         for item in chat.get("messages") or []
         if isinstance(item, dict)
     ][-20:]
