@@ -166,44 +166,46 @@ def _speech_event(timeout_ms=8000, cancel=True):
         return {"error": str(exc)}
 
 
-def listen_for_phrase(timeout=15.0, skip_request_id="", skip_text=""):
-    """Включить микрофон (maind --cli 's') и вернуть новую финальную фразу.
+def wait_alice_idle(timeout=8.0):
+    """Дождаться, пока штатная Алиса освободит микрофон."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            data = get(BASE + "/cgi-bin/player.py", timeout=4) or {}
+            state = str(data.get("alice") or "").strip().upper()
+        except Exception:  # noqa: BLE001
+            return True
+        if state in ("", "IDLE"):
+            return True
+        time.sleep(0.4)
+    return False
 
-    Luna отдаёт текущее состояние распознавания сразу при подключении, поэтому
-    первую же фразу легко принять за ответ: skip_request_id/skip_text
-    отбрасывают тот запрос, на который мы уже ответили.
+
+def listen_for_phrase(timeout=15.0, skip_request_id="", skip_text=""):
+    """Слушать продолжение разговора через Luna recognize.
+
+    Своя сессия CLI здесь не нужна: recognize открывает микрофон без «Алисы»
+    и всегда начинает с нового распознавания, поэтому прошлая фраза не
+    приходит повторно. cancel=true тут вреден — он гасит диалог, который мы
+    только что открыли.
     """
-    if alice_cli is None:
-        return ""
-    try:
-        alice_cli.listen()
-    except Exception as exc:  # noqa: BLE001
-        log("follow-up: CLI не запустился: %s" % exc)
-        return ""
-    try:
-        deadline = time.time() + timeout
-        while time.time() < deadline:
-            event = _speech_event(8000, cancel=False)
-            if not isinstance(event, dict):
-                continue
-            fragment = str(event.get("transcript") or "").strip()
-            if not fragment or not event.get("final"):
-                continue
+    wait_alice_idle()
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        left = max(3.0, deadline - time.time())
+        event = recognize_event(timeout=left)
+        text = str(event.get("text") or "").strip()
+        if text:
             request_id = str(event.get("request_id") or "")
             if skip_request_id and request_id and request_id == skip_request_id:
-                time.sleep(0.5)
+                time.sleep(0.3)
                 continue
-            if skip_text and normalize(fragment) == normalize(skip_text):
-                time.sleep(0.5)
+            if skip_text and normalize(text) == normalize(skip_text):
+                time.sleep(0.3)
                 continue
-            return fragment
-        return ""
-    finally:
-        # Закрываем сессию CLI: диалог отменяется, микрофон освобождается.
-        try:
-            alice_cli.close_session()
-        except Exception:  # noqa: BLE001
-            pass
+            return text
+        time.sleep(0.5)
+    return ""
 
 
 def follow_up(system, skip_request_id="", skip_text=""):

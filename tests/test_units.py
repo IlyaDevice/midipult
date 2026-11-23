@@ -1048,40 +1048,31 @@ def test_voice_cancel_native():
 
 def test_voice_follow_up_skip():
     events = [
-        {"transcript": "Как дела", "final": True, "request_id": "r1"},
-        {"transcript": "А почему", "final": True, "request_id": "r2"},
+        {"text": "Как дела", "request_id": "r1", "phase": "listening"},
+        {"text": "А почему", "request_id": "r2", "phase": "listening"},
     ]
     calls = []
 
-    class FakeCli:
-        def listen(self):
-            calls.append("listen")
-
-        def close_session(self):
-            calls.append("close")
-
-    old_cli = voice_daemon.alice_cli
-    old_event = voice_daemon._speech_event
+    old_event = voice_daemon.recognize_event
+    old_wait = voice_daemon.wait_alice_idle
     old_sleep = voice_daemon.time.sleep
     try:
-        voice_daemon.alice_cli = FakeCli()
         voice_daemon.time.sleep = lambda *_: None
 
-        def fake_event(timeout_ms=8000, cancel=True):
-            calls.append(("event", cancel))
+        def fake_event(timeout=120):
+            calls.append(timeout)
             return events.pop(0)
 
-        voice_daemon._speech_event = fake_event
+        voice_daemon.recognize_event = fake_event
+        voice_daemon.wait_alice_idle = lambda timeout=6.0: True
         text = voice_daemon.listen_for_phrase(timeout=5, skip_request_id="r1",
                                               skip_text="Как дела")
         check("follow-up: старый ответ пропущен", text == "А почему", repr(text))
-        check("follow-up: микрофон открыт и закрыт",
-              calls[0] == "listen" and calls[-1] == "close", str(calls))
-        check("follow-up: слушает без cancel",
-              any(call == ("event", False) for call in calls), str(calls))
+        check("follow-up: распознавание перезапускается",
+              len(calls) == 2, str(calls))
     finally:
-        voice_daemon.alice_cli = old_cli
-        voice_daemon._speech_event = old_event
+        voice_daemon.recognize_event = old_event
+        voice_daemon.wait_alice_idle = old_wait
         voice_daemon.time.sleep = old_sleep
 
 
